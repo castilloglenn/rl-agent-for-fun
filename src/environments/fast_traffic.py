@@ -35,7 +35,7 @@ class FastTrafficEnv(py_environment.PyEnvironment):
         return ts.restart(self._parse_observation())
 
     def _step(self, action):
-        self._next_frame(action)
+        return self._next_frame(action)
 
     # """ Inner Game Mechanics """
 
