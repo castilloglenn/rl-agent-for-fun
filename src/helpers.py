@@ -1,3 +1,3 @@
-def print_spaced(msg: str, *args) -> None:
+def print_spaced(*values) -> None:
     double_spaced = "\n\n"
-    print(f"{msg}{' '.join(map(str, args))}", end=double_spaced)
+    print(f"{' '.join(map(str, values))}", end=double_spaced)
