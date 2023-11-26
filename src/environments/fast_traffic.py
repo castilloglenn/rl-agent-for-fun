@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 from absl import flags
 from tf_agents.environments import py_environment
@@ -11,21 +13,16 @@ class FastTrafficEnv(py_environment.PyEnvironment):
     def __init__(self):
         super().__init__()
         self._action_spec = BoundedArraySpec(
-            shape=(),
-            dtype=np.int32,
-            minimum=0,
-            maximum=1,
-            name="action",
+            shape=(), dtype=np.int8, minimum=0, maximum=1, name="action"
         )
         self._observation_spec = BoundedArraySpec(
-            shape=(1,),
-            dtype=np.int32,
+            shape=(2, FLAGS.fast_traffic.lane_length),
+            dtype=np.int8,
             minimum=0,
+            maximum=2,
             name="observation",
         )
-
-        self._state = 0
-        self._episode_ended = False
+        self._init_game()
 
     def action_spec(self):
         return self._action_spec
@@ -34,37 +31,63 @@ class FastTrafficEnv(py_environment.PyEnvironment):
         return self._observation_spec
 
     def _reset(self):
-        self._state = 0
-        self._episode_ended = False
-        return ts.restart(np.array([self._state], dtype=np.int32))
+        self._init_game()
+        return ts.restart(self._parse_observation())
 
     def _step(self, action):
-        if self._episode_ended:
-            # The last action ended the episode. Ignore the
-            # current action and start a new episode.
-            return self.reset()
+        self._next_frame(action)
 
-        # Make sure episodes don't go on forever.
-        if action == 1:
-            self._episode_ended = True
-        elif action == 0:
-            new_card = np.random.randint(1, 11)
-            self._state += new_card
-        else:
-            raise ValueError("`action` should be 0 or 1.")
-
-        if self._episode_ended or self._state >= 21:
-            reward = self._state - 21 if self._state <= 21 else -21
-            return ts.termination(
-                np.array([self._state], dtype=np.int32),
-                reward,
-            )
-        else:
-            return ts.transition(
-                np.array([self._state], dtype=np.int32),
-                reward=0.0,
-                discount=1.0,
-            )
+    # """ Inner Game Mechanics """
 
     def _init_game(self):
-        self.cars = np.array([[]], dtype=np.int8)
+        self._cars = np.zeros(
+            [2, FLAGS.fast_traffic.lane_length],
+            dtype=np.int8,
+        )
+        self._player = np.int8(random.choice([0, 1]))
+        self._ticks = 0
+
+    def _parse_observation(self) -> np.ndarray[np.ndarray[np.int8]]:
+        observation = self._cars.copy()
+        observation[self._player] = 2
+        return observation
+
+    def _try_spawn_car(self):
+        chance = random.random()
+        if chance > FLAGS.fast_traffic.spawn_rate:
+            return None
+
+        lane = random.choice([0, 1])
+        self._cars[lane][-1] = 1
+
+    def _move_cars(self):
+        self._cars[:, 0] = 0
+        self._cars = np.roll(self._cars, shift=-1)
+
+    def _check_collision(self) -> bool:
+        return bool(self._cars[self._player][0])
+
+    def _apply_action(self, action):
+        if action == 1:
+            return None
+
+        self._player = int(not bool(self._player))
+
+    def _next_frame(self, action):
+        self._ticks += 1
+        if self._ticks >= FLAGS.fast_traffic.total_ticks:
+            return self.reset()
+
+        if self._check_collision():
+            return ts.termination(
+                observation=self._parse_observation(), reward=self._ticks
+            )
+
+        self._move_cars()
+        self._try_spawn_car()
+        self._apply_action(action=action)
+
+        return ts.transition(
+            observation=self._parse_observation(),
+            reward=self._ticks,
+        )
