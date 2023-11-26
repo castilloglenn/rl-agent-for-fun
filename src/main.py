@@ -6,6 +6,7 @@ from src.environment import CardGameEnv
 from src.helpers import print_spaced
 
 FLAGS = flags.FLAGS
+print = print_spaced  # Temporary
 
 
 class Main:
@@ -18,17 +19,17 @@ class Main:
 
         environment = CardGameEnv()
         time_step = environment.reset()
-        print_spaced(time_step)
+        print(time_step)
         cumulative_reward = time_step.reward
 
         for _ in range(3):
             time_step = environment.step(get_new_card_action)
-            print_spaced(time_step)
+            print(time_step)
             cumulative_reward += time_step.reward
 
         time_step = environment.step(end_round_action)
-        print_spaced(time_step)
+        print(time_step)
         cumulative_reward += time_step.reward
-        print_spaced("Final Reward = ", cumulative_reward)
+        print("Final Reward = ", cumulative_reward)
 
-        print_spaced("Done.")
+        print("Done.")
