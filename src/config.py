@@ -1,7 +1,7 @@
 from ml_collections import ConfigDict
 
 
-def get_config() -> ConfigDict:
+def get_agent_config() -> ConfigDict:
     config = ConfigDict()
 
     config.num_iterations = 20000
@@ -15,5 +15,14 @@ def get_config() -> ConfigDict:
 
     config.num_eval_episodes = 10
     config.eval_interval = 1000
+
+    return config
+
+
+def get_fast_traffic_config() -> ConfigDict:
+    config = ConfigDict()
+
+    config.lane_length = 5
+    config.spawn_rate = 0.25
 
     return config
