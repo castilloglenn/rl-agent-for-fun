@@ -17,11 +17,9 @@ If the player is beside the car,
 
 Implementation:
 The lanes can be converted into 2d array (0-4 index)
-Player will have an index position x, y where:
-    x = position in the outer array index
-    y = left/right = 0, 1
-    Which means:
-        Player is still at the end of road
+Player will have an index position (0, 1 = left/right)
+    Position:
+        Player will remain at the end of road (index 0 of array)
     Player can have two choices:
         If Player is in left lane:
             - Go right (Action 0)
