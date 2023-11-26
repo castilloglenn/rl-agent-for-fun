@@ -30,3 +30,12 @@ Player will have an index position (0, 1 = left/right)
 Cars will be placed in 2d array as well,
     There can be zero to many cars in random moment
     Cars cannot occupy both lane at the same time
+
+RL Rewarding Scheme:
+We should reward these both instances:
+    When player keeps stationary if there are no cars to be avoided
+    When player successfully avoids cars
+Here are instances where player will have no reward:
+    (No instance)
+Here are instances where player will receive negative award:
+    When the player collided with a car
