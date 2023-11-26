@@ -24,5 +24,6 @@ def get_fast_traffic_config() -> ConfigDict:
 
     config.lane_length = 5
     config.spawn_rate = 0.25
+    config.total_ticks = 50
 
     return config
