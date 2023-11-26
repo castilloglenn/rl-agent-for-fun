@@ -49,7 +49,7 @@ class FastTrafficEnv(py_environment.PyEnvironment):
 
     def _parse_observation(self) -> np.ndarray[np.ndarray[np.int8]]:
         observation = self._cars.copy()
-        observation[self._player] = 2
+        observation[self._player][0] = 2
         return observation
 
     def _try_spawn_car(self):
