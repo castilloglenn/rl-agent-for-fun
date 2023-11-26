@@ -1,21 +1,29 @@
 import numpy as np
 from absl import flags
 from tf_agents.environments import py_environment
-from tf_agents.specs import array_spec
+from tf_agents.specs.array_spec import BoundedArraySpec
 from tf_agents.trajectories import time_step as ts
 
 FLAGS = flags.FLAGS
 
 
-class CardGameEnv(py_environment.PyEnvironment):
+class FastTrafficEnv(py_environment.PyEnvironment):
     def __init__(self):
         super().__init__()
-        self._action_spec = array_spec.BoundedArraySpec(
-            shape=(), dtype=np.int32, minimum=0, maximum=1, name="action"
+        self._action_spec = BoundedArraySpec(
+            shape=(),
+            dtype=np.int32,
+            minimum=0,
+            maximum=1,
+            name="action",
         )
-        self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(1,), dtype=np.int32, minimum=0, name="observation"
+        self._observation_spec = BoundedArraySpec(
+            shape=(1,),
+            dtype=np.int32,
+            minimum=0,
+            name="observation",
         )
+
         self._state = 0
         self._episode_ended = False
 
@@ -57,3 +65,6 @@ class CardGameEnv(py_environment.PyEnvironment):
                 reward=0.0,
                 discount=1.0,
             )
+
+    def _init_game(self):
+        self.cars = np.array([[]], dtype=np.int8)
