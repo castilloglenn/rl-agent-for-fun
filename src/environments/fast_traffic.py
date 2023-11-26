@@ -74,10 +74,10 @@ class FastTrafficEnv(py_environment.PyEnvironment):
         self._player = int(not bool(self._player))
 
     def _next_frame(self, action):
-        self._ticks += 1
         if self._ticks >= FLAGS.fast_traffic.total_ticks:
             return self.reset()
 
+        self._apply_action(action=action)
         if self._check_collision():
             return ts.termination(
                 observation=self._parse_observation(), reward=self._ticks
@@ -85,7 +85,7 @@ class FastTrafficEnv(py_environment.PyEnvironment):
 
         self._move_cars()
         self._try_spawn_car()
-        self._apply_action(action=action)
+        self._ticks += 1
 
         return ts.transition(
             observation=self._parse_observation(),
