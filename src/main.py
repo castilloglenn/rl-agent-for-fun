@@ -29,14 +29,14 @@ class Main:
 
         input_layer = keras.layers.Flatten(input_shape=(2, lane_length))
         dense_layers = [dense_layer(num_units) for num_units in fc_layers]
-        q_values_layer = keras.layers.Dense(
+        output_layer = keras.layers.Dense(
             units=num_actions,
             activation=None,
             kernel_initializer=keras.initializers.RandomUniform(),
             bias_initializer=keras.initializers.Constant(-0.2),
         )
         q_net = sequential.Sequential(
-            [input_layer] + dense_layers + [q_values_layer],
+            [input_layer] + dense_layers + [output_layer],
         )
 
         learning_rate = FLAGS.agent.learning_rate
