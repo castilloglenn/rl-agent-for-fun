@@ -13,11 +13,11 @@ class FastTrafficEnv(py_environment.PyEnvironment):
     def __init__(self):
         super().__init__()
         self._action_spec = BoundedArraySpec(
-            shape=(), dtype=np.int8, minimum=0, maximum=1, name="action"
+            shape=(), dtype=np.int32, minimum=0, maximum=1, name="action"
         )
         self._observation_spec = BoundedArraySpec(
             shape=(2, FLAGS.fast_traffic.lane_length),
-            dtype=np.int8,
+            dtype=np.int32,
             minimum=0,
             maximum=2,
             name="observation",
@@ -42,14 +42,14 @@ class FastTrafficEnv(py_environment.PyEnvironment):
     def _init_game(self):
         self._cars = np.zeros(
             [2, FLAGS.fast_traffic.lane_length],
-            dtype=np.int8,
+            dtype=np.int32,
         )
-        self._player = np.int8(random.choice([0, 1]))
+        self._player = np.int32(random.choice([0, 1]))
         self._ticks = 0
 
-    def _parse_observation(self) -> np.ndarray[np.ndarray[np.int8]]:
+    def _parse_observation(self) -> np.ndarray[np.ndarray[np.int32]]:
         observation = self._cars.copy()
-        observation[self._player][0] = 2
+        observation[self._player, 0] = 2
         return observation
 
     def _try_spawn_car(self):
