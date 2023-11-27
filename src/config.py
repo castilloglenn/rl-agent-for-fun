@@ -4,6 +4,8 @@ from ml_collections import ConfigDict
 def get_agent_config() -> ConfigDict:
     config = ConfigDict()
 
+    config.fully_connected_layers = (100, 50)
+
     config.num_iterations = 20000
 
     config.initial_collect_steps = 100
