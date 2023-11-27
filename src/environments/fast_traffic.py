@@ -45,6 +45,7 @@ class FastTrafficEnv(py_environment.PyEnvironment):
             dtype=np.int32,
         )
         self.player = np.int32(random.choice([0, 1]))
+        self.game_ended = False
         self.ticks = 0
 
     def parse_observation(self) -> np.ndarray[np.ndarray[np.int32]]:
@@ -76,11 +77,12 @@ class FastTrafficEnv(py_environment.PyEnvironment):
         self.player = int(not bool(self.player))
 
     def next_frame(self, action):
-        if self.ticks >= FLAGS.fast_traffic.total_ticks:
+        if self.ticks >= FLAGS.fast_traffic.total_ticks or self.game_ended:
             return self.reset()
 
         self.apply_action(action=action)
         if self.check_collision():
+            self.game_ended = True
             return ts.termination(
                 observation=self.parse_observation(), reward=self.ticks
             )
