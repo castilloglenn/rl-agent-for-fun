@@ -40,19 +40,16 @@ class FastTrafficEnv(py_environment.PyEnvironment):
     # """ Inner Game Mechanics """
 
     def _init_game(self):
-        self._cars = np.zeros(
+        self.cars = np.zeros(
             [2, FLAGS.fast_traffic.lane_length],
             dtype=np.int32,
         )
-        self._player = np.int32(random.choice([0, 1]))
-        self._ticks = 0
-
-    def player(self):
-        return self._player
+        self.player = np.int32(random.choice([0, 1]))
+        self.ticks = 0
 
     def parse_observation(self) -> np.ndarray[np.ndarray[np.int32]]:
-        observation = self._cars.copy()
-        observation[self._player, 0] = 2
+        observation = self.cars.copy()
+        observation[self.player, 0] = 2
         return observation
 
     def try_spawn_car(self, chance=None):
@@ -63,36 +60,36 @@ class FastTrafficEnv(py_environment.PyEnvironment):
             return None
 
         lane = random.choice([0, 1])
-        self._cars[lane][-1] = 1
+        self.cars[lane][-1] = 1
 
     def move_cars(self):
-        self._cars[:, 0] = 0
-        self._cars = np.roll(self._cars, shift=-1)
+        self.cars[:, 0] = 0
+        self.cars = np.roll(self.cars, shift=-1)
 
     def check_collision(self) -> bool:
-        return bool(self._cars[self._player][0])
+        return bool(self.cars[self.player][0])
 
     def apply_action(self, action):
         if action == 1:
             return None
 
-        self._player = int(not bool(self._player))
+        self.player = int(not bool(self.player))
 
     def next_frame(self, action):
-        if self._ticks >= FLAGS.fast_traffic.total_ticks:
+        if self.ticks >= FLAGS.fast_traffic.total_ticks:
             return self.reset()
 
         self.apply_action(action=action)
         if self.check_collision():
             return ts.termination(
-                observation=self.parse_observation(), reward=self._ticks
+                observation=self.parse_observation(), reward=self.ticks
             )
 
         self.move_cars()
         self.try_spawn_car()
-        self._ticks += 1
+        self.ticks += 1
 
         return ts.transition(
             observation=self.parse_observation(),
-            reward=self._ticks,
+            reward=self.ticks,
         )
