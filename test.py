@@ -1,16 +1,8 @@
 import pytest
 from absl import app
-from ml_collections import ConfigDict, config_flags
+from ml_collections import config_flags
 
-
-def setup_test_flags():
-    config = ConfigDict()
-
-    config.lane_length = 5
-    config.spawn_rate = 0.4
-    config.total_ticks = 50
-
-    config_flags.DEFINE_config_dict("fast_traffic", config)
+from src.config import get_agent_config, get_fast_traffic_config
 
 
 def test_all(_):
@@ -18,5 +10,6 @@ def test_all(_):
 
 
 if __name__ == "__main__":
-    setup_test_flags()
+    config_flags.DEFINE_config_dict("agent", get_agent_config())
+    config_flags.DEFINE_config_dict("fast_traffic", get_fast_traffic_config())
     app.run(test_all)
