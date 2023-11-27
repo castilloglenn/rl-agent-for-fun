@@ -52,8 +52,10 @@ class FastTrafficEnv(py_environment.PyEnvironment):
         observation[self._player, 0] = 2
         return observation
 
-    def _try_spawn_car(self):
-        chance = random.random()
+    def _try_spawn_car(self, chance=None):
+        if chance is None:
+            chance = random.random()
+
         if chance > FLAGS.fast_traffic.spawn_rate:
             return None
 
