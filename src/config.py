@@ -11,6 +11,7 @@ def get_agent_config() -> ConfigDict:
     config.initial_collect_steps: int = 100
     config.collect_steps_per_iteration: int = 1
 
+    config.max_buffer_size: int = 1_000
     config.batch_size: int = 64
     config.learning_rate: float = 1e-3
     config.log_interval: int = 200
