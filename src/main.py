@@ -25,6 +25,9 @@ class Main:
         num_actions = action_spec.maximum - action_spec.minimum + 1
 
         fc_layers = FLAGS.agent.fully_connected_layers
+        lane_length = FLAGS.fast_traffic.lane_length
+
+        input_layer = keras.layers.Flatten(input_shape=(2, lane_length))
         dense_layers = [dense_layer(num_units) for num_units in fc_layers]
         q_values_layer = keras.layers.Dense(
             units=num_actions,
@@ -32,7 +35,9 @@ class Main:
             kernel_initializer=keras.initializers.RandomUniform(),
             bias_initializer=keras.initializers.Constant(-0.2),
         )
-        q_net = sequential.Sequential(dense_layers + [q_values_layer])
+        q_net = sequential.Sequential(
+            [input_layer] + dense_layers + [q_values_layer],
+        )
 
         learning_rate = FLAGS.agent.learning_rate
         optimizer = keras.optimizers.legacy.Adam(learning_rate=learning_rate)
