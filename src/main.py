@@ -6,11 +6,10 @@ from absl import flags
 from tf_agents.agents.dqn import dqn_agent
 from tf_agents.environments import tf_py_environment
 from tf_agents.networks import sequential
-from tf_agents.policies import random_tf_policy
 from tf_agents.utils import common
 
 from src.environments.fast_traffic import FastTrafficEnv
-from src.helpers import compute_avg_return, dense_layer, print_spaced
+from src.helpers import dense_layer, print_spaced
 
 FLAGS = flags.FLAGS
 print = print_spaced  # Temporary
@@ -19,7 +18,7 @@ print = print_spaced  # Temporary
 class Main:
     def __init__(self):
         train_env = tf_py_environment.TFPyEnvironment(FastTrafficEnv())
-        test_env = tf_py_environment.TFPyEnvironment(FastTrafficEnv())
+        # test_env = tf_py_environment.TFPyEnvironment(FastTrafficEnv())
 
         time_step_spec = train_env.time_step_spec()
         action_spec = train_env.action_spec()
@@ -52,10 +51,5 @@ class Main:
             train_step_counter=train_step_counter,
         )
         agent.initialize()
-
-        random_policy = random_tf_policy.RandomTFPolicy(
-            train_env.time_step_spec(), train_env.action_spec()
-        )
-        print(compute_avg_return(test_env, random_policy))
 
         print("Done.")
