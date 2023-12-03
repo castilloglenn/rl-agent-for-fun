@@ -63,3 +63,6 @@ class MazeCarEnv(Environment):
                 self.running = False
                 pygame.quit()
                 sys.exit()
+
+            if not self.demo_mode:
+                continue
