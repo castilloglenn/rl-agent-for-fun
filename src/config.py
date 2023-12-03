@@ -14,4 +14,12 @@ def get_agent_config() -> ConfigDict:
 def get_maze_car_config() -> ConfigDict:
     config = ConfigDict()
 
+    config.window = ConfigDict()
+    config.window.title: str = "Maze Car"
+    config.window.width: int = 640
+    config.window.height: int = 480
+
+    config.display = ConfigDict()
+    config.display.fps: int = 24
+
     return config
