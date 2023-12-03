@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 
-Reward = int | float
-GameOver = bool
-Score = int | float
+from src.utils.types import GameOver, Reward, Score
 
 
 class Environment(ABC):

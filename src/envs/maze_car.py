@@ -4,7 +4,8 @@ from typing import Optional
 import pygame
 from absl import flags
 
-from src.envs.base import Environment, GameOver, Reward, Score
+from src.envs.base import Environment
+from src.utils.types import GameOver, Reward, Score
 
 FLAGS = flags.FLAGS
 
