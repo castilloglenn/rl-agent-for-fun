@@ -32,7 +32,7 @@ class MazeCarEnv(Environment):
             self.game_step()
 
     def reset(self) -> None:
-        self.score = 0
+        self.score: int | float = 0
 
     def get_state(self) -> tuple:
         pass
