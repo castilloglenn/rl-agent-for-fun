@@ -1,4 +1,4 @@
-from absl import app
+from absl import app, flags
 from ml_collections import config_flags
 
 from src.config import get_agent_config, get_fast_traffic_config
@@ -6,6 +6,7 @@ from src.main import Main
 
 
 def run(_):
+    _ = flags.FLAGS
     Main()
 
 

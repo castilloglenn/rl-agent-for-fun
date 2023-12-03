@@ -4,4 +4,4 @@ run:
 
 test:
 	clear
-	python test.py
+	python app.py --tests
