@@ -6,7 +6,6 @@ Score = int | float
 
 
 class Environment(ABC):
-
     @abstractmethod
     def reset(self) -> None:
         pass
@@ -16,5 +15,5 @@ class Environment(ABC):
         pass
 
     @abstractmethod
-    def game_step(self, action) -> tuple[Reward, GameOver, Score]:
+    def game_step(self, action: tuple) -> tuple[Reward, GameOver, Score]:
         pass
