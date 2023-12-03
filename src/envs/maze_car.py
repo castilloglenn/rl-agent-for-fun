@@ -21,7 +21,7 @@ class MazeCarEnv(Environment):
         self.display = pygame.display.set_mode(
             (FLAGS.maze_car.window.width, FLAGS.maze_car.window.height)
         )
-        self.running = True
+        self.running: bool = True
         self.reset()
 
         if self.demo_mode:
