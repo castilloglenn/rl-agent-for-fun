@@ -6,8 +6,17 @@ from src.main import Main
 
 
 def run(_):
-    _ = flags.FLAGS
-    Main()
+    cl_args = flags.FLAGS
+    if cl_args.tests:
+        print("TODO: Run unittests")
+    elif game := cl_args.demo:
+        match game:
+            case "maze_car":
+                print("TODO: Run maze_car game")
+            case _:
+                pass
+    else:
+        Main()
 
 
 if __name__ == "__main__":
