@@ -21,14 +21,14 @@ class MazeCarEnv(Environment):
         self.display = pygame.display.set_mode(
             (FLAGS.maze_car.window.width, FLAGS.maze_car.window.height)
         )
-
+        self.running = True
         self.reset()
 
         if self.demo_mode:
             self.run_demo()
 
     def run_demo(self):
-        while True:
+        while self.running:
             self.game_step()
 
     def reset(self) -> None:
@@ -59,5 +59,6 @@ class MazeCarEnv(Environment):
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                self.running = False
                 pygame.quit()
                 sys.exit()
