@@ -49,7 +49,9 @@ class MazeCarEnv(Environment):
             self.game_step()
 
     def reset(self) -> None:
+        self.action_state: Optional[ActionState] = None
         self.score: int | float = 0
+        self.is_game_over: bool = False
 
     def get_state(self) -> tuple:
         pass
