@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass
 from typing import Optional
 
 import pygame
@@ -8,6 +9,21 @@ from src.envs.base import Environment
 from src.utils.types import GameOver, Reward, Score
 
 FLAGS = flags.FLAGS
+
+
+@dataclass
+class ActionState:
+    turn_left: int = 0
+    turn_right: int = 0
+    move_forward: int = 0
+    move_backward: int = 0
+
+    @staticmethod
+    def from_tuple(data: tuple) -> "ActionState":
+        return ActionState(*data)
+
+    def to_tuple(self) -> tuple:
+        return tuple(self.__dict__.values())
 
 
 # pylint: disable=E1101
