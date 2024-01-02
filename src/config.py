@@ -13,7 +13,6 @@ def get_agent_config() -> ConfigDict:
 
 def get_maze_car_config() -> ConfigDict:
     config = ConfigDict()
-    config.code = "maze_car"
 
     config.window = ConfigDict()
     config.window.title: str = "Maze Car"
