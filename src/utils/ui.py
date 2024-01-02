@@ -1,7 +1,7 @@
 import pygame
 from ml_collections import ConfigDict
 
-from src.utils.types import WindowConstants
+from src.utils.types import Colors, ColorValue, WindowConstants
 
 
 def get_window_constants(config: ConfigDict) -> WindowConstants:
@@ -23,3 +23,11 @@ def draw_line(surface, start_pos, end_pos, color, width=1):
 def rotate_surface(surface, angle):
     rotated_surface = pygame.transform.rotate(surface, angle)
     return rotated_surface
+
+
+def draw_text(surface, text, size, x, y, color: ColorValue = Colors.WHITE):
+    font = pygame.font.SysFont(None, size)
+    text_surface = font.render(text, True, color)
+    text_rect = text_surface.get_rect()
+    text_rect.topleft = (x, y)
+    surface.blit(text_surface, text_rect)
