@@ -11,7 +11,6 @@ FLAGS = flags.FLAGS
 class MazeCarDemo(MazeCarEnv):
     def __init__(self) -> None:
         super().__init__()
-
         self.run()
 
     def run(self):
@@ -53,5 +52,6 @@ class MazeCarDemo(MazeCarEnv):
     def draw_assets(self):
         self.display.fill(Colors.BLACK)
         self.render_texts()
+        self.field.draw(self.display)
 
         self.display.blit(self.car.surface, self.car.position)

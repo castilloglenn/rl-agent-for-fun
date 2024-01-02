@@ -130,6 +130,21 @@ class Car:
         self.speed_multiplier = speed
 
 
+class Field:
+    def __init__(self):
+        window = get_window_constants(config=FLAGS.maze_car)
+        self.x = window.width * 0.025
+        self.y = window.half_height * 0.325
+        self.width = window.width * 0.95
+        self.height = window.height * 0.8
+        self.color: ColorValue = Colors.WHITE
+
+    def draw(self, surface: Surface):
+        pygame.draw.rect(
+            surface, self.color, (self.x, self.y, self.width, self.height), 1
+        )
+
+
 class MazeCarEnv(Environment):
     def __init__(self) -> None:
         window = get_window_constants(config=FLAGS.maze_car)
@@ -140,6 +155,7 @@ class MazeCarEnv(Environment):
         self.clock = pygame.time.Clock()
         self.display = pygame.display.set_mode((window.width, window.height))
 
+        self.field = Field()
         self.reset()
 
     def reset(self) -> None:
@@ -147,7 +163,7 @@ class MazeCarEnv(Environment):
         self.action_state: ActionState = ActionState()
         self.car = Car(
             x=window.half_width - FLAGS.maze_car.car.width // 2,
-            y=window.half_height - FLAGS.maze_car.car.height // 2,
+            y=(window.height * 0.58) - FLAGS.maze_car.car.height // 2,
             width=FLAGS.maze_car.car.width,
             height=FLAGS.maze_car.car.height,
             color=Colors.RED,
@@ -218,10 +234,11 @@ class MazeCarEnv(Environment):
         acc = f"Acceleration: {a*100:,.0f}%"
         agl = f"Angle: {self.car.angle:.0f}°"
 
+        window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
             surface=self.display,
             texts=[spd, acc, agl],
             size=20,
-            x=20,
-            y=20,
+            x=window.width * 0.025,
+            y=window.half_height * 0.075,
         )
