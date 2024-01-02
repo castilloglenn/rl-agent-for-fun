@@ -15,6 +15,8 @@ class MazeCarDemo(MazeCarEnv):
             self.game_step()
 
     def handle_events(self):
+        self.action_state = ActionState()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False

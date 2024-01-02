@@ -42,7 +42,7 @@ class MazeCarEnv(Environment):
         self.reset()
 
     def reset(self) -> None:
-        self.action_state: Optional[ActionState] = None
+        self.action_state: ActionState = ActionState()
         self.score: int | float = 0
         self.is_game_over: bool = False
 
