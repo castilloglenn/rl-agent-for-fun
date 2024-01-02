@@ -25,9 +25,17 @@ def rotate_surface(surface, angle):
     return rotated_surface
 
 
-def draw_text(surface, text, size, x, y, color: ColorValue = Colors.WHITE):
+def draw_texts(
+    surface: pygame.Surface,
+    texts: list[str],
+    size: int,
+    x: int,
+    y: int,
+    color: ColorValue = Colors.WHITE,
+):
     font = pygame.font.SysFont(None, size)
-    text_surface = font.render(text, True, color)
-    text_rect = text_surface.get_rect()
-    text_rect.topleft = (x, y)
-    surface.blit(text_surface, text_rect)
+    for i, text in enumerate(texts):
+        text_surface = font.render(text, True, color)
+        text_rect = text_surface.get_rect()
+        text_rect.topleft = (x, y + (i * size))
+        surface.blit(text_surface, text_rect)
