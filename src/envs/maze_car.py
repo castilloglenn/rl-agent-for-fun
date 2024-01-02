@@ -1,3 +1,4 @@
+# pylint: disable=E1101
 import sys
 from dataclasses import dataclass
 from typing import Optional
@@ -7,8 +8,8 @@ from absl import flags
 from pygame.surface import Surface
 
 from src.envs.base import Environment
-from src.utils.types import GameOver, Reward, Score
-from src.utils.ui import get_window_constants
+from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
+from src.utils.ui import get_window_constants, rotate_surface
 
 FLAGS = flags.FLAGS
 
@@ -28,7 +29,28 @@ class ActionState:
         return tuple(self.__dict__.values())
 
 
-# pylint: disable=E1101
+class Car:
+    def __init__(
+        self, x: int, y: int, width: int, height: int, color: ColorValue
+    ) -> None:
+        self.x = x
+        self.y = y
+
+        self.width = width
+        self.height = height
+        self.color = color
+
+        self.rect = None
+        self.angle = 30
+
+    @property
+    def surface(self) -> Surface:
+        surface = Surface((self.width, self.height))
+        self.rect = surface.get_rect()
+        surface.fill(self.color)
+        return rotate_surface(surface, self.angle)
+
+
 class MazeCarEnv(Environment):
     def __init__(self) -> None:
         window = get_window_constants(config=FLAGS.maze_car)
