@@ -5,7 +5,7 @@ from typing import Optional
 
 import pygame
 from absl import flags
-from pygame import Surface
+from pygame import Rect, Surface
 
 from src.envs.base import Environment
 from src.utils.common import (
@@ -13,7 +13,7 @@ from src.utils.common import (
     get_triangle_coordinates_from_rect,
 )
 from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
-from src.utils.ui import get_window_constants, rotate_surface
+from src.utils.ui import draw_texts, get_window_constants, rotate_surface
 
 FLAGS = flags.FLAGS
 
@@ -29,6 +29,10 @@ class ActionState:
     def from_tuple(data: tuple) -> "ActionState":
         return ActionState(*data)
 
+    @property
+    def is_moving(self):
+        return self.move_forward or self.move_backward
+
     def to_tuple(self) -> tuple:
         return tuple(self.__dict__.values())
 
@@ -41,20 +45,29 @@ class Car:
         width: int,
         height: int,
         color: ColorValue,
-        forward_speed: int = 5,
+        forward_speed: int = 150,
+        turn_speed: int = 360,
     ) -> None:
-        self.x = x
-        self.y = y
+        self.x: int = x
+        self.y: int = y
 
-        self.width = width
-        self.height = height
-        self.color = color
+        self.width: int = width
+        self.height: int = height
+        self.color: ColorValue = color
+        self.rect: Rect = None
 
-        self.forward_speed = forward_speed
-        self.backward_speed = forward_speed // 2
+        single_frame: float = 1 / FLAGS.maze_car.display.fps
+        self.base_speed = forward_speed
+        self.forward_speed: float = self.base_speed * single_frame
+        self.backward_speed: float = self.forward_speed / 2
+        self.turn_speed: float = turn_speed * single_frame
+        self.acceleration_unit: float = (
+            FLAGS.maze_car.car.acceleration_unit * single_frame
+        )
 
-        self.rect = None
-        self.angle = 0
+        self.acceleration_rate: float = 0.0
+        self.speed: int = 0
+        self.angle: int = 0
 
     @property
     def surface(self) -> Surface:
@@ -73,22 +86,41 @@ class Car:
     def position(self) -> tuple:
         return (self.x - self.rect.width // 2, self.y - self.rect.height // 2)
 
-    def tweak_angle(self, angle: int) -> None:
-        self.angle = (self.angle + angle) % 360
+    def turn_left(self) -> None:
+        self.angle = (self.angle + self.turn_speed) % 360
+
+    def turn_right(self) -> None:
+        self.angle = (self.angle - self.turn_speed) % 360
 
     def move_forward(self):
+        acceleration_rate = pygame.math.clamp(
+            self.acceleration_rate + self.acceleration_unit,
+            0.0,
+            FLAGS.maze_car.car.acceleration_max,
+        )
+        speed = self.forward_speed * self.acceleration_rate
+        self.set_speed(speed=speed, acceleration_rate=acceleration_rate)
         delta_x, delta_y = get_angular_movement_deltas(
-            angle=self.angle, speed=self.forward_speed
+            angle=self.angle, speed=self.speed
         )
         self.x += delta_x
         self.y += delta_y
 
     def move_backward(self):
+        self.set_speed(speed=self.backward_speed, acceleration_rate=0.0)
         delta_x, delta_y = get_angular_movement_deltas(
-            angle=self.angle, speed=self.backward_speed
+            angle=self.angle, speed=self.speed
         )
         self.x -= delta_x
         self.y -= delta_y
+
+    def set_speed(self, speed: float, acceleration_rate: float):
+        self.acceleration_rate = pygame.math.clamp(
+            acceleration_rate,
+            0.0,
+            FLAGS.maze_car.car.acceleration_max,
+        )
+        self.speed = speed
 
 
 class MazeCarEnv(Environment):
