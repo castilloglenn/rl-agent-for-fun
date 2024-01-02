@@ -157,3 +157,17 @@ class MazeCarEnv(Environment):
                 self.running = False
                 pygame.quit()
                 sys.exit()
+
+    def render_texts(self):
+        spd = f"Speed: {self.car.base_speed * self.car.speed:,.0f} px/s"
+        agl = f"Angle: {self.car.angle:.0f}°"
+
+        draw_texts(
+            surface=self.display,
+            texts=[
+                f"{spd} | {agl}",
+            ],
+            size=20,
+            x=20,
+            y=20,
+        )

@@ -3,7 +3,6 @@ from absl import flags
 
 from src.envs.maze_car import ActionState, MazeCarEnv
 from src.utils.types import Colors
-from src.utils.ui import draw_line, get_window_constants
 
 FLAGS = flags.FLAGS
 
@@ -53,4 +52,6 @@ class MazeCarDemo(MazeCarEnv):
 
     def draw_assets(self):
         self.display.fill(Colors.BLACK)
+        self.render_texts()
+
         self.display.blit(self.car.surface, self.car.position)
