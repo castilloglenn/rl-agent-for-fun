@@ -164,11 +164,7 @@ class MazeCarEnv(Environment):
     def game_step(
         self, action: Optional[tuple] = None
     ) -> tuple[Reward, GameOver, Score]:
-        if FLAGS.maze_car.show_gui:
-            self.handle_events()
-        else:
-            self.action_state = ActionState.from_tuple(action)
-
+        self.handle_events(action)
         self.apply_actions()
 
         if FLAGS.maze_car.show_gui:
@@ -207,12 +203,15 @@ class MazeCarEnv(Environment):
         pygame.display.update()
         self.clock.tick(FLAGS.maze_car.display.fps)
 
-    def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-                pygame.quit()
-                sys.exit()
+    def handle_events(self, action):
+        self.action_state = ActionState.from_tuple(action)
+        if FLAGS.maze_car.show_gui:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
 
     def render_texts(self):
         spd = f"Speed: {self.car.base_speed * self.car.speed:,.0f} px/s"
