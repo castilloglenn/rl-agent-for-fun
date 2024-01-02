@@ -46,7 +46,7 @@ class Car:
         height: int,
         color: ColorValue,
         forward_speed: int = 150,
-        turn_speed: int = 360,
+        turn_speed: int = 240,
     ) -> None:
         self.x: int = x
         self.y: int = y
@@ -80,6 +80,15 @@ class Car:
         )
         rotated_surface = rotate_surface(surface, self.angle)
         self.rect = rotated_surface.get_rect()
+
+        if FLAGS.maze_car.show_bounds:
+            pygame.draw.rect(
+                rotated_surface,
+                Colors.WHITE,
+                rotated_surface.get_rect(),
+                width=1,
+            )
+
         return rotated_surface
 
     @property
