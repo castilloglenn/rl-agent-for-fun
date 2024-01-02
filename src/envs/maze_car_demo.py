@@ -50,8 +50,12 @@ class MazeCarDemo(MazeCarEnv):
             self.action_state.move_backward = True
 
     def draw_assets(self):
+        # Background
         self.display.fill(Colors.BLACK)
         self.render_texts()
         self.field.draw(self.display)
 
-        self.display.blit(self.car.surface, self.car.position)
+        # Static objects
+
+        # Moving objects
+        self.display.blit(self.car.surface, self.car.rect)
