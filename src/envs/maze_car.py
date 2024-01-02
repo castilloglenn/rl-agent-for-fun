@@ -5,10 +5,13 @@ from typing import Optional
 
 import pygame
 from absl import flags
-from pygame.surface import Surface
+from pygame import Surface
 
 from src.envs.base import Environment
-from src.utils.common import get_angular_movement_deltas
+from src.utils.common import (
+    get_angular_movement_deltas,
+    get_triangle_coordinates_from_rect,
+)
 from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
 from src.utils.ui import get_window_constants, rotate_surface
 
@@ -57,6 +60,11 @@ class Car:
     def surface(self) -> Surface:
         surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
         surface.fill(self.color)
+        pygame.draw.polygon(
+            surface,
+            Colors.WHITE,
+            get_triangle_coordinates_from_rect(surface.get_rect()),
+        )
         rotated_surface = rotate_surface(surface, self.angle)
         self.rect = rotated_surface.get_rect()
         return rotated_surface
