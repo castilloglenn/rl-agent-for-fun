@@ -13,6 +13,8 @@ class MazeCarDemo(MazeCarEnv):
     def run(self):
         while self.running:
             self.handle_events()
+            self.apply_actions()
+            self.draw_assets()
             self.update_display()
 
     def handle_events(self):
