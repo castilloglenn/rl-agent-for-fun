@@ -1,6 +1,11 @@
 import pygame
+from absl import flags
 
 from src.envs.maze_car import ActionState, MazeCarEnv
+from src.utils.types import Colors
+from src.utils.ui import draw_line, get_window_constants
+
+FLAGS = flags.FLAGS
 
 
 # pylint: disable=E1101
@@ -45,3 +50,9 @@ class MazeCarDemo(MazeCarEnv):
             self.action_state.move_forward = True
         if keys[pygame.K_s]:
             self.action_state.move_backward = True
+
+    def draw_assets(self):
+        self.display.fill(Colors.BLACK)
+        self.display.blit(self.car.surface, self.car.position)
+
+        print(self.car.angle)
