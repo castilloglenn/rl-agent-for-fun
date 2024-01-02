@@ -14,12 +14,12 @@ def get_agent_config() -> ConfigDict:
 def get_maze_car_config() -> ConfigDict:
     config = ConfigDict()
     config.show_gui: bool = True
-    config.show_bounds: bool = True
+    config.show_bounds: bool = False
 
     config.window = ConfigDict()
     config.window.title: str = "Maze Car"
-    config.window.width: int = 640
-    config.window.height: int = 480
+    config.window.width: int = 900
+    config.window.height: int = 600
 
     config.display = ConfigDict()
     config.display.fps: int = 60
@@ -27,7 +27,7 @@ def get_maze_car_config() -> ConfigDict:
     config.car = ConfigDict()
     config.car.width: int = 24
     config.car.height: int = 16
-    config.car.acceleration_unit: float = 10.0
-    config.car.acceleration_max: float = 2.5
+    config.car.acceleration_unit: float = 0.5
+    config.car.acceleration_max: float = 2.0
 
     return config
