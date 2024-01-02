@@ -36,9 +36,25 @@ class ActionState:
         return tuple(self.__dict__.values())
 
 
+class Field:
+    def __init__(self):
+        window = get_window_constants(config=FLAGS.maze_car)
+        self.x = window.width * 0.025
+        self.y = window.half_height * 0.325
+        self.width = window.width * 0.95
+        self.height = window.height * 0.8
+        self.color: ColorValue = Colors.WHITE
+
+        self.rect = Rect(self.x, self.y, self.width, self.height)
+
+    def draw(self, surface: Surface):
+        pygame.draw.rect(surface, self.color, self.rect, 1)
+
+
 class Car:
     def __init__(
         self,
+        field: Field,
         x: int,
         y: int,
         width: int,
@@ -49,11 +65,14 @@ class Car:
     ) -> None:
         self.x: int = x
         self.y: int = y
-
         self.width: int = width
         self.height: int = height
+
+        self.rect = Rect(0, 0, self.width, self.height)
+        self.rect.center = (self.x, self.y)
+
         self.color: ColorValue = color
-        self.rect: Rect = None
+        self.field = field
 
         single_frame: float = 1 / FLAGS.maze_car.display.fps
         self.base_speed: float = forward_speed
@@ -77,8 +96,11 @@ class Car:
             Colors.WHITE,
             get_triangle_coordinates_from_rect(surface.get_rect()),
         )
+
         rotated_surface = rotate_surface(surface, self.angle)
-        self.rect = rotated_surface.get_rect()
+        rotated_rect = rotated_surface.get_rect()
+        self.rect.width = rotated_rect.width
+        self.rect.height = rotated_rect.height
 
         if FLAGS.maze_car.show_bounds:
             pygame.draw.rect(
@@ -90,15 +112,17 @@ class Car:
 
         return rotated_surface
 
-    @property
-    def position(self) -> tuple:
-        return (self.x - self.rect.width // 2, self.y - self.rect.height // 2)
-
     def turn_left(self) -> None:
         self.angle = (self.angle + self.turn_speed) % 360
 
     def turn_right(self) -> None:
         self.angle = (self.angle - self.turn_speed) % 360
+
+    def move(self, x: int, y: int):
+        self.x += x
+        self.y += y
+        self.rect.center = (self.x, self.y)
+        self.rect.clamp_ip(self.field.rect)
 
     def move_forward(self):
         if self.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
@@ -110,16 +134,14 @@ class Car:
         delta_x, delta_y = get_angular_movement_deltas(
             angle=self.angle, speed=self.speed_multiplier
         )
-        self.x += delta_x
-        self.y += delta_y
+        self.move(x=delta_x, y=delta_y)
 
     def move_backward(self):
         self.set_speed(speed=self.backward_speed, acceleration_rate=0.0)
         delta_x, delta_y = get_angular_movement_deltas(
             angle=self.angle, speed=self.speed_multiplier
         )
-        self.x -= delta_x
-        self.y -= delta_y
+        self.move(x=-delta_x, y=-delta_y)
 
     def set_speed(self, speed: float, acceleration_rate: float):
         self.acceleration_rate = pygame.math.clamp(
@@ -128,20 +150,6 @@ class Car:
             FLAGS.maze_car.car.acceleration_max,
         )
         self.speed_multiplier = speed
-
-
-class Field:
-    def __init__(self):
-        window = get_window_constants(config=FLAGS.maze_car)
-        self.x = window.width * 0.025
-        self.y = window.half_height * 0.325
-        self.width = window.width * 0.95
-        self.height = window.height * 0.8
-        self.color: ColorValue = Colors.WHITE
-        self.rect = Rect(self.x, self.y, self.width, self.height)
-
-    def draw(self, surface: Surface):
-        pygame.draw.rect(surface, self.color, self.rect, 1)
 
 
 class MazeCarEnv(Environment):
@@ -161,11 +169,12 @@ class MazeCarEnv(Environment):
         window = get_window_constants(config=FLAGS.maze_car)
         self.action_state: ActionState = ActionState()
         self.car = Car(
+            field=self.field,
             x=window.half_width - FLAGS.maze_car.car.width // 2,
             y=(window.height * 0.58) - FLAGS.maze_car.car.height // 2,
             width=FLAGS.maze_car.car.width,
             height=FLAGS.maze_car.car.height,
-            color=Colors.RED,
+            color=Colors.SKY_BLUE,
         )
         self.score: int | float = 0
         self.is_game_over: bool = False
