@@ -54,5 +54,3 @@ class MazeCarDemo(MazeCarEnv):
     def draw_assets(self):
         self.display.fill(Colors.BLACK)
         self.display.blit(self.car.surface, self.car.position)
-
-        print(self.car.angle)

@@ -8,6 +8,7 @@ from absl import flags
 from pygame.surface import Surface
 
 from src.envs.base import Environment
+from src.utils.common import get_angular_movement_deltas
 from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
 from src.utils.ui import get_window_constants, rotate_surface
 
@@ -31,7 +32,13 @@ class ActionState:
 
 class Car:
     def __init__(
-        self, x: int, y: int, width: int, height: int, color: ColorValue
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        color: ColorValue,
+        forward_speed: int = 5,
     ) -> None:
         self.x = x
         self.y = y
@@ -39,6 +46,9 @@ class Car:
         self.width = width
         self.height = height
         self.color = color
+
+        self.forward_speed = forward_speed
+        self.backward_speed = forward_speed // 2
 
         self.rect = None
         self.angle = 0
@@ -57,6 +67,20 @@ class Car:
 
     def tweak_angle(self, angle: int) -> None:
         self.angle = (self.angle + angle) % 360
+
+    def move_forward(self):
+        delta_x, delta_y = get_angular_movement_deltas(
+            angle=self.angle, speed=self.forward_speed
+        )
+        self.x += delta_x
+        self.y += delta_y
+
+    def move_backward(self):
+        delta_x, delta_y = get_angular_movement_deltas(
+            angle=self.angle, speed=self.backward_speed
+        )
+        self.x -= delta_x
+        self.y -= delta_y
 
 
 class MazeCarEnv(Environment):
@@ -106,6 +130,11 @@ class MazeCarEnv(Environment):
             self.car.tweak_angle(angle=5)
         elif self.action_state.turn_right:
             self.car.tweak_angle(angle=-5)
+
+        if self.action_state.move_forward:
+            self.car.move_forward()
+        elif self.action_state.move_backward:
+            self.car.move_backward()
 
     def _calculate_reward(self) -> int | float:
         return 0
