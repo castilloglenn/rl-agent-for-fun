@@ -1,5 +1,4 @@
 # pylint: disable=E1101
-import sys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -57,9 +56,9 @@ class Car:
         self.rect: Rect = None
 
         single_frame: float = 1 / FLAGS.maze_car.display.fps
-        self.base_speed = forward_speed
+        self.base_speed: float = forward_speed
         self.forward_speed: float = self.base_speed * single_frame
-        self.backward_speed: float = self.forward_speed / 2
+        self.backward_speed: float = self.forward_speed / 4
         self.turn_speed: float = turn_speed * single_frame
         self.acceleration_unit: float = (
             FLAGS.maze_car.car.acceleration_unit * single_frame
@@ -102,9 +101,12 @@ class Car:
         self.angle = (self.angle - self.turn_speed) % 360
 
     def move_forward(self):
-        speed = self.forward_speed * self.acceleration_rate
-        acceleration_rate = self.acceleration_rate + self.acceleration_unit
-        self.set_speed(speed=speed, acceleration_rate=acceleration_rate)
+        if self.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
+            rate = self.acceleration_rate + (self.acceleration_unit * 4)
+        else:
+            rate = self.acceleration_rate + self.acceleration_unit
+        speed = self.forward_speed * rate
+        self.set_speed(speed=speed, acceleration_rate=rate)
         delta_x, delta_y = get_angular_movement_deltas(
             angle=self.angle, speed=self.speed_multiplier
         )
