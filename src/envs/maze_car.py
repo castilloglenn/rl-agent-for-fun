@@ -45,7 +45,7 @@ class Car:
         width: int,
         height: int,
         color: ColorValue,
-        forward_speed: int = 150,
+        forward_speed: int = 300,
         turn_speed: int = 240,
     ) -> None:
         self.x: int = x
@@ -66,7 +66,7 @@ class Car:
         )
 
         self.acceleration_rate: float = 0.0
-        self.speed: int = 0
+        self.speed_multiplier: float = 0
         self.angle: int = 0
 
     @property
@@ -102,15 +102,11 @@ class Car:
         self.angle = (self.angle - self.turn_speed) % 360
 
     def move_forward(self):
-        acceleration_rate = pygame.math.clamp(
-            self.acceleration_rate + self.acceleration_unit,
-            0.0,
-            FLAGS.maze_car.car.acceleration_max,
-        )
         speed = self.forward_speed * self.acceleration_rate
+        acceleration_rate = self.acceleration_rate + self.acceleration_unit
         self.set_speed(speed=speed, acceleration_rate=acceleration_rate)
         delta_x, delta_y = get_angular_movement_deltas(
-            angle=self.angle, speed=self.speed
+            angle=self.angle, speed=self.speed_multiplier
         )
         self.x += delta_x
         self.y += delta_y
@@ -118,7 +114,7 @@ class Car:
     def move_backward(self):
         self.set_speed(speed=self.backward_speed, acceleration_rate=0.0)
         delta_x, delta_y = get_angular_movement_deltas(
-            angle=self.angle, speed=self.speed
+            angle=self.angle, speed=self.speed_multiplier
         )
         self.x -= delta_x
         self.y -= delta_y
@@ -129,7 +125,7 @@ class Car:
             0.0,
             FLAGS.maze_car.car.acceleration_max,
         )
-        self.speed = speed
+        self.speed_multiplier = speed
 
 
 class MazeCarEnv(Environment):
@@ -214,14 +210,15 @@ class MazeCarEnv(Environment):
                         self.running = False
 
     def render_texts(self):
-        spd = f"Speed: {self.car.base_speed * self.car.speed:,.0f} px/s"
+        a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
+        s = self.car.base_speed * self.car.speed_multiplier
+        spd = f"Speed: {s:,.0f} px/s"
+        acc = f"Acceleration: {a*100:,.0f}%"
         agl = f"Angle: {self.car.angle:.0f}°"
 
         draw_texts(
             surface=self.display,
-            texts=[
-                f"{spd} | {agl}",
-            ],
+            texts=[spd, acc, agl],
             size=20,
             x=20,
             y=20,
