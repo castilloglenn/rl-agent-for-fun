@@ -41,14 +41,22 @@ class Car:
         self.color = color
 
         self.rect = None
-        self.angle = 30
+        self.angle = 0
 
     @property
     def surface(self) -> Surface:
-        surface = Surface((self.width, self.height))
-        self.rect = surface.get_rect()
+        surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
         surface.fill(self.color)
-        return rotate_surface(surface, self.angle)
+        rotated_surface = rotate_surface(surface, self.angle)
+        self.rect = rotated_surface.get_rect()
+        return rotated_surface
+
+    @property
+    def position(self) -> tuple:
+        return (self.x - self.rect.width // 2, self.y - self.rect.height // 2)
+
+    def tweak_angle(self, angle: int) -> None:
+        self.angle = (self.angle + angle) % 360
 
 
 class MazeCarEnv(Environment):
@@ -64,9 +72,14 @@ class MazeCarEnv(Environment):
         self.reset()
 
     def reset(self) -> None:
+        window = get_window_constants(config=FLAGS.maze_car)
         self.action_state: ActionState = ActionState()
-        self.car_surface = Surface(
-            (FLAGS.maze_car.car.width, FLAGS.maze_car.car.height)
+        self.car = Car(
+            x=window.half_width - FLAGS.maze_car.car.width // 2,
+            y=window.half_height - FLAGS.maze_car.car.height // 2,
+            width=FLAGS.maze_car.car.width,
+            height=FLAGS.maze_car.car.height,
+            color=Colors.RED,
         )
         self.score: int | float = 0
         self.is_game_over: bool = False
@@ -79,6 +92,7 @@ class MazeCarEnv(Environment):
         self, action: Optional[tuple] = None
     ) -> tuple[Reward, GameOver, Score]:
         self.handle_events()
+        self.apply_actions()
 
         reward: int | float = self._calculate_reward()
         game_over: bool = False
@@ -86,6 +100,12 @@ class MazeCarEnv(Environment):
         self.update_display()
 
         return (reward, game_over, self.score)
+
+    def apply_actions(self):
+        if self.action_state.turn_left:
+            self.car.tweak_angle(angle=5)
+        elif self.action_state.turn_right:
+            self.car.tweak_angle(angle=-5)
 
     def _calculate_reward(self) -> int | float:
         return 0
