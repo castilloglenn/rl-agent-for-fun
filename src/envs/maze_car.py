@@ -13,10 +13,10 @@ FLAGS = flags.FLAGS
 
 @dataclass
 class ActionState:
-    turn_left: int = 0
-    turn_right: int = 0
-    move_forward: int = 0
-    move_backward: int = 0
+    turn_left: bool = False
+    turn_right: bool = False
+    move_forward: bool = False
+    move_backward: bool = False
 
     @staticmethod
     def from_tuple(data: tuple) -> "ActionState":
