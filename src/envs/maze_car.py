@@ -135,9 +135,15 @@ class MazeCarEnv(Environment):
 
     def apply_actions(self):
         if self.action_state.turn_left:
-            self.car.tweak_angle(angle=5)
+            if self.action_state.move_backward:
+                self.car.turn_right()
+            else:
+                self.car.turn_left()
         elif self.action_state.turn_right:
-            self.car.tweak_angle(angle=-5)
+            if self.action_state.move_backward:
+                self.car.turn_left()
+            else:
+                self.car.turn_right()
 
         if self.action_state.move_forward:
             self.car.move_forward()
