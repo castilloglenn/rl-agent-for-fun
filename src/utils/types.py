@@ -26,3 +26,4 @@ class Colors:
     RED: ColorValue = (255, 0, 0)
     GREEN: ColorValue = (0, 255, 0)
     BLUE: ColorValue = (0, 0, 255)
+    SKY_BLUE: ColorValue = (0, 134, 212)
