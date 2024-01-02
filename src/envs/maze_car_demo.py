@@ -21,7 +21,7 @@ class MazeCarDemo(MazeCarEnv):
             self.draw_assets()
             self.update_display()
 
-    def handle_events(self):
+    def handle_events(self, _=None):
         self.action_state = ActionState()
 
         for event in pygame.event.get():
