@@ -33,6 +33,8 @@ class MazeCarDemo(MazeCarEnv):
 
     def key_events(self):
         keys = pygame.key.get_pressed()
+        if keys[pygame.K_ESCAPE]:
+            self.running = False
         if keys[pygame.K_a]:
             self.action_state.turn_left = True
         if keys[pygame.K_d]:
