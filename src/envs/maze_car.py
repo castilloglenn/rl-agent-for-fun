@@ -138,11 +138,10 @@ class Field:
         self.width = window.width * 0.95
         self.height = window.height * 0.8
         self.color: ColorValue = Colors.WHITE
+        self.rect = Rect(self.x, self.y, self.width, self.height)
 
     def draw(self, surface: Surface):
-        pygame.draw.rect(
-            surface, self.color, (self.x, self.y, self.width, self.height), 1
-        )
+        pygame.draw.rect(surface, self.color, self.rect, 1)
 
 
 class MazeCarEnv(Environment):
