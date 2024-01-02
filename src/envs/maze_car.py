@@ -167,8 +167,7 @@ class MazeCarEnv(Environment):
         if FLAGS.maze_car.show_gui:
             self.handle_events()
         else:
-            # TODO: implement AI
-            pass
+            self.action_state = ActionState.from_tuple(action)
 
         self.apply_actions()
 
