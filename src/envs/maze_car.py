@@ -41,13 +41,6 @@ class MazeCarEnv(Environment):
         self.running: bool = True
         self.reset()
 
-        if self.demo_mode:
-            self.run_demo()
-
-    def run_demo(self):
-        while self.running:
-            self.game_step()
-
     def reset(self) -> None:
         self.action_state: Optional[ActionState] = None
         self.score: int | float = 0
@@ -81,6 +74,3 @@ class MazeCarEnv(Environment):
                 self.running = False
                 pygame.quit()
                 sys.exit()
-
-            if not self.demo_mode:
-                continue

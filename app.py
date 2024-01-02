@@ -2,7 +2,7 @@ from absl import app, flags
 from ml_collections import config_flags
 
 from src.config import get_agent_config, get_maze_car_config
-from src.envs.maze_car import MazeCarEnv
+from src.envs.maze_car_demo import MazeCarDemo
 from src.main import Main
 
 
@@ -13,7 +13,7 @@ def run(_):
     elif game := cl_args.demo:
         match game:
             case "maze_car":
-                MazeCarEnv()
+                MazeCarDemo()
             case _:
                 pass
     else:
