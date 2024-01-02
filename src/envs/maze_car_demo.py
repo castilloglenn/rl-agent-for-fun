@@ -1,6 +1,6 @@
 import pygame
 
-from src.envs.maze_car import MazeCarEnv
+from src.envs.maze_car import ActionState, MazeCarEnv
 
 
 # pylint: disable=E1101
@@ -12,7 +12,8 @@ class MazeCarDemo(MazeCarEnv):
 
     def run(self):
         while self.running:
-            self.game_step()
+            self.handle_events()
+            self.update_display()
 
     def handle_events(self):
         self.action_state = ActionState()
@@ -23,17 +24,20 @@ class MazeCarDemo(MazeCarEnv):
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 self.mouse_click_events(event)
 
-        keys = pygame.key.get_pressed()
-        self.key_events(keys)
+        self.key_events()
 
     def mouse_click_events(self, event):
         click_coordinates = event.pos
         if event.button == 1:
             print(f"left click at {click_coordinates}")
 
-    def key_events(self, keys):
+    def key_events(self):
+        keys = pygame.key.get_pressed()
         if keys[pygame.K_a]:
-            print("a")
-
+            self.action_state.turn_left = True
         if keys[pygame.K_d]:
-            print("d")
+            self.action_state.turn_right = True
+        if keys[pygame.K_w]:
+            self.action_state.move_forward = True
+        if keys[pygame.K_s]:
+            self.action_state.move_backward = True
