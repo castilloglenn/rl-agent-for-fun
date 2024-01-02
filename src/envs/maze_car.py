@@ -164,13 +164,20 @@ class MazeCarEnv(Environment):
     def game_step(
         self, action: Optional[tuple] = None
     ) -> tuple[Reward, GameOver, Score]:
-        self.handle_events()
+        if FLAGS.maze_car.show_gui:
+            self.handle_events()
+        else:
+            # TODO: implement AI
+            pass
+
         self.apply_actions()
+
+        if FLAGS.maze_car.show_gui:
+            self.draw_assets()
+            self.update_display()
 
         reward: int | float = self._calculate_reward()
         game_over: bool = False
-
-        self.update_display()
 
         return (reward, game_over, self.score)
 

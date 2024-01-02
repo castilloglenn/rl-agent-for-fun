@@ -13,6 +13,7 @@ def get_agent_config() -> ConfigDict:
 
 def get_maze_car_config() -> ConfigDict:
     config = ConfigDict()
+    config.show_gui: bool = True
     config.show_bounds: bool = True
 
     config.window = ConfigDict()
