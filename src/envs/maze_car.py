@@ -144,6 +144,9 @@ class MazeCarEnv(Environment):
         elif self.action_state.move_backward:
             self.car.move_backward()
 
+        if not self.action_state.is_moving:
+            self.car.set_speed(speed=0, acceleration_rate=0.0)
+
     def _calculate_reward(self) -> int | float:
         return 0
 
