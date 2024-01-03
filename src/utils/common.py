@@ -1,6 +1,6 @@
 import math
 
-from pygame import Rect
+from pygame import Rect, Vector2
 
 
 def get_angular_movement_deltas(angle: int, speed: int) -> tuple:
@@ -9,6 +9,17 @@ def get_angular_movement_deltas(angle: int, speed: int) -> tuple:
     delta_y = math.sin(angle_radians) * -speed
 
     return delta_x, delta_y
+
+
+def get_extended_point(
+    start_point: Vector2,
+    angle: int,
+    distance: int,
+) -> Vector2:
+    angle_radians = math.radians(abs(360 - angle))
+    end_point_x = start_point.x + distance * math.cos(angle_radians)
+    end_point_y = start_point.y + distance * math.sin(angle_radians)
+    return Vector2(end_point_x, end_point_y)
 
 
 def get_triangle_coordinates_from_rect(rect: Rect) -> tuple:
