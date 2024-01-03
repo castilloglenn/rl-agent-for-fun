@@ -251,18 +251,20 @@ class MazeCarEnv(Environment):
         s = self.car.base_speed * self.car.speed_multiplier
 
         sep = " | "
+        fps = f"FPS: {self.clock.get_fps():.0f}"
         spd = f"Speed: {s:,.0f} px/s"
         acc = f"Acceleration: {a*100:,.0f}%"
         agl = f"Angle: {self.car.angle:.0f}°"
-        rec = f"Rect: {(self.car.rect)}"
+        rec = f"{str(self.car.rect).upper()}"
         cen = f"Center: {(self.car.rect.center)}"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
             surface=self.display,
             texts=[
-                rec + sep + cen + sep + agl,
-                spd + sep + acc,
+                fps,
+                rec + sep + cen,
+                spd + sep + acc + sep + agl,
             ],
             size=20,
             x=window.width * 0.025,
