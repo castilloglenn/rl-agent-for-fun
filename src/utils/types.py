@@ -1,4 +1,3 @@
-# Environment
 from dataclasses import dataclass
 
 Reward = int | float
