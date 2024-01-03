@@ -102,15 +102,11 @@ class Car:
 
     def draw(self, surface: Surface):
         surface.blit(self.rotated_surface, self.rect)
-        if FLAGS.maze_car.show_bounds:
-            pygame.draw.rect(
-                surface,
-                Colors.WHITE,
-                self.rect,
-                width=1,
-            )
 
-    def _update_front_point(self):
+        if FLAGS.maze_car.show_bounds:
+            pygame.draw.rect(surface, Colors.WHITE, self.rect, width=1)
+
+    def _update_vision(self):
         self.front_point = get_extended_point(
             start_point=Vector2(self.rect.center),
             angle=self.angle,
@@ -121,7 +117,7 @@ class Car:
         self.angle = (self.angle + angle) % 360
         self.rotated_surface = rotate_surface(self.surface, self.angle)
         self.rect = self.rotated_surface.get_rect(center=self.rect.center)
-        self._update_front_point()
+        self._update_vision()
 
     def turn_left(self) -> None:
         self._turn(angle=self.turn_speed)
@@ -136,7 +132,7 @@ class Car:
             new_x=x,
             new_y=y,
         )
-        self._update_front_point()
+        self._update_vision()
 
     def move_forward(self):
         if self.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
