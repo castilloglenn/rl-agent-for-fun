@@ -99,6 +99,10 @@ class MazeCarEnv(Environment):
     def render_texts(self):
         a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
         s = self.car.base_speed * self.car.speed_multiplier
+        cf = self.car.front_collision.distance
+        cl = self.car.left_collision.distance
+        cr = self.car.right_collision.distance
+        cb = self.car.back_collision.distance
 
         sep = " | "
         fps = f"FPS: {self.clock.get_fps():.0f}"
@@ -107,7 +111,7 @@ class MazeCarEnv(Environment):
         agl = f"Angle: {self.car.angle:.0f}°"
         rec = f"{str(self.car.rect)[1:-1].capitalize()}"
         cen = f"Center: {(self.car.rect.center)}"
-        fcd = f"Collision: {self.car.front_collision.distance:.0f} px"
+        fcd = f"Collisions: L:{cl:.0f} | F:{cf:.0f} | R:{cr:.0f} | B:{cb:.0f}"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
