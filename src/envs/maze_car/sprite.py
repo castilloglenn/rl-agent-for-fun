@@ -1,41 +1,18 @@
 # pylint: disable=E1101
-from dataclasses import dataclass
-from typing import Optional
-
 import pygame
 from absl import flags
 from pygame import Rect, Surface, Vector2
 
-from src.envs.base import Environment
 from src.utils.common import (
     get_angular_movement_deltas,
     get_clamped_rect,
     get_extended_point,
     get_triangle_coordinates_from_rect,
 )
-from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
-from src.utils.ui import draw_texts, get_window_constants
+from src.utils.types import Colors, ColorValue
+from src.utils.ui import get_window_constants
 
 FLAGS = flags.FLAGS
-
-
-@dataclass
-class ActionState:
-    turn_left: bool = False
-    turn_right: bool = False
-    move_forward: bool = False
-    move_backward: bool = False
-
-    @staticmethod
-    def from_tuple(data: tuple) -> "ActionState":
-        return ActionState(*data)
-
-    @property
-    def is_moving(self):
-        return self.move_forward or self.move_backward
-
-    def to_tuple(self) -> tuple:
-        return tuple(self.__dict__.values())
 
 
 class Field:
@@ -191,113 +168,3 @@ class Car:
             FLAGS.maze_car.car.acceleration_max,
         )
         self.speed_multiplier = speed
-
-
-class MazeCarEnv(Environment):
-    def __init__(self) -> None:
-        window = get_window_constants(config=FLAGS.maze_car)
-
-        pygame.init()
-        pygame.display.set_caption(window.title)
-
-        self.clock = pygame.time.Clock()
-        self.display = pygame.display.set_mode((window.width, window.height))
-
-        self.field = Field()
-        self.reset()
-
-    def reset(self) -> None:
-        window = get_window_constants(config=FLAGS.maze_car)
-        self.action_state: ActionState = ActionState()
-        self.car = Car(
-            field=self.field,
-            x=window.half_width - FLAGS.maze_car.car.width // 2,
-            y=(window.height * 0.58) - FLAGS.maze_car.car.height // 2,
-            width=FLAGS.maze_car.car.width,
-            height=FLAGS.maze_car.car.height,
-            color=Colors.SKY_BLUE,
-        )
-        self.score: int | float = 0
-        self.is_game_over: bool = False
-        self.running: bool = True
-
-    def get_state(self) -> tuple:
-        pass
-
-    def game_step(
-        self, action: Optional[tuple] = None
-    ) -> tuple[Reward, GameOver, Score]:
-        self.handle_events(action)
-        self.apply_actions()
-
-        if FLAGS.maze_car.show_gui:
-            self.draw_assets()
-            self.update_display()
-
-        reward: int | float = self._calculate_reward()
-        game_over: bool = False
-
-        return (reward, game_over, self.score)
-
-    def apply_actions(self):
-        if self.action_state.turn_left:
-            if self.action_state.move_backward:
-                self.car.turn_right()
-            else:
-                self.car.turn_left()
-        elif self.action_state.turn_right:
-            if self.action_state.move_backward:
-                self.car.turn_left()
-            else:
-                self.car.turn_right()
-
-        if self.action_state.move_forward:
-            self.car.move_forward()
-        elif self.action_state.move_backward:
-            self.car.move_backward()
-
-        if not self.action_state.is_moving:
-            self.car.set_speed(speed=0, acceleration_rate=0.0)
-
-    def _calculate_reward(self) -> int | float:
-        return 0
-
-    def update_display(self):
-        pygame.display.update()
-        self.clock.tick(FLAGS.maze_car.display.fps)
-
-    def handle_events(self, action):
-        self.action_state = ActionState.from_tuple(action)
-        if FLAGS.maze_car.show_gui:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.running = False
-
-    def render_texts(self):
-        a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
-        s = self.car.base_speed * self.car.speed_multiplier
-
-        sep = " | "
-        fps = f"FPS: {self.clock.get_fps():.0f}"
-        spd = f"Speed: {s:,.0f} px/s"
-        acc = f"Acceleration: {a*100:,.0f}%"
-        agl = f"Angle: {self.car.angle:.0f}°"
-        rec = f"{str(self.car.rect)[1:-1].capitalize()}"
-        cen = f"Center: {(self.car.rect.center)}"
-        fcd = f"Collision: {self.car.front_collision_distance:.0f} px"
-
-        window = get_window_constants(config=FLAGS.maze_car)
-        draw_texts(
-            surface=self.display,
-            texts=[
-                fps + sep + fcd,
-                rec + sep + cen,
-                spd + sep + acc + sep + agl,
-            ],
-            size=20,
-            x=window.width * 0.025,
-            y=window.half_height * 0.075,
-        )

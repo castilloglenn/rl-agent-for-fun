@@ -1,13 +1,13 @@
+# pylint: disable=E1101
 import pygame
 from absl import flags
 
-from src.envs.maze_car import ActionState, MazeCarEnv
+from src.envs.maze_car.env import ActionState, MazeCarEnv
 from src.utils.types import Colors
 
 FLAGS = flags.FLAGS
 
 
-# pylint: disable=E1101
 class MazeCarDemo(MazeCarEnv):
     def __init__(self) -> None:
         super().__init__()
