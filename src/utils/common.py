@@ -35,3 +35,19 @@ def get_triangle_coordinates_from_rect(rect: Rect) -> tuple:
         (width_three_quarters, height_half),
         (width_half, height_three_quarters),
     )
+
+
+def get_clamped_rect(
+    rect: Rect,
+    constraint: Rect,
+    new_x: int,
+    new_y: int,
+) -> Rect:
+    new_rect = rect.copy()
+    new_rect.x += new_x
+    new_rect.y += new_y
+    future_rect = new_rect.clamp(constraint)
+
+    if new_rect.center != future_rect.center:
+        return rect
+    return new_rect

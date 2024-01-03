@@ -9,11 +9,12 @@ from pygame import Rect, Surface, Vector2
 from src.envs.base import Environment
 from src.utils.common import (
     get_angular_movement_deltas,
+    get_clamped_rect,
     get_extended_point,
     get_triangle_coordinates_from_rect,
 )
 from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
-from src.utils.ui import draw_line, draw_texts, get_window_constants, rotate_surface
+from src.utils.ui import draw_texts, get_window_constants, rotate_surface
 
 FLAGS = flags.FLAGS
 
@@ -71,7 +72,6 @@ class Car:
 
         self.surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
         self.surface.fill(color)
-        self.rotated_surface = self.surface.copy()
 
         self.rect = self.surface.get_rect()
         self.rect.center = (self.x, self.y)
@@ -81,6 +81,8 @@ class Car:
             color=Colors.WHITE,
             points=get_triangle_coordinates_from_rect(self.rect),
         )
+
+        self.rotated_surface = self.surface.copy()
 
         self.front_point = Vector2(self.rect.midright)
         self.field = field
@@ -104,11 +106,6 @@ class Car:
             angle=self.angle,
             distance=self.width // 2,
         )
-
-    def _turn(self, angle: int):
-        self.angle = (self.angle + angle) % 360
-        self.rotated_surface = rotate_surface(self.surface, self.angle)
-        self.rect = self.rotated_surface.get_rect(center=self.rect.center)
         if FLAGS.maze_car.show_bounds:
             pygame.draw.rect(
                 self.rotated_surface,
@@ -116,6 +113,11 @@ class Car:
                 self.rect,
                 width=1,
             )
+
+    def _turn(self, angle: int):
+        self.angle = (self.angle + angle) % 360
+        self.rotated_surface = rotate_surface(self.surface, self.angle)
+        self.rect = self.rotated_surface.get_rect(center=self.rect.center)
         self._update_front_point()
 
     def turn_left(self) -> None:
@@ -125,10 +127,12 @@ class Car:
         self._turn(angle=-self.turn_speed)
 
     def _move(self, x: int, y: int):
-        self.x += x
-        self.y += y
-        self.rect.center = (self.x, self.y)
-        self.rect.clamp_ip(self.field.rect)
+        self.rect = get_clamped_rect(
+            rect=self.rect,
+            constraint=self.field.rect,
+            new_x=x,
+            new_y=y,
+        )
         self._update_front_point()
 
     def move_forward(self):
@@ -245,14 +249,21 @@ class MazeCarEnv(Environment):
     def render_texts(self):
         a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
         s = self.car.base_speed * self.car.speed_multiplier
+
+        sep = " | "
         spd = f"Speed: {s:,.0f} px/s"
         acc = f"Acceleration: {a*100:,.0f}%"
         agl = f"Angle: {self.car.angle:.0f}°"
+        rec = f"Rect: {(self.car.rect)}"
+        cen = f"Center: {(self.car.rect.center)}"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
             surface=self.display,
-            texts=[spd, acc, agl],
+            texts=[
+                rec + sep + cen + sep + agl,
+                spd + sep + acc,
+            ],
             size=20,
             x=window.width * 0.025,
             y=window.half_height * 0.075,
