@@ -40,13 +40,13 @@ class MazeCarDemo(MazeCarEnv):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_ESCAPE]:
             self.running = False
-        if keys[pygame.K_a]:
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             self.action_state.turn_left = True
-        if keys[pygame.K_d]:
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             self.action_state.turn_right = True
-        if keys[pygame.K_w]:
+        if keys[pygame.K_w] or keys[pygame.K_UP]:
             self.action_state.move_forward = True
-        if keys[pygame.K_s]:
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
             self.action_state.move_backward = True
 
     def draw_assets(self):
