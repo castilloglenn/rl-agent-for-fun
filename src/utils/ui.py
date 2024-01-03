@@ -16,14 +16,6 @@ def get_window_constants(config: ConfigDict) -> WindowConstants:
     )
 
 
-def draw_line(surface, start_pos, end_pos, color, width=1):
-    pygame.draw.line(surface, color, start_pos, end_pos, width)
-
-
-def rotate_surface(surface, angle):
-    return pygame.transform.rotate(surface, angle)
-
-
 def draw_texts(
     surface: pygame.Surface,
     texts: list[str],

@@ -14,7 +14,7 @@ from src.utils.common import (
     get_triangle_coordinates_from_rect,
 )
 from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
-from src.utils.ui import draw_texts, get_window_constants, rotate_surface
+from src.utils.ui import draw_texts, get_window_constants
 
 FLAGS = flags.FLAGS
 
@@ -65,10 +65,25 @@ class Car:
         forward_speed: int = 300,
         turn_speed: int = 240,
     ) -> None:
+        self.acceleration_rate: float = 0.0
+        self.speed_multiplier: float = 0
+        self.angle: int = 0
+
+        single_frame: float = 1 / FLAGS.maze_car.display.fps
+        self.base_speed: float = forward_speed
+        self.forward_speed: float = self.base_speed * single_frame
+        self.backward_speed: float = self.forward_speed / 4
+        self.turn_speed: float = turn_speed * single_frame
+        self.acceleration_unit: float = (
+            FLAGS.maze_car.car.acceleration_unit * single_frame
+        )
+
         self.x: int = x
         self.y: int = y
         self.width: int = width
         self.height: int = height
+
+        self.field = field
 
         self.surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
         self.surface.fill(color)
@@ -84,21 +99,12 @@ class Car:
 
         self.rotated_surface = self.surface.copy()
 
-        self.front_point = Vector2(self.rect.midright)
-        self.field = field
-
-        single_frame: float = 1 / FLAGS.maze_car.display.fps
-        self.base_speed: float = forward_speed
-        self.forward_speed: float = self.base_speed * single_frame
-        self.backward_speed: float = self.forward_speed / 4
-        self.turn_speed: float = turn_speed * single_frame
-        self.acceleration_unit: float = (
-            FLAGS.maze_car.car.acceleration_unit * single_frame
+        self.front_start_point = Vector2(self.rect.midright)
+        self.front_end_point = get_extended_point(
+            start_point=self.front_start_point,
+            angle=self.angle,
+            distance=50,
         )
-
-        self.acceleration_rate: float = 0.0
-        self.speed_multiplier: float = 0
-        self.angle: int = 0
 
     def draw(self, surface: Surface):
         surface.blit(self.rotated_surface, self.rect)
@@ -127,7 +133,10 @@ class Car:
 
     def _turn(self, angle: int):
         self.angle = (self.angle + angle) % 360
-        self.rotated_surface = rotate_surface(self.surface, self.angle)
+        self.rotated_surface = pygame.transform.rotate(
+            self.surface,
+            self.angle,
+        )
         self.rect = self.rotated_surface.get_rect(center=self.rect.center)
         self._update_vision()
 
@@ -268,7 +277,7 @@ class MazeCarEnv(Environment):
         spd = f"Speed: {s:,.0f} px/s"
         acc = f"Acceleration: {a*100:,.0f}%"
         agl = f"Angle: {self.car.angle:.0f}°"
-        rec = f"{str(self.car.rect).upper()}"
+        rec = f"{str(self.car.rect)[1:-1].capitalize()}"
         cen = f"Center: {(self.car.rect.center)}"
 
         window = get_window_constants(config=FLAGS.maze_car)
