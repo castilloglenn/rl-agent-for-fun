@@ -100,11 +100,7 @@ class Car:
         self.rotated_surface = self.surface.copy()
 
         self.front_start_point = Vector2(self.rect.midright)
-        self.front_end_point = get_extended_point(
-            start_point=self.front_start_point,
-            angle=self.angle,
-            distance=50,
-        )
+        self.front_end_point = Vector2(self.rect.midright)
 
     def draw(self, surface: Surface):
         surface.blit(self.rotated_surface, self.rect)
