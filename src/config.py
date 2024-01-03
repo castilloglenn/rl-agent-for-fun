@@ -15,6 +15,7 @@ def get_maze_car_config() -> ConfigDict:
     config = ConfigDict()
     config.show_gui: bool = True
     config.show_bounds: bool = True
+    config.show_collision_distance: bool = True
 
     config.window = ConfigDict()
     config.window.title: str = "Maze Car"

@@ -2,9 +2,7 @@ import pygame
 from absl import flags
 
 from src.envs.maze_car import ActionState, MazeCarEnv
-from src.utils.common import get_extended_point
 from src.utils.types import Colors
-from src.utils.ui import draw_line
 
 FLAGS = flags.FLAGS
 
@@ -61,15 +59,3 @@ class MazeCarDemo(MazeCarEnv):
 
         # Moving objects
         self.car.draw(self.display)
-
-        end_point = get_extended_point(
-            start_point=self.car.front_point,
-            angle=self.car.angle,
-            distance=50,
-        )
-        draw_line(
-            surface=self.display,
-            color=Colors.WHITE,
-            start_pos=self.car.front_point,
-            end_pos=end_point,
-        )

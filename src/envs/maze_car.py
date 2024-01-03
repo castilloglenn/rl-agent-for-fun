@@ -105,12 +105,24 @@ class Car:
 
         if FLAGS.maze_car.show_bounds:
             pygame.draw.rect(surface, Colors.WHITE, self.rect, width=1)
+        if FLAGS.maze_car.show_collision_distance:
+            pygame.draw.line(
+                surface=surface,
+                color=Colors.WHITE,
+                start_pos=self.front_start_point,
+                end_pos=self.front_end_point,
+            )
 
     def _update_vision(self):
-        self.front_point = get_extended_point(
+        self.front_start_point = get_extended_point(
             start_point=Vector2(self.rect.center),
             angle=self.angle,
             distance=self.width // 2,
+        )
+        self.front_end_point = get_extended_point(
+            start_point=self.front_start_point,
+            angle=self.angle,
+            distance=50,
         )
 
     def _turn(self, angle: int):
