@@ -118,6 +118,28 @@ class Car:
             start=self.rect.midright,
             field=self.field,
         )
+        self.left_collision = CollisionVision(
+            angle=30,
+            offset=Vector2(self.rect.topright).distance_to(
+                Vector2(self.rect.center),
+            ),
+            start=self.rect.topright,
+            field=self.field,
+        )
+        self.right_collision = CollisionVision(
+            angle=-30,
+            offset=Vector2(self.rect.bottomright).distance_to(
+                Vector2(self.rect.center),
+            ),
+            start=self.rect.bottomright,
+            field=self.field,
+        )
+        self.back_collision = CollisionVision(
+            angle=180,
+            offset=self.width // 2,
+            start=self.rect.midleft,
+            field=self.field,
+        )
 
     def draw(self, surface: Surface):
         surface.blit(self.rotated_surface, self.rect)
@@ -131,9 +153,30 @@ class Car:
                 start_pos=self.front_collision.start,
                 end_pos=self.front_collision.end,
             )
+            pygame.draw.line(
+                surface=surface,
+                color=Colors.WHITE,
+                start_pos=self.left_collision.start,
+                end_pos=self.left_collision.end,
+            )
+            pygame.draw.line(
+                surface=surface,
+                color=Colors.WHITE,
+                start_pos=self.right_collision.start,
+                end_pos=self.right_collision.end,
+            )
+            pygame.draw.line(
+                surface=surface,
+                color=Colors.WHITE,
+                start_pos=self.back_collision.start,
+                end_pos=self.back_collision.end,
+            )
 
     def _update_vision(self):
         self.front_collision.update(rect=self.rect, angle=self.angle)
+        self.left_collision.update(rect=self.rect, angle=self.angle)
+        self.right_collision.update(rect=self.rect, angle=self.angle)
+        self.back_collision.update(rect=self.rect, angle=self.angle)
 
     def _turn(self, angle: int):
         self.angle = (self.angle + angle) % 360
