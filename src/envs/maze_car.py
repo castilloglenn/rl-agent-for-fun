@@ -121,10 +121,17 @@ class Car:
             angle=self.angle,
             distance=self.width // 2,
         )
-        self.front_end_point = get_extended_point(
+        window = get_window_constants(config=FLAGS.maze_car)
+        front_max_point = get_extended_point(
             start_point=self.front_start_point,
             angle=self.angle,
-            distance=50,
+            distance=max(window.width, window.height),
+        )
+        self.front_end_point = Vector2(
+            self.field.rect.clipline(
+                self.front_start_point,
+                front_max_point,
+            )[1],
         )
 
     def _turn(self, angle: int):
