@@ -101,6 +101,7 @@ class Car:
 
         self.front_start_point = Vector2(self.rect.midright)
         self.front_end_point = Vector2(self.rect.midright)
+        self.front_collision_distance = 0
 
     def draw(self, surface: Surface):
         surface.blit(self.rotated_surface, self.rect)
@@ -127,11 +128,15 @@ class Car:
             angle=self.angle,
             distance=max(window.width, window.height),
         )
+        collide_points = self.field.rect.clipline(
+            self.front_start_point,
+            front_max_point,
+        )
         self.front_end_point = Vector2(
-            self.field.rect.clipline(
-                self.front_start_point,
-                front_max_point,
-            )[1],
+            collide_points[1] if collide_points else self.front_start_point,
+        )
+        self.front_collision_distance = self.front_start_point.distance_to(
+            self.front_end_point
         )
 
     def _turn(self, angle: int):
@@ -282,12 +287,13 @@ class MazeCarEnv(Environment):
         agl = f"Angle: {self.car.angle:.0f}°"
         rec = f"{str(self.car.rect)[1:-1].capitalize()}"
         cen = f"Center: {(self.car.rect.center)}"
+        fcd = f"Collision: {self.car.front_collision_distance:.0f} px"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
             surface=self.display,
             texts=[
-                fps,
+                fps + sep + fcd,
                 rec + sep + cen,
                 spd + sep + acc + sep + agl,
             ],
