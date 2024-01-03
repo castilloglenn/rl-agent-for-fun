@@ -21,8 +21,7 @@ def draw_line(surface, start_pos, end_pos, color, width=1):
 
 
 def rotate_surface(surface, angle):
-    rotated_surface = pygame.transform.rotate(surface, angle)
-    return rotated_surface
+    return pygame.transform.rotate(surface, angle)
 
 
 def draw_texts(

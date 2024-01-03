@@ -4,15 +4,16 @@ from typing import Optional
 
 import pygame
 from absl import flags
-from pygame import Rect, Surface
+from pygame import Rect, Surface, Vector2
 
 from src.envs.base import Environment
 from src.utils.common import (
     get_angular_movement_deltas,
+    get_extended_point,
     get_triangle_coordinates_from_rect,
 )
 from src.utils.types import Colors, ColorValue, GameOver, Reward, Score
-from src.utils.ui import draw_texts, get_window_constants, rotate_surface
+from src.utils.ui import draw_line, draw_texts, get_window_constants, rotate_surface
 
 FLAGS = flags.FLAGS
 
@@ -68,10 +69,20 @@ class Car:
         self.width: int = width
         self.height: int = height
 
-        self.rect = Rect(0, 0, self.width, self.height)
+        self.surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
+        self.surface.fill(color)
+        self.rotated_surface = self.surface.copy()
+
+        self.rect = self.surface.get_rect()
         self.rect.center = (self.x, self.y)
 
-        self.color: ColorValue = color
+        pygame.draw.polygon(
+            surface=self.surface,
+            color=Colors.WHITE,
+            points=get_triangle_coordinates_from_rect(self.rect),
+        )
+
+        self.front_point = Vector2(self.rect.midright)
         self.field = field
 
         single_frame: float = 1 / FLAGS.maze_car.display.fps
@@ -87,42 +98,38 @@ class Car:
         self.speed_multiplier: float = 0
         self.angle: int = 0
 
-    @property
-    def surface(self) -> Surface:
-        surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
-        surface.fill(self.color)
-        pygame.draw.polygon(
-            surface,
-            Colors.WHITE,
-            get_triangle_coordinates_from_rect(surface.get_rect()),
+    def _update_front_point(self):
+        self.front_point = get_extended_point(
+            start_point=Vector2(self.rect.center),
+            angle=self.angle,
+            distance=self.width // 2,
         )
 
-        rotated_surface = rotate_surface(surface, self.angle)
-        rotated_rect = rotated_surface.get_rect()
-        self.rect.width = rotated_rect.width
-        self.rect.height = rotated_rect.height
-
+    def _turn(self, angle: int):
+        self.angle = (self.angle + angle) % 360
+        self.rotated_surface = rotate_surface(self.surface, self.angle)
+        self.rect = self.rotated_surface.get_rect(center=self.rect.center)
         if FLAGS.maze_car.show_bounds:
             pygame.draw.rect(
-                rotated_surface,
+                self.rotated_surface,
                 Colors.WHITE,
-                rotated_surface.get_rect(),
+                self.rect,
                 width=1,
             )
-
-        return rotated_surface
+        self._update_front_point()
 
     def turn_left(self) -> None:
-        self.angle = (self.angle + self.turn_speed) % 360
+        self._turn(angle=self.turn_speed)
 
     def turn_right(self) -> None:
-        self.angle = (self.angle - self.turn_speed) % 360
+        self._turn(angle=-self.turn_speed)
 
-    def move(self, x: int, y: int):
+    def _move(self, x: int, y: int):
         self.x += x
         self.y += y
         self.rect.center = (self.x, self.y)
         self.rect.clamp_ip(self.field.rect)
+        self._update_front_point()
 
     def move_forward(self):
         if self.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
@@ -134,14 +141,14 @@ class Car:
         delta_x, delta_y = get_angular_movement_deltas(
             angle=self.angle, speed=self.speed_multiplier
         )
-        self.move(x=delta_x, y=delta_y)
+        self._move(x=delta_x, y=delta_y)
 
     def move_backward(self):
         self.set_speed(speed=self.backward_speed, acceleration_rate=0.0)
         delta_x, delta_y = get_angular_movement_deltas(
             angle=self.angle, speed=self.speed_multiplier
         )
-        self.move(x=-delta_x, y=-delta_y)
+        self._move(x=-delta_x, y=-delta_y)
 
     def set_speed(self, speed: float, acceleration_rate: float):
         self.acceleration_rate = pygame.math.clamp(
