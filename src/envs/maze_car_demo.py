@@ -60,7 +60,7 @@ class MazeCarDemo(MazeCarEnv):
         # Static objects
 
         # Moving objects
-        self.display.blit(self.car.rotated_surface, self.car.rect)
+        self.car.draw(self.display)
 
         end_point = get_extended_point(
             start_point=self.car.front_point,

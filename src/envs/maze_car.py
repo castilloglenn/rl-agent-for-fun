@@ -100,19 +100,22 @@ class Car:
         self.speed_multiplier: float = 0
         self.angle: int = 0
 
+    def draw(self, surface: Surface):
+        surface.blit(self.rotated_surface, self.rect)
+        if FLAGS.maze_car.show_bounds:
+            pygame.draw.rect(
+                surface,
+                Colors.WHITE,
+                self.rect,
+                width=1,
+            )
+
     def _update_front_point(self):
         self.front_point = get_extended_point(
             start_point=Vector2(self.rect.center),
             angle=self.angle,
             distance=self.width // 2,
         )
-        if FLAGS.maze_car.show_bounds:
-            pygame.draw.rect(
-                self.rotated_surface,
-                Colors.WHITE,
-                self.rect,
-                width=1,
-            )
 
     def _turn(self, angle: int):
         self.angle = (self.angle + angle) % 360
