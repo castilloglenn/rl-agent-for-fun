@@ -9,7 +9,7 @@ from src.utils.common import (
     get_extended_point,
     get_triangle_coordinates_from_rect,
 )
-from src.utils.types import Colors, ColorValue
+from src.utils.types import Colors, ColorValue, Coordinate
 from src.utils.ui import get_window_constants
 
 FLAGS = flags.FLAGS
@@ -28,6 +28,42 @@ class Field:
 
     def draw(self, surface: Surface):
         pygame.draw.rect(surface, self.color, self.rect, 1)
+
+
+class CollisionVision:
+    def __init__(
+        self,
+        angle: int,
+        offset: int,
+        start: Coordinate,
+        field: Field,
+    ) -> None:
+        self.angle = angle
+        self.offset = offset
+        self.start = Vector2(start)
+        self.end = Vector2(start)
+        self.field = field
+
+        self.distance: int = 0
+
+    def update(self, rect: Rect, angle: int) -> None:
+        angle_with_offset = (angle + self.angle) % 360
+        self.start = get_extended_point(
+            start_point=Vector2(rect.center),
+            angle=angle_with_offset,
+            distance=self.offset,
+        )
+        window = get_window_constants(config=FLAGS.maze_car)
+        max_front = get_extended_point(
+            start_point=self.start,
+            angle=angle_with_offset,
+            distance=max(window.width, window.height),
+        )
+        collide_points = self.field.rect.clipline(self.start, max_front)
+        self.end = Vector2(
+            collide_points[1] if collide_points else self.start,
+        )
+        self.distance = self.start.distance_to(self.end)
 
 
 class Car:
@@ -76,9 +112,12 @@ class Car:
 
         self.rotated_surface = self.surface.copy()
 
-        self.front_start_point = Vector2(self.rect.midright)
-        self.front_end_point = Vector2(self.rect.midright)
-        self.front_collision_distance = 0
+        self.front_collision = CollisionVision(
+            angle=0,
+            offset=self.width // 2,
+            start=self.rect.midright,
+            field=self.field,
+        )
 
     def draw(self, surface: Surface):
         surface.blit(self.rotated_surface, self.rect)
@@ -89,32 +128,12 @@ class Car:
             pygame.draw.line(
                 surface=surface,
                 color=Colors.WHITE,
-                start_pos=self.front_start_point,
-                end_pos=self.front_end_point,
+                start_pos=self.front_collision.start,
+                end_pos=self.front_collision.end,
             )
 
     def _update_vision(self):
-        self.front_start_point = get_extended_point(
-            start_point=Vector2(self.rect.center),
-            angle=self.angle,
-            distance=self.width // 2,
-        )
-        window = get_window_constants(config=FLAGS.maze_car)
-        front_max_point = get_extended_point(
-            start_point=self.front_start_point,
-            angle=self.angle,
-            distance=max(window.width, window.height),
-        )
-        collide_points = self.field.rect.clipline(
-            self.front_start_point,
-            front_max_point,
-        )
-        self.front_end_point = Vector2(
-            collide_points[1] if collide_points else self.front_start_point,
-        )
-        self.front_collision_distance = self.front_start_point.distance_to(
-            self.front_end_point
-        )
+        self.front_collision.update(rect=self.rect, angle=self.angle)
 
     def _turn(self, angle: int):
         self.angle = (self.angle + angle) % 360

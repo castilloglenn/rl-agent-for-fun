@@ -26,3 +26,6 @@ class Colors:
     GREEN: ColorValue = (0, 255, 0)
     BLUE: ColorValue = (0, 0, 255)
     SKY_BLUE: ColorValue = (0, 134, 212)
+
+
+Coordinate = tuple[int, int]

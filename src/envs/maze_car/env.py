@@ -107,7 +107,7 @@ class MazeCarEnv(Environment):
         agl = f"Angle: {self.car.angle:.0f}°"
         rec = f"{str(self.car.rect)[1:-1].capitalize()}"
         cen = f"Center: {(self.car.rect.center)}"
-        fcd = f"Collision: {self.car.front_collision_distance:.0f} px"
+        fcd = f"Collision: {self.car.front_collision.distance:.0f} px"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
