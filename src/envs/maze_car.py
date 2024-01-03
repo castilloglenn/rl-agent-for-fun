@@ -126,12 +126,14 @@ class Car:
         self._turn(angle=-self.turn_speed)
 
     def _move(self, x: int, y: int):
-        self.rect = get_clamped_rect(
+        is_clamped, self.rect = get_clamped_rect(
             rect=self.rect,
             constraint=self.field.rect,
             new_x=x,
             new_y=y,
         )
+        if is_clamped:
+            self.set_speed(speed=0, acceleration_rate=0.0)
         self._update_vision()
 
     def move_forward(self):

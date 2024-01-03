@@ -42,12 +42,12 @@ def get_clamped_rect(
     constraint: Rect,
     new_x: int,
     new_y: int,
-) -> Rect:
+) -> tuple[bool, Rect]:
     new_rect = rect.copy()
     new_rect.x += new_x
     new_rect.y += new_y
     future_rect = new_rect.clamp(constraint)
 
     if new_rect.center != future_rect.center:
-        return rect
-    return new_rect
+        return True, rect
+    return False, new_rect
