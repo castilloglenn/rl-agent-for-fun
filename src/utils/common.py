@@ -3,7 +3,7 @@ import math
 from pygame import Rect, Vector2
 
 
-def get_angular_movement_deltas(angle: int, speed: int) -> tuple:
+def get_angular_movement_deltas(angle: int, speed: int) -> tuple[float, float]:
     angle_radians = math.radians(angle)
     delta_x = math.cos(angle_radians) * speed
     delta_y = math.sin(angle_radians) * -speed
