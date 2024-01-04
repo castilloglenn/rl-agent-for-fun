@@ -92,7 +92,9 @@ class Car:
         )
 
         self.x: int = x
+        self.x_float: float = 0.0
         self.y: int = y
+        self.y_float: float = 0.0
         self.width: int = width
         self.height: int = height
 
@@ -193,13 +195,26 @@ class Car:
     def turn_right(self) -> None:
         self._turn(angle=-self.turn_speed)
 
-    def _move(self, x: int, y: int):
+    def _move(self, x: float, y: float):
+        x_float = x - int(x)
+        y_float = y - int(y)
+
+        self.x_float += x_float
+        self.y_float += y_float
+
+        x_adjusted = int(x) + int(self.x_float)
+        y_adjusted = int(y) + int(self.y_float)
+
         is_clamped, self.rect = get_clamped_rect(
             rect=self.rect,
             constraint=self.field.rect,
-            new_x=x,
-            new_y=y,
+            new_x=x_adjusted,
+            new_y=y_adjusted,
         )
+
+        self.x_float -= int(self.x_float)
+        self.y_float -= int(self.y_float)
+
         if is_clamped:
             self.set_speed(speed=0, acceleration_rate=0.0)
         self._update_vision()
