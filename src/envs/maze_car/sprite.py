@@ -57,7 +57,7 @@ class CollisionVision:
         max_front = get_extended_point(
             start_point=self.start,
             angle=angle_with_offset,
-            distance=max(window.width, window.height),
+            distance=max(window.width, window.height) * 2,
         )
         collide_points = self.field.rect.clipline(self.start, max_front)
         self.end = Vector2(
