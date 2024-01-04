@@ -187,6 +187,7 @@ class Car:
             self.angle,
         )
         self.rect = self.rotated_surface.get_rect(center=self.rect.center)
+        self.rect.clamp_ip(self.field.rect)
         self._update_vision()
 
     def turn_left(self) -> None:
