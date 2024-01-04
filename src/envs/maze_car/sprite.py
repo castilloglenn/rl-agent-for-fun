@@ -196,11 +196,8 @@ class Car:
         self._turn(angle=-self.turn_speed)
 
     def _move(self, x: float, y: float):
-        x_float = x - int(x)
-        y_float = y - int(y)
-
-        self.x_float += x_float
-        self.y_float += y_float
+        self.x_float += x - int(x)
+        self.y_float += y - int(y)
 
         x_adjusted = int(x) + int(self.x_float)
         y_adjusted = int(y) + int(self.y_float)
