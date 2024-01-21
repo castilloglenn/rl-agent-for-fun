@@ -97,6 +97,7 @@ class MazeCarEnv(Environment):
                         self.running = False
 
     def render_texts(self):
+        mf = FLAGS.maze_car.display.fps
         a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
         s = self.car.base_speed * self.car.speed_multiplier
         cf = self.car.front_collision.distance
@@ -104,24 +105,29 @@ class MazeCarEnv(Environment):
         cr = self.car.right_collision.distance
         cb = self.car.back_collision.distance
 
-        sep = " | "
-        fps = f"FPS: {self.clock.get_fps():.0f}"
-        spd = f"Speed: {s:,.0f} px/s"
-        acc = f"Acceleration: {a*100:,.0f}%"
-        agl = f"Angle: {self.car.angle:.0f}°"
-        rec = f"{str(self.car.rect)[1:-1].capitalize()}"
-        cen = f"Center: {(self.car.rect.center)}"
-        fcd = f"Collisions: L:{cl:.0f} | F:{cf:.0f} | R:{cr:.0f} | B:{cb:.0f}"
+        sep = " " * 3
+        spd = f"SPD: {s:8,.2f}"
+        acc = f"ACC: {a*100:7,.0f}%"
+        fps = f"FPS: {self.clock.get_fps():5.0f}/{mf}"
+        rec = f"REC: {str(self.car.rect)[5:-1]:>18s}"
+        rec_s = len(rec) * " " + (sep * 2)
+        agl = f"AGL: {self.car.angle:7.0f}°"
+        cen = f"CEN: {str(self.car.rect.center):>18s}"
+        cll = f"LSC: {cl:5,.0f}"
+        clf = f"FSC: {cf:5,.0f}"
+        clr = f"RSC: {cr:5,.0f}"
+        clb = f"BSC: {cb:5,.0f}"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
             surface=self.display,
             texts=[
-                fps + sep + fcd,
-                rec + sep + cen,
-                spd + sep + acc + sep + agl,
+                spd + sep + rec + sep + cll,
+                acc + sep + cen + sep + clf,
+                agl + rec_s + clr,
+                fps + rec_s + clb,
             ],
-            size=20,
+            size=12,
             x=window.width * 0.025,
             y=window.half_height * 0.075,
         )

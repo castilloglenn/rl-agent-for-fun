@@ -24,7 +24,7 @@ def draw_texts(
     y: int,
     color: ColorValue = Colors.WHITE,
 ):
-    font = pygame.font.SysFont(None, size)
+    font = pygame.font.SysFont("monospace", size)
     for i, text in enumerate(texts):
         text_surface = font.render(text, True, color)
         text_rect = text_surface.get_rect()
