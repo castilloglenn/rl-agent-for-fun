@@ -38,7 +38,7 @@ class MazeCarEnv(Environment):
         window = get_window_constants(config=FLAGS.maze_car)
         self.action_state = ActionState()
         self.car = Car(
-            x=window.half_width - FLAGS.maze_car.car.width // 2,
+            x=window.quarter_width - FLAGS.maze_car.car.width // 2,
             y=(window.height * 0.58) - FLAGS.maze_car.car.height // 2,
             width=FLAGS.maze_car.car.width,
             height=FLAGS.maze_car.car.height,
