@@ -28,7 +28,7 @@ def get_maze_car_config() -> ConfigDict:
     config.car = ConfigDict()
     config.car.width: int = 24
     config.car.height: int = 16
-    config.car.acceleration_unit: float = 0.5
+    config.car.acceleration_unit: float = 0.25
     config.car.acceleration_max: float = 2.0
 
     return config

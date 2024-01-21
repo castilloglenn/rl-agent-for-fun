@@ -145,10 +145,9 @@ class Car:
         self._update_vision()
 
     def move_forward(self):
-        if self.state.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
-            rate = self.state.acceleration_rate + (self.state.acceleration_unit * 4)
-        else:
-            rate = self.state.acceleration_rate + self.state.acceleration_unit
+        acc_rel = self.state.acceleration_rate / FLAGS.maze_car.car.acceleration_max
+        boost = self.state.acceleration_unit / max(acc_rel, 0.01)
+        rate = self.state.acceleration_rate + boost
         speed = self.state.forward_speed * rate
         self.set_speed(speed=speed, acceleration_rate=rate)
         delta_x, delta_y = get_angular_movement_deltas(

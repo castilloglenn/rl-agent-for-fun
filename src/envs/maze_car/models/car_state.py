@@ -34,19 +34,15 @@ class CarState:
     def __post_init__(self):
         single_frame: float = 1 / FLAGS.maze_car.display.fps
         self.forward_speed = self.base_speed * single_frame
-        self.backward_speed = self.forward_speed / 4
-        self.turn_speed = self.forward_speed * 0.8
+        self.backward_speed = self.forward_speed * 0.25
+        self.turn_speed = self.forward_speed * 0.75
         self.acceleration_unit: float = (
             FLAGS.maze_car.car.acceleration_unit * single_frame
         )
-
         self.surface = Surface(
-            (self.rect_spec.width, self.rect_spec.height),
-            pygame.SRCALPHA,
-            32,
+            (self.rect_spec.width, self.rect_spec.height), pygame.SRCALPHA, 32
         )
         self.surface.fill(self.color)
-
         self.rect = self.surface.get_rect()
         self.rect.center = (self.rect_spec.x, self.rect_spec.y)
         self._create_car_design()
