@@ -1,7 +1,7 @@
 from absl import flags
 from pygame import Rect, Vector2
 
-from envs.maze_car.sprites.field import Field
+from envs.maze_car.sprites.field import GameField
 from src.utils.common import get_extended_point
 from src.utils.types import Coordinate
 from src.utils.ui import get_window_constants
@@ -15,7 +15,7 @@ class CollisionDistance:
         angle: int,
         offset: int,
         start: Coordinate,
-        field: Field,
+        field: GameField,
     ) -> None:
         self.angle = angle
         self.offset = offset

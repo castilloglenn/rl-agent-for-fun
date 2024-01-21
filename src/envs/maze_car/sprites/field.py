@@ -1,23 +1,31 @@
 import pygame
 from absl import flags
-from pygame import Rect, Surface
 
+from envs.maze_car.models.field_state import GameFieldState
+from envs.maze_car.models.state import StateSingleton
 from utils.types import Colors, ColorValue
 from utils.ui import get_window_constants
 
 FLAGS = flags.FLAGS
 
 
-class Field:
-    def __init__(self):
+class GameField:
+    def __init__(self) -> None:
+        self._state = StateSingleton()
+
         window = get_window_constants(config=FLAGS.maze_car)
-        self.x = window.width * 0.025
-        self.y = window.half_height * 0.325
-        self.width = window.width * 0.95
-        self.height = window.height * 0.8
-        self.color: ColorValue = Colors.WHITE
+        x = window.width * 0.025
+        y = window.half_height * 0.325
+        width = window.width * 0.95
+        height = window.height * 0.8
+        color: ColorValue = Colors.WHITE
 
-        self.rect = Rect(self.x, self.y, self.width, self.height)
+        field_state = GameFieldState(x, y, width, height, color)
+        self._state.game_field = field_state
 
-    def draw(self, surface: Surface):
-        pygame.draw.rect(surface, self.color, self.rect, 1)
+    @property
+    def state(self) -> GameFieldState:
+        return self._state.game_field
+
+    def draw(self, surface: pygame.Surface):
+        pygame.draw.rect(surface, self.state.color, self.state.rect, 1)

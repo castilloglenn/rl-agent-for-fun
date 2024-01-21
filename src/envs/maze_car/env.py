@@ -4,9 +4,9 @@ from typing import Optional
 import pygame
 from absl import flags
 
-from envs.maze_car.models.action import ActionState
+from envs.maze_car.models.action_state import ActionState
 from envs.maze_car.sprites.car import Car
-from envs.maze_car.sprites.field import Field
+from envs.maze_car.sprites.field import GameField
 from src.envs.base import Environment
 from src.utils.types import Colors, GameOver, Reward, Score
 from src.utils.ui import draw_texts, get_window_constants
@@ -24,7 +24,7 @@ class MazeCarEnv(Environment):
         self.clock = pygame.time.Clock()
         self.display = pygame.display.set_mode((window.width, window.height))
 
-        self.field = Field()
+        self.field = GameField()
         self.reset()
 
     def reset(self) -> None:
