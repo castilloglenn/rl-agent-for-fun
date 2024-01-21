@@ -4,7 +4,7 @@ from absl import flags
 from pygame import Surface, Vector2
 
 from envs.maze_car.sprites.collision_distance import CollisionDistance
-from envs.maze_car.sprites.field import GameFieldSingleton
+from envs.maze_car.sprites.field import FieldSingleton
 from src.utils.common import (
     get_angular_movement_deltas,
     get_clamped_rect,
@@ -18,7 +18,7 @@ FLAGS = flags.FLAGS
 class Car:
     def __init__(
         self,
-        field: GameFieldSingleton,
+        field: FieldSingleton,
         x: int,
         y: int,
         width: int,
@@ -64,32 +64,32 @@ class Car:
         self.rotated_surface = self.surface.copy()
 
         self.front_collision = CollisionDistance(
+            key="front",
             angle=0,
             offset=self.width // 2,
             start=self.rect.midright,
-            field=self.field,
         )
         self.left_collision = CollisionDistance(
+            key="left",
             angle=30,
             offset=Vector2(self.rect.topright).distance_to(
                 Vector2(self.rect.center),
             ),
             start=self.rect.topright,
-            field=self.field,
         )
         self.right_collision = CollisionDistance(
+            key="right",
             angle=-30,
             offset=Vector2(self.rect.bottomright).distance_to(
                 Vector2(self.rect.center),
             ),
             start=self.rect.bottomright,
-            field=self.field,
         )
         self.back_collision = CollisionDistance(
+            key="back",
             angle=180,
             offset=self.width // 2,
             start=self.rect.midleft,
-            field=self.field,
         )
 
     def draw(self, surface: Surface):
@@ -101,26 +101,26 @@ class Car:
             pygame.draw.line(
                 surface=surface,
                 color=Colors.WHITE,
-                start_pos=self.front_collision.start,
-                end_pos=self.front_collision.end,
+                start_pos=self.front_collision.state.start,
+                end_pos=self.front_collision.state.end,
             )
             pygame.draw.line(
                 surface=surface,
                 color=Colors.WHITE,
-                start_pos=self.left_collision.start,
-                end_pos=self.left_collision.end,
+                start_pos=self.left_collision.state.start,
+                end_pos=self.left_collision.state.end,
             )
             pygame.draw.line(
                 surface=surface,
                 color=Colors.WHITE,
-                start_pos=self.right_collision.start,
-                end_pos=self.right_collision.end,
+                start_pos=self.right_collision.state.start,
+                end_pos=self.right_collision.state.end,
             )
             pygame.draw.line(
                 surface=surface,
                 color=Colors.WHITE,
-                start_pos=self.back_collision.start,
-                end_pos=self.back_collision.end,
+                start_pos=self.back_collision.state.start,
+                end_pos=self.back_collision.state.end,
             )
 
     def _update_vision(self):

@@ -6,7 +6,7 @@ from absl import flags
 
 from envs.maze_car.models.action_state import ActionState
 from envs.maze_car.sprites.car import Car
-from envs.maze_car.sprites.field import GameFieldSingleton
+from envs.maze_car.sprites.field import FieldSingleton
 from src.envs.base import Environment
 from src.utils.types import Colors, GameOver, Reward, Score
 from src.utils.ui import draw_texts, get_window_constants
@@ -24,7 +24,7 @@ class MazeCarEnv(Environment):
         self.clock = pygame.time.Clock()
         self.display = pygame.display.set_mode((window.width, window.height))
 
-        self.field = GameFieldSingleton.get_instance()
+        self.field = FieldSingleton.get_instance()
         self.reset()
 
     def reset(self) -> None:
@@ -101,10 +101,10 @@ class MazeCarEnv(Environment):
         mf = FLAGS.maze_car.display.fps
         a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
         s = self.car.base_speed * self.car.speed_multiplier
-        cf = self.car.front_collision.distance
-        cl = self.car.left_collision.distance
-        cr = self.car.right_collision.distance
-        cb = self.car.back_collision.distance
+        cf = self.car.front_collision.state.distance
+        cl = self.car.left_collision.state.distance
+        cr = self.car.right_collision.state.distance
+        cb = self.car.back_collision.state.distance
 
         sep = " " * 3
         spd = f"SPD: {s:8,.2f}"
