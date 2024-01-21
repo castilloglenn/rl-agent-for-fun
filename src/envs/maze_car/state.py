@@ -1,13 +1,20 @@
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass
+from dataclasses import field as field_
+from dataclasses import fields
 
 from envs.maze_car.models.action_state import ActionState
-from envs.maze_car.models.field_state import GameFieldState
+from envs.maze_car.models.collision_distance_state import \
+    CollisionDistanceState
+from envs.maze_car.models.field_state import FieldState
 
 
 @dataclass
 class State:
-    action: ActionState = field(default_factory=ActionState)
-    game_field: GameFieldState = field(default_factory=GameFieldState)
+    action: ActionState = field_(default_factory=ActionState)
+    field: FieldState = field_(default_factory=FieldState)
+    collision_distances: dict[str, CollisionDistanceState] = field_(
+        default_factory=dict,
+    )
 
     def __setattr__(self, name, value):
         if name not in {field.name for field in fields(self)}:
