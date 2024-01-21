@@ -5,7 +5,8 @@ import pygame
 from absl import flags
 
 from envs.maze_car.models.action import ActionState
-from envs.maze_car.sprites.sprite import Car, Field
+from envs.maze_car.sprites.car import Car
+from envs.maze_car.sprites.field import Field
 from src.envs.base import Environment
 from src.utils.types import Colors, GameOver, Reward, Score
 from src.utils.ui import draw_texts, get_window_constants

@@ -1,69 +1,18 @@
 # pylint: disable=E1101
 import pygame
 from absl import flags
-from pygame import Rect, Surface, Vector2
+from pygame import Surface, Vector2
 
+from envs.maze_car.sprites.collision_distance import CollisionDistance
+from envs.maze_car.sprites.field import Field
 from src.utils.common import (
     get_angular_movement_deltas,
     get_clamped_rect,
-    get_extended_point,
     get_triangle_coordinates_from_rect,
 )
-from src.utils.types import Colors, ColorValue, Coordinate
-from src.utils.ui import get_window_constants
+from src.utils.types import Colors, ColorValue
 
 FLAGS = flags.FLAGS
-
-
-class Field:
-    def __init__(self):
-        window = get_window_constants(config=FLAGS.maze_car)
-        self.x = window.width * 0.025
-        self.y = window.half_height * 0.325
-        self.width = window.width * 0.95
-        self.height = window.height * 0.8
-        self.color: ColorValue = Colors.WHITE
-
-        self.rect = Rect(self.x, self.y, self.width, self.height)
-
-    def draw(self, surface: Surface):
-        pygame.draw.rect(surface, self.color, self.rect, 1)
-
-
-class CollisionVision:
-    def __init__(
-        self,
-        angle: int,
-        offset: int,
-        start: Coordinate,
-        field: Field,
-    ) -> None:
-        self.angle = angle
-        self.offset = offset
-        self.start = Vector2(start)
-        self.end = Vector2(start)
-        self.field = field
-
-        self.distance: int = 0
-
-    def update(self, rect: Rect, angle: int) -> None:
-        angle_with_offset = (angle + self.angle) % 360
-        self.start = get_extended_point(
-            start_point=Vector2(rect.center),
-            angle=angle_with_offset,
-            distance=self.offset,
-        )
-        window = get_window_constants(config=FLAGS.maze_car)
-        max_front = get_extended_point(
-            start_point=self.start,
-            angle=angle_with_offset,
-            distance=max(window.width, window.height) * 2,
-        )
-        collide_points = self.field.rect.clipline(self.start, max_front)
-        self.end = Vector2(
-            collide_points[1] if collide_points else self.start,
-        )
-        self.distance = self.start.distance_to(self.end)
 
 
 class Car:
@@ -114,13 +63,13 @@ class Car:
 
         self.rotated_surface = self.surface.copy()
 
-        self.front_collision = CollisionVision(
+        self.front_collision = CollisionDistance(
             angle=0,
             offset=self.width // 2,
             start=self.rect.midright,
             field=self.field,
         )
-        self.left_collision = CollisionVision(
+        self.left_collision = CollisionDistance(
             angle=30,
             offset=Vector2(self.rect.topright).distance_to(
                 Vector2(self.rect.center),
@@ -128,7 +77,7 @@ class Car:
             start=self.rect.topright,
             field=self.field,
         )
-        self.right_collision = CollisionVision(
+        self.right_collision = CollisionDistance(
             angle=-30,
             offset=Vector2(self.rect.bottomright).distance_to(
                 Vector2(self.rect.center),
@@ -136,7 +85,7 @@ class Car:
             start=self.rect.bottomright,
             field=self.field,
         )
-        self.back_collision = CollisionVision(
+        self.back_collision = CollisionDistance(
             angle=180,
             offset=self.width // 2,
             start=self.rect.midleft,
