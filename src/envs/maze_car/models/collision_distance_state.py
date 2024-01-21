@@ -7,7 +7,7 @@ from pygame import Vector2
 class CollisionDistanceState:
     angle: int = 0
     offset: int = 0
-    distance: int = 0
+    distance: float = 0.0
     start: Vector2 = field(default_factory=Vector2)
     end: Vector2 = field(default_factory=Vector2)
 

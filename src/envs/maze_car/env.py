@@ -112,10 +112,10 @@ class MazeCarEnv(Environment):
         cl = self.car.left_collision.state.distance
         cr = self.car.right_collision.state.distance
         cb = self.car.back_collision.state.distance
-        w = self.car.state.rect.width
-        h = self.car.state.rect.height
 
-        wh = f"({w:3,.0f}, {h:3,.0f})"
+        car = self.car.state.rect
+        wh = f"({car.width:3,.0f}, {car.height:3,.0f})"
+        cn = f"({car.centerx:3,.0f}, {car.centery:3,.0f})"
 
         sep = " " * 3
         spd = f"SPD: {s:8,.2f}"
@@ -124,11 +124,11 @@ class MazeCarEnv(Environment):
         fps = f"FPS: {self.state.clock.get_fps():5.0f}/{mf}"
         dim = f"DIM: {wh:>10s}"
         dim_s = len(dim) * " " + (sep * 2)
-        cen = f"CEN: {str(self.car.state.rect.center):<10s}"
-        cll = f"LSC: {cl:5,.0f}"
-        clf = f"FSC: {cf:5,.0f}"
-        clr = f"RSC: {cr:5,.0f}"
-        clb = f"BSC: {cb:5,.0f}"
+        cen = f"CEN: {cn:>10s}"
+        cll = f"LSC: {cl:5.2f}"
+        clb = f"BSC: {cb:5.2f}"
+        clf = f"FSC: {cf:5.2f}"
+        clr = f"RSC: {cr:5.2f}"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
