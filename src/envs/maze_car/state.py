@@ -3,8 +3,8 @@ from dataclasses import field as field_
 from dataclasses import fields
 
 from envs.maze_car.models.action_state import ActionState
-from envs.maze_car.models.collision_distance_state import \
-    CollisionDistanceState
+from envs.maze_car.models.car_state import CarState
+from envs.maze_car.models.collision_distance_state import CollisionDistanceState
 from envs.maze_car.models.field_state import FieldState
 
 
@@ -12,6 +12,7 @@ from envs.maze_car.models.field_state import FieldState
 class State:
     action: ActionState = field_(default_factory=ActionState)
     field: FieldState = field_(default_factory=FieldState)
+    car: CarState = field_(default_factory=CarState)
     collision_distances: dict[str, CollisionDistanceState] = field_(
         default_factory=dict,
     )

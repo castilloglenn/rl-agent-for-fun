@@ -1,14 +1,13 @@
-# pylint: disable=E1101
 import pygame
 from absl import flags
-from pygame import Surface, Vector2
+from pygame import Rect, Surface, Vector2
+from envs.maze_car.models.car_state import CarState
 
 from envs.maze_car.sprites.collision_distance import CollisionDistance
-from envs.maze_car.sprites.field import FieldSingleton
+from envs.maze_car.state import StateSingleton
 from src.utils.common import (
     get_angular_movement_deltas,
     get_clamped_rect,
-    get_triangle_coordinates_from_rect,
 )
 from src.utils.types import Colors, ColorValue
 
@@ -18,7 +17,6 @@ FLAGS = flags.FLAGS
 class Car:
     def __init__(
         self,
-        field: FieldSingleton,
         x: int,
         y: int,
         width: int,
@@ -27,76 +25,52 @@ class Car:
         forward_speed: int = 300,
         turn_speed: int = 240,
     ) -> None:
-        self.acceleration_rate: float = 0.0
-        self.speed_multiplier: float = 0
-        self.angle: int = 0
-
-        single_frame: float = 1 / FLAGS.maze_car.display.fps
-        self.base_speed: float = forward_speed
-        self.forward_speed: float = self.base_speed * single_frame
-        self.backward_speed: float = self.forward_speed / 4
-        self.turn_speed: float = turn_speed * single_frame
-        self.acceleration_unit: float = (
-            FLAGS.maze_car.car.acceleration_unit * single_frame
+        self._globals = StateSingleton.get_instance()
+        self._globals.car = CarState(
+            forward_speed=forward_speed,
+            turn_speed=turn_speed,
+            color=color,
+            rect_spec=Rect(x, y, width, height),
         )
-
-        self.x: int = x
-        self.x_float: float = 0.0
-        self.y: int = y
-        self.y_float: float = 0.0
-        self.width: int = width
-        self.height: int = height
-
-        self.field = field
-
-        self.surface = Surface((self.width, self.height), pygame.SRCALPHA, 32)
-        self.surface.fill(color)
-
-        self.rect = self.surface.get_rect()
-        self.rect.center = (self.x, self.y)
-
-        pygame.draw.polygon(
-            surface=self.surface,
-            color=Colors.WHITE,
-            points=get_triangle_coordinates_from_rect(self.rect),
-        )
-
-        self.rotated_surface = self.surface.copy()
 
         self.front_collision = CollisionDistance(
-            key="front",
+            key="car-front",
             angle=0,
-            offset=self.width // 2,
-            start=self.rect.midright,
+            offset=self.state.rect.width // 2,
+            start=self.state.rect.midright,
         )
         self.left_collision = CollisionDistance(
-            key="left",
+            key="car-left",
             angle=30,
-            offset=Vector2(self.rect.topright).distance_to(
-                Vector2(self.rect.center),
+            offset=Vector2(self.state.rect.topright).distance_to(
+                Vector2(self.state.rect.center),
             ),
-            start=self.rect.topright,
+            start=self.state.rect.topright,
         )
         self.right_collision = CollisionDistance(
-            key="right",
+            key="car-right",
             angle=-30,
-            offset=Vector2(self.rect.bottomright).distance_to(
-                Vector2(self.rect.center),
+            offset=Vector2(self.state.rect.bottomright).distance_to(
+                Vector2(self.state.rect.center),
             ),
-            start=self.rect.bottomright,
+            start=self.state.rect.bottomright,
         )
         self.back_collision = CollisionDistance(
-            key="back",
+            key="car-back",
             angle=180,
-            offset=self.width // 2,
-            start=self.rect.midleft,
+            offset=self.state.rect.width // 2,
+            start=self.state.rect.midleft,
         )
 
+    @property
+    def state(self) -> CarState:
+        return self._globals.car
+
     def draw(self, surface: Surface):
-        surface.blit(self.rotated_surface, self.rect)
+        surface.blit(self.state.rotated_surface, self.state.rect)
 
         if FLAGS.maze_car.show_bounds:
-            pygame.draw.rect(surface, Colors.WHITE, self.rect, width=1)
+            pygame.draw.rect(surface, Colors.WHITE, self.state.rect, width=1)
         if FLAGS.maze_car.show_collision_distance:
             pygame.draw.line(
                 surface=surface,
@@ -124,71 +98,73 @@ class Car:
             )
 
     def _update_vision(self):
-        self.front_collision.update(rect=self.rect, angle=self.angle)
-        self.left_collision.update(rect=self.rect, angle=self.angle)
-        self.right_collision.update(rect=self.rect, angle=self.angle)
-        self.back_collision.update(rect=self.rect, angle=self.angle)
+        self.front_collision.update(rect=self.state.rect, angle=self.state.angle)
+        self.left_collision.update(rect=self.state.rect, angle=self.state.angle)
+        self.right_collision.update(rect=self.state.rect, angle=self.state.angle)
+        self.back_collision.update(rect=self.state.rect, angle=self.state.angle)
 
     def _turn(self, angle: int):
-        self.angle = (self.angle + angle) % 360
-        self.rotated_surface = pygame.transform.rotate(
-            self.surface,
-            self.angle,
+        self.state.angle = (self.state.angle + angle) % 360
+        self.state.rotated_surface = pygame.transform.rotate(
+            self.state.surface,
+            self.state.angle,
         )
-        self.rect = self.rotated_surface.get_rect(center=self.rect.center)
-        self.rect.clamp_ip(self.field.rect)
+        self.state.rect = self.state.rotated_surface.get_rect(
+            center=self.state.rect.center
+        )
+        self.state.rect.clamp_ip(self._globals.field.rect)
         self._update_vision()
 
     def turn_left(self) -> None:
-        self._turn(angle=self.turn_speed)
+        self._turn(angle=self.state.turn_speed)
 
     def turn_right(self) -> None:
-        self._turn(angle=-self.turn_speed)
+        self._turn(angle=-self.state.turn_speed)
 
     def _move(self, x: float, y: float):
-        self.x_float += x - int(x)
-        self.y_float += y - int(y)
+        self.state.x_float += x - int(x)
+        self.state.y_float += y - int(y)
 
-        x_adjusted = int(x) + int(self.x_float)
-        y_adjusted = int(y) + int(self.y_float)
+        x_adjusted = int(x) + int(self.state.x_float)
+        y_adjusted = int(y) + int(self.state.y_float)
 
-        is_clamped, self.rect = get_clamped_rect(
-            rect=self.rect,
-            constraint=self.field.rect,
+        is_clamped, self.state.rect = get_clamped_rect(
+            rect=self.state.rect,
+            constraint=self._globals.field.rect,
             new_x=x_adjusted,
             new_y=y_adjusted,
         )
 
-        self.x_float -= int(self.x_float)
-        self.y_float -= int(self.y_float)
+        self.state.x_float -= int(self.state.x_float)
+        self.state.y_float -= int(self.state.y_float)
 
         if is_clamped:
             self.set_speed(speed=0, acceleration_rate=0.0)
         self._update_vision()
 
     def move_forward(self):
-        if self.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
-            rate = self.acceleration_rate + (self.acceleration_unit * 4)
+        if self.state.acceleration_rate / FLAGS.maze_car.car.acceleration_max < 0.5:
+            rate = self.state.acceleration_rate + (self.state.acceleration_unit * 4)
         else:
-            rate = self.acceleration_rate + self.acceleration_unit
-        speed = self.forward_speed * rate
+            rate = self.state.acceleration_rate + self.state.acceleration_unit
+        speed = self.state.forward_speed * rate
         self.set_speed(speed=speed, acceleration_rate=rate)
         delta_x, delta_y = get_angular_movement_deltas(
-            angle=self.angle, speed=self.speed_multiplier
+            angle=self.state.angle, speed=self.state.speed_multiplier
         )
         self._move(x=delta_x, y=delta_y)
 
     def move_backward(self):
-        self.set_speed(speed=self.backward_speed, acceleration_rate=0.0)
+        self.set_speed(speed=self.state.backward_speed, acceleration_rate=0.0)
         delta_x, delta_y = get_angular_movement_deltas(
-            angle=self.angle, speed=self.speed_multiplier
+            angle=self.state.angle, speed=self.state.speed_multiplier
         )
         self._move(x=-delta_x, y=-delta_y)
 
     def set_speed(self, speed: float, acceleration_rate: float):
-        self.acceleration_rate = pygame.math.clamp(
+        self.state.acceleration_rate = pygame.math.clamp(
             acceleration_rate,
             0.0,
             FLAGS.maze_car.car.acceleration_max,
         )
-        self.speed_multiplier = speed
+        self.state.speed_multiplier = speed

@@ -1,4 +1,3 @@
-# pylint: disable=E1101
 from typing import Optional
 
 import pygame
@@ -7,6 +6,7 @@ from absl import flags
 from envs.maze_car.models.action_state import ActionState
 from envs.maze_car.sprites.car import Car
 from envs.maze_car.sprites.field import FieldSingleton
+from envs.maze_car.state import StateSingleton
 from src.envs.base import Environment
 from src.utils.types import Colors, GameOver, Reward, Score
 from src.utils.ui import draw_texts, get_window_constants
@@ -24,6 +24,7 @@ class MazeCarEnv(Environment):
         self.clock = pygame.time.Clock()
         self.display = pygame.display.set_mode((window.width, window.height))
 
+        self._globals = StateSingleton.get_instance()
         self.field = FieldSingleton.get_instance()
         self.reset()
 
@@ -31,7 +32,6 @@ class MazeCarEnv(Environment):
         window = get_window_constants(config=FLAGS.maze_car)
         self.action_state = ActionState()
         self.car = Car(
-            field=self.field,
             x=window.half_width - FLAGS.maze_car.car.width // 2,
             y=(window.height * 0.58) - FLAGS.maze_car.car.height // 2,
             width=FLAGS.maze_car.car.width,
@@ -99,8 +99,8 @@ class MazeCarEnv(Environment):
 
     def render_texts(self):
         mf = FLAGS.maze_car.display.fps
-        a = self.car.acceleration_rate / FLAGS.maze_car.car.acceleration_max
-        s = self.car.base_speed * self.car.speed_multiplier
+        a = self.car.state.acceleration_rate / FLAGS.maze_car.car.acceleration_max
+        s = self.car.state.base_speed * self.car.state.speed_multiplier
         cf = self.car.front_collision.state.distance
         cl = self.car.left_collision.state.distance
         cr = self.car.right_collision.state.distance
@@ -110,10 +110,10 @@ class MazeCarEnv(Environment):
         spd = f"SPD: {s:8,.2f}"
         acc = f"ACC: {a*100:7,.0f}%"
         fps = f"FPS: {self.clock.get_fps():5.0f}/{mf}"
-        rec = f"REC: {str(self.car.rect)[5:-1]:>18s}"
+        rec = f"REC: {str(self.car.state.rect)[5:-1]:>18s}"
         rec_s = len(rec) * " " + (sep * 2)
-        agl = f"AGL: {self.car.angle:7.0f}°"
-        cen = f"CEN: {str(self.car.rect.center):>18s}"
+        agl = f"AGL: {self.car.state.angle:7.0f}°"
+        cen = f"CEN: {str(self.car.state.rect.center):>18s}"
         cll = f"LSC: {cl:5,.0f}"
         clf = f"FSC: {cf:5,.0f}"
         clr = f"RSC: {cr:5,.0f}"
