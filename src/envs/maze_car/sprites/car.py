@@ -4,7 +4,7 @@ from absl import flags
 from pygame import Surface, Vector2
 
 from envs.maze_car.sprites.collision_distance import CollisionDistance
-from envs.maze_car.sprites.field import GameField
+from envs.maze_car.sprites.field import GameFieldSingleton
 from src.utils.common import (
     get_angular_movement_deltas,
     get_clamped_rect,
@@ -18,7 +18,7 @@ FLAGS = flags.FLAGS
 class Car:
     def __init__(
         self,
-        field: GameField,
+        field: GameFieldSingleton,
         x: int,
         y: int,
         width: int,

@@ -20,7 +20,8 @@ class State:
 class StateSingleton:
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
+    @classmethod
+    def get_instance(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = State(*args, **kwargs)
         return cls._instance
