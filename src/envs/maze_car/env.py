@@ -119,7 +119,7 @@ class MazeCarEnv(Environment):
 
         sep = " " * 3
         spd = f"SPD: {s:8,.2f}"
-        acc = f"ACC: {a*100:7,.0f}%"
+        acc = f"ACC: {a * 100:7,.0f}%"
         agl = f"AGL: {self.car.state.angle:7.0f}°"
         fps = f"FPS: {self.state.clock.get_fps():5.0f}/{mf}"
         dim = f"DIM: {wh:>10s}"
