@@ -50,11 +50,11 @@ class MazeCarDemo(MazeCarEnv):
 
     def draw_assets(self):
         # Background
-        self.display.fill(Colors.BLACK)
+        self.state.display.fill(Colors.BLACK)
         self.render_texts()
-        self.field.draw(self.display)
+        self.field.draw(self.state.display)
 
         # Static objects
 
         # Moving objects
-        self.car.draw(self.display)
+        self.car.draw(self.state.display)

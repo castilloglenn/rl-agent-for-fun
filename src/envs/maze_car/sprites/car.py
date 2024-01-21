@@ -61,6 +61,7 @@ class Car:
             offset=self.state.rect.width // 2,
             start=self.state.rect.midleft,
         )
+        self._update_vision()
 
     @property
     def state(self) -> CarState:

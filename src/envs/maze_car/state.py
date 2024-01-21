@@ -5,11 +5,13 @@ from dataclasses import fields
 from envs.maze_car.models.action_state import ActionState
 from envs.maze_car.models.car_state import CarState
 from envs.maze_car.models.collision_distance_state import CollisionDistanceState
+from envs.maze_car.models.display_state import DisplayState
 from envs.maze_car.models.field_state import FieldState
 
 
 @dataclass
 class State:
+    display: DisplayState = field_(default_factory=DisplayState)
     action: ActionState = field_(default_factory=ActionState)
     field: FieldState = field_(default_factory=FieldState)
     car: CarState = field_(default_factory=CarState)

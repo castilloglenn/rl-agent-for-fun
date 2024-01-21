@@ -4,6 +4,7 @@ import pygame
 from absl import flags
 
 from envs.maze_car.models.action_state import ActionState
+from envs.maze_car.models.display_state import DisplayState
 from envs.maze_car.sprites.car import Car
 from envs.maze_car.sprites.field import FieldSingleton
 from envs.maze_car.state import StateSingleton
@@ -21,12 +22,17 @@ class MazeCarEnv(Environment):
         pygame.init()
         pygame.display.set_caption(window.title)
 
-        self.clock = pygame.time.Clock()
-        self.display = pygame.display.set_mode((window.width, window.height))
-
         self._globals = StateSingleton.get_instance()
+        self._globals.display = DisplayState(
+            clock=pygame.time.Clock(),
+            display=pygame.display.set_mode((window.width, window.height)),
+        )
         self.field = FieldSingleton.get_instance()
         self.reset()
+
+    @property
+    def state(self) -> DisplayState:
+        return self._globals.display
 
     def reset(self) -> None:
         window = get_window_constants(config=FLAGS.maze_car)
@@ -85,7 +91,7 @@ class MazeCarEnv(Environment):
 
     def update_display(self):
         pygame.display.update()
-        self.clock.tick(FLAGS.maze_car.display.fps)
+        self.state.clock.tick(FLAGS.maze_car.display.fps)
 
     def handle_events(self, action):
         self.action_state = ActionState.from_tuple(action)
@@ -109,7 +115,7 @@ class MazeCarEnv(Environment):
         sep = " " * 3
         spd = f"SPD: {s:8,.2f}"
         acc = f"ACC: {a*100:7,.0f}%"
-        fps = f"FPS: {self.clock.get_fps():5.0f}/{mf}"
+        fps = f"FPS: {self.state.clock.get_fps():5.0f}/{mf}"
         rec = f"REC: {str(self.car.state.rect)[5:-1]:>18s}"
         rec_s = len(rec) * " " + (sep * 2)
         agl = f"AGL: {self.car.state.angle:7.0f}°"
@@ -121,7 +127,7 @@ class MazeCarEnv(Environment):
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
-            surface=self.display,
+            surface=self.state.display,
             texts=[
                 spd + sep + rec + sep + cll,
                 acc + sep + cen + sep + clf,
