@@ -92,7 +92,7 @@ class MazeCarEnv(Environment):
 
     def update_display(self):
         pygame.display.update()
-        self.state.clock.tick(FLAGS.maze_car.display.fps)
+        self.state.tick()
 
     def handle_events(self, action):
         self.action_state = ActionState.from_tuple(action)
