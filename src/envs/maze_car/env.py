@@ -5,6 +5,7 @@ from absl import flags
 
 from envs.maze_car.models.action_state import ActionState
 from envs.maze_car.models.display_state import DisplayState
+from envs.maze_car.models.field_state import FieldState
 from envs.maze_car.sprites.car import Car
 from envs.maze_car.sprites.field import FieldSingleton
 from envs.maze_car.state import StateSingleton
@@ -35,11 +36,11 @@ class MazeCarEnv(Environment):
         return self._globals.display
 
     def reset(self) -> None:
-        window = get_window_constants(config=FLAGS.maze_car)
+        field: FieldState = self._globals.field
         self.action_state = ActionState()
         self.car = Car(
-            x=window.quarter_width - FLAGS.maze_car.car.width // 2,
-            y=(window.height * 0.58) - FLAGS.maze_car.car.height // 2,
+            x=field.quarter_width - FLAGS.maze_car.car.width // 2,
+            y=field.half_height - FLAGS.maze_car.car.height // 2,
             width=FLAGS.maze_car.car.width,
             height=FLAGS.maze_car.car.height,
             color=Colors.SKY_BLUE,
@@ -111,15 +112,19 @@ class MazeCarEnv(Environment):
         cl = self.car.left_collision.state.distance
         cr = self.car.right_collision.state.distance
         cb = self.car.back_collision.state.distance
+        w = self.car.state.rect.width
+        h = self.car.state.rect.height
+
+        wh = f"({w:3,.0f}, {h:3,.0f})"
 
         sep = " " * 3
         spd = f"SPD: {s:8,.2f}"
         acc = f"ACC: {a*100:7,.0f}%"
-        fps = f"FPS: {self.state.clock.get_fps():5.0f}/{mf}"
-        rec = f"REC: {str(self.car.state.rect)[5:-1]:>18s}"
-        rec_s = len(rec) * " " + (sep * 2)
         agl = f"AGL: {self.car.state.angle:7.0f}°"
-        cen = f"CEN: {str(self.car.state.rect.center):<18s}"
+        fps = f"FPS: {self.state.clock.get_fps():5.0f}/{mf}"
+        dim = f"DIM: {wh:>10s}"
+        dim_s = len(dim) * " " + (sep * 2)
+        cen = f"CEN: {str(self.car.state.rect.center):<10s}"
         cll = f"LSC: {cl:5,.0f}"
         clf = f"FSC: {cf:5,.0f}"
         clr = f"RSC: {cr:5,.0f}"
@@ -129,10 +134,10 @@ class MazeCarEnv(Environment):
         draw_texts(
             surface=self.state.display,
             texts=[
-                spd + sep + rec + sep + cll,
-                acc + sep + cen + sep + clf,
-                agl + rec_s + clr,
-                fps + rec_s + clb,
+                spd + sep + cen + sep + cll,
+                acc + sep + dim + sep + clf,
+                agl + dim_s + clr,
+                fps + dim_s + clb,
             ],
             size=12,
             x=window.width * 0.025,

@@ -23,7 +23,7 @@ def get_maze_car_config() -> ConfigDict:
     config.window.height: int = 600
 
     config.display = ConfigDict()
-    config.display.fps: int = 60
+    config.display.fps: int = 90
 
     config.car = ConfigDict()
     config.car.width: int = 24

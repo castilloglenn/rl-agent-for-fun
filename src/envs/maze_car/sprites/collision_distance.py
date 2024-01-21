@@ -42,7 +42,7 @@ class CollisionDistance:
         max_front = get_extended_point(
             start_point=self.state.start,
             angle=angle,
-            distance=max(window.width, window.height) * 2,
+            distance=window.longest_side * 2,
         )
         collide_points = self._globals.field.rect.clipline(
             self.state.start,
