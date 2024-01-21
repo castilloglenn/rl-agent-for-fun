@@ -13,3 +13,4 @@ Update snippets:
 - **Jan 3, 2024:** Collision vision, architecture update
 <img width="750" alt="image" src="https://github.com/castilloglenn/rl-agent-for-fun/assets/55197203/1c55ef2d-0c49-48bb-8ce5-914787dab671">
 
+- **Jan 22: Changed architecture into MVC-inspired pattern**
