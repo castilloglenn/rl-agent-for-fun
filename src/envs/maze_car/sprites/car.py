@@ -22,13 +22,11 @@ class Car:
         width: int,
         height: int,
         color: ColorValue,
-        forward_speed: int = 300,
-        turn_speed: int = 240,
+        base_speed: float = 300.0,
     ) -> None:
         self._globals = StateSingleton.get_instance()
         self._globals.car = CarState(
-            forward_speed=forward_speed,
-            turn_speed=turn_speed,
+            base_speed=base_speed,
             color=color,
             rect_spec=Rect(x, y, width, height),
         )

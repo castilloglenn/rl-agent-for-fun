@@ -12,8 +12,7 @@ FLAGS = flags.FLAGS
 
 @dataclass
 class CarState:
-    forward_speed: float = 0.0
-    turn_speed: int = 0
+    base_speed: float = 0.0
     color: ColorValue = Colors.WHITE
     rect_spec: Rect = field(default_factory=lambda: Rect(0, 0, 0, 0))
 
@@ -23,9 +22,10 @@ class CarState:
     x_float: float = 0.0
     y_float: float = 0.0
 
-    base_speed: float = field(init=False)
-    acceleration_unit: float = field(init=False)
+    turn_speed: float = field(init=False)
+    forward_speed: float = field(init=False)
     backward_speed: float = field(init=False)
+    acceleration_unit: float = field(init=False)
 
     surface: Surface = field(init=False)
     rect: Rect = field(init=False)
@@ -33,10 +33,9 @@ class CarState:
 
     def __post_init__(self):
         single_frame: float = 1 / FLAGS.maze_car.display.fps
-        self.base_speed = self.forward_speed
         self.forward_speed = self.base_speed * single_frame
         self.backward_speed = self.forward_speed / 4
-        self.turn_speed = self.turn_speed * single_frame
+        self.turn_speed = self.forward_speed * 0.8
         self.acceleration_unit: float = (
             FLAGS.maze_car.car.acceleration_unit * single_frame
         )
