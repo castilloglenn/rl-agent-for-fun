@@ -6,12 +6,13 @@ from utils.types import Colors
 
 
 @dataclass
-class GameFieldState:
+class FieldState:
     x: float = 0.0
     y: float = 0.0
     width: float = 0.0
     height: float = 0.0
     color: Colors = Colors.WHITE
+
     rect: Rect = field(init=False)
 
     def __post_init__(self):
