@@ -119,7 +119,7 @@ class MazeCarEnv(Environment):
         rec = f"REC: {str(self.car.state.rect)[5:-1]:>18s}"
         rec_s = len(rec) * " " + (sep * 2)
         agl = f"AGL: {self.car.state.angle:7.0f}°"
-        cen = f"CEN: {str(self.car.state.rect.center):>18s}"
+        cen = f"CEN: {str(self.car.state.rect.center):<18s}"
         cll = f"LSC: {cl:5,.0f}"
         clf = f"FSC: {cf:5,.0f}"
         clr = f"RSC: {cr:5,.0f}"
