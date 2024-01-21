@@ -16,8 +16,8 @@ class CarState:
     color: ColorValue = Colors.WHITE
     rect_spec: Rect = field(default_factory=lambda: Rect(0, 0, 0, 0))
 
+    speed_multiplier: float = 0.0
     acceleration_rate: float = 0.0
-    speed_multiplier: float = 0
     angle: int = 0
     x_float: float = 0.0
     y_float: float = 0.0

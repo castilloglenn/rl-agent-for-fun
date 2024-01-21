@@ -125,10 +125,10 @@ class MazeCarEnv(Environment):
         dim = f"DIM: {wh:>10s}"
         dim_s = len(dim) * " " + (sep * 2)
         cen = f"CEN: {cn:>10s}"
-        cll = f"LSC: {cl:5.2f}"
-        clb = f"BSC: {cb:5.2f}"
-        clf = f"FSC: {cf:5.2f}"
-        clr = f"RSC: {cr:5.2f}"
+        cll = f"LSC: {cl:>6.2f}"
+        clb = f"BSC: {cb:>6.2f}"
+        clf = f"FSC: {cf:>6.2f}"
+        clr = f"RSC: {cr:>6.2f}"
 
         window = get_window_constants(config=FLAGS.maze_car)
         draw_texts(
