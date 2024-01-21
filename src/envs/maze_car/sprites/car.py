@@ -103,7 +103,10 @@ class Car:
         self.back_collision.update(rect=self.state.rect, angle=self.state.angle)
 
     def _turn(self, angle: int):
-        self.state.angle = (self.state.angle + angle) % 360
+        adjusted_angle = angle * max(
+            self.state.acceleration_rate, FLAGS.maze_car.car.acceleration_unit
+        )
+        self.state.angle = (self.state.angle + adjusted_angle) % 360
         self.state.rotated_surface = pygame.transform.rotate(
             self.state.surface,
             self.state.angle,
