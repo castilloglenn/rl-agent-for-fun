@@ -1,10 +1,10 @@
 import pygame
 from absl import flags
 
-from envs.maze_car.models.field_state import FieldState
-from envs.maze_car.state import StateSingleton
-from utils.types import Colors, ColorValue
-from utils.ui import get_window_constants
+from src.envs.maze_car.models.field_state import FieldState
+from src.envs.maze_car.state import StateSingleton
+from src.utils.types import Colors, ColorValue
+from src.utils.ui import get_window_constants
 
 FLAGS = flags.FLAGS
 

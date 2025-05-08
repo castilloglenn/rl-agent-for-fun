@@ -1,10 +1,10 @@
 import pygame
 from absl import flags
 from pygame import Rect, Surface, Vector2
-from envs.maze_car.models.car_state import CarState
 
-from envs.maze_car.sprites.collision_distance import CollisionDistance
-from envs.maze_car.state import StateSingleton
+from src.envs.maze_car.models.car_state import CarState
+from src.envs.maze_car.sprites.collision_distance import CollisionDistance
+from src.envs.maze_car.state import StateSingleton
 from src.utils.common import (
     get_angular_movement_deltas,
     get_clamped_rect,

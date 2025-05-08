@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from pygame import Rect
 
-from utils.types import Colors
+from src.utils.types import Colors
 
 
 @dataclass

@@ -13,22 +13,22 @@ def get_agent_config() -> ConfigDict:
 
 def get_maze_car_config() -> ConfigDict:
     config = ConfigDict()
-    config.show_gui: bool = True
-    config.show_bounds: bool = True
-    config.show_collision_distance: bool = True
+    config.show_gui = True
+    config.show_bounds = True
+    config.show_collision_distance = True
 
     config.window = ConfigDict()
-    config.window.title: str = "Maze Car"
-    config.window.width: int = 900
-    config.window.height: int = 600
+    config.window.title = "Maze Car"
+    config.window.width = 900
+    config.window.height = 600
 
     config.display = ConfigDict()
-    config.display.fps: int = 90
+    config.display.fps = 90
 
     config.car = ConfigDict()
-    config.car.width: int = 24
-    config.car.height: int = 16
-    config.car.acceleration_unit: float = 0.25
-    config.car.acceleration_max: float = 2.0
+    config.car.width = 24
+    config.car.height = 16
+    config.car.acceleration_unit = 0.25
+    config.car.acceleration_max = 2.0
 
     return config

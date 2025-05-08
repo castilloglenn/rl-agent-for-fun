@@ -1,8 +1,8 @@
 from absl import flags
 from pygame import Rect, Vector2
 
-from envs.maze_car.models.collision_distance_state import CollisionDistanceState
-from envs.maze_car.state import StateSingleton
+from src.envs.maze_car.models.collision_distance_state import CollisionDistanceState
+from src.envs.maze_car.state import StateSingleton
 from src.utils.common import get_extended_point
 from src.utils.types import Coordinate
 from src.utils.ui import get_window_constants

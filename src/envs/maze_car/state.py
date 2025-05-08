@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from dataclasses import field as field_
 from dataclasses import fields
 
-from envs.maze_car.models.action_state import ActionState
-from envs.maze_car.models.car_state import CarState
-from envs.maze_car.models.collision_distance_state import CollisionDistanceState
-from envs.maze_car.models.display_state import DisplayState
-from envs.maze_car.models.field_state import FieldState
+from src.envs.maze_car.models.action_state import ActionState
+from src.envs.maze_car.models.car_state import CarState
+from src.envs.maze_car.models.collision_distance_state import CollisionDistanceState
+from src.envs.maze_car.models.display_state import DisplayState
+from src.envs.maze_car.models.field_state import FieldState
 
 
 @dataclass

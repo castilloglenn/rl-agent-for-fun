@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from pygame import Rect, Surface
 from absl import flags
 import pygame
-from utils.common import get_triangle_coordinates_from_rect
 
-from utils.types import ColorValue, Colors
+from src.utils.common import get_triangle_coordinates_from_rect
+from src.utils.types import ColorValue, Colors
 
 FLAGS = flags.FLAGS
 

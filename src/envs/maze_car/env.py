@@ -3,12 +3,12 @@ from typing import Optional
 import pygame
 from absl import flags
 
-from envs.maze_car.models.action_state import ActionState
-from envs.maze_car.models.display_state import DisplayState
-from envs.maze_car.models.field_state import FieldState
-from envs.maze_car.sprites.car import Car
-from envs.maze_car.sprites.field import FieldSingleton
-from envs.maze_car.state import StateSingleton
+from src.envs.maze_car.models.action_state import ActionState
+from src.envs.maze_car.models.display_state import DisplayState
+from src.envs.maze_car.models.field_state import FieldState
+from src.envs.maze_car.sprites.car import Car
+from src.envs.maze_car.sprites.field import FieldSingleton
+from src.envs.maze_car.state import StateSingleton
 from src.envs.base import Environment
 from src.utils.types import Colors, GameOver, Reward, Score
 from src.utils.ui import draw_texts, get_window_constants
