@@ -1,6 +1,6 @@
 # 002: Split simulation from rendering, remove global state
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented. The `sim/` internals (`World`/`Car` objects) are replaced by ECS in [decision 005](005-entity-component-system.md). The layer split below still holds.
+**Date:** 2026-09-25. **Status:** Implemented (step 2). The `sim/` internals (`World`/`Car` objects) are replaced by ECS in [decision 005](005-entity-component-system.md). The layer split below still holds.
 
 ## Context
 

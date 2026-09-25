@@ -1,6 +1,6 @@
 # 005: Structure the simulation as an ECS (Entity Component System)
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented. Replaces the `sim/` internals from [decision 002](002-sim-render-split.md). The layer split from 002 (sim / env / render / replay / agents) still holds.
+**Date:** 2026-09-25. **Status:** Implemented (step 2). Replaces the `sim/` internals from [decision 002](002-sim-render-split.md). The layer split from 002 (sim / env / render / replay / agents) still holds.
 
 ## Context
 

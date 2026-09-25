@@ -18,7 +18,7 @@
 ## Determinism (must keep)
 
 - The physics uses a **fixed timestep**. Per-frame speeds are `base_speed / fps`, and real elapsed time is not used.
-- `DisplayState.tick_elapsed` is computed but unused. Don't wire it into the physics.
+- Never feed real elapsed time (for example `clock.tick()` results) into the physics. The clock belongs to `Renderer` only.
 - Any future randomness (spawn position, maze layout) must be seeded.
 - Replay depends on all of this: see [decision 003](decisions/003-replay-over-multi-window.md).
 
