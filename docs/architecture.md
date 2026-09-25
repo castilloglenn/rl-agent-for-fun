@@ -26,11 +26,11 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 
 | File | Contents |
 |---|---|
-| `components.py` | `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `PreviousPose`, `Eliminated` (car is out of the round), `Renderable` |
-| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `Field` (drivable area), `SimClock` (steps simulated), `RoundState` (countdown, over, reason), and `EventLog` (crashes, round end) |
-| `systems/` | `pose_history_system`, `steering_system`, `movement_system`, `sensor_system`, `clock_system`, then `round_system` (countdown, ends the round on time up or when every car is out). The order is fixed by `SIMULATION_SYSTEMS` |
+| `components.py` | Cars: `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `PreviousPose`, `Score`, `Eliminated`, `Renderable`. Triggers: `Trigger` (circle), effects `ScoreReward` and `Respawn`, and the `Checkpoint` tag |
+| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `GameRules` (rewards, checkpoint spawning), `Rng` (the only randomness, seeded), `Field`, `SimClock`, `RoundState`, and `EventLog` |
+| `systems/` | `pose_history_system`, `steering_system`, `movement_system`, `reward_system` (+1 per 10 px forward), `trigger_system` (car touches trigger: apply effects), `sensor_system`, `clock_system`, then `round_system`. The order is fixed by `SIMULATION_SYSTEMS` |
 | `elimination.py` | `eliminate(world, car, reason)`: the single way a car leaves a round (walls now, hazards and weapons later). Marks it `Eliminated`, stops it, logs the event |
-| `factories.py` | `create_world(config)`, `create_car(...)`, `create_start_car(world)` |
+| `factories.py` | `create_game(config, label, seed)` (world + start car + checkpoint: used by the env and tests), `create_world`, `create_car`, `create_start_car`, `create_checkpoint` |
 | `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
 
 **The car's position is its float center** (`Transform.x`, `Transform.y`), and `Hitbox` holds its size. The hitbox is the car's 4 real corners. The field border is the only obstacle so far: cars stop exactly on contact (`movement_system`), turns into it are cancelled (`steering_system`), and it stops rays (`sensor_system`).
@@ -45,7 +45,8 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step_world(action)` writes the car's `ActionInput` and calls `world.step()` (one simulation step, no drawing). It returns `(reward, game_over, score)`.
 - `game_step(action)` is `step_world` plus one drawn frame if `config.show_gui` is on. That's the agent-facing API.
 - `render(alpha)` handles window events and draws one frame, interpolated by `alpha`. It returns the real seconds since the previous frame.
-- `get_state()` returns `None` and the reward is always 0 (roadmap steps 3g and 3h). `game_over` is true once the round (the whole game, with 1 round) is over, and `step_world` then does nothing.
+- `get_state()` returns `None` (roadmap step 3h). The reward is the car's points this step (`Score.last_step`), and `score` is its total. `game_over` is true once the round (the whole game, with 1 round) is over, and `step_world` then does nothing.
+- `reset(seed)`: a new game. With `random_seeds=True` (the demo), each reset picks a fresh seed.
 - `reset()` also runs when the player presses R in the window.
 
 An action is `(turn_left, turn_right, gas, reverse, brake)`.

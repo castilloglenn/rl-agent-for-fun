@@ -11,6 +11,7 @@ from src.sim.components import (
     ActionInput,
     Eliminated,
     Motion,
+    Score,
     Sensors,
     Transform,
 )
@@ -59,6 +60,7 @@ def _snapshot(world: World, car: int) -> dict:
         "pedal": motion.pedal,
         "steering": motion.steering,
         "eliminated": eliminated.reason if eliminated else None,
+        "score": world.component(car, Score).total,
         # Start and end points follow from the pose and distance
         # (tests/test_sensors.py checks them), so only distances are kept.
         "rays": {
@@ -70,10 +72,9 @@ def _snapshot(world: World, car: int) -> dict:
 
 def run_world(actions: list[Action]) -> list[dict]:
     """Returns the car snapshot after creation, then after every step."""
-    from src.sim.factories import create_start_car, create_world
+    from src.sim.factories import create_game
 
-    world = create_world(get_maze_car_config())
-    car = create_start_car(world)
+    world, car = create_game(get_maze_car_config())
 
     snapshots = [_snapshot(world, car)]
     for action in actions:

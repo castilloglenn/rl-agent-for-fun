@@ -6,12 +6,14 @@ from src.ecs import World
 from src.render import panels, theme, warnings
 from src.render.layout import Layout
 from src.sim.components import (
+    Checkpoint,
     Hitbox,
     Motion,
     PreviousPose,
     Renderable,
     Sensors,
     Transform,
+    Trigger,
 )
 from src.sim.geometry import car_corners
 from src.sim.resources import EventLog, Field, RoundState, SimConfig
@@ -128,6 +130,7 @@ class Renderer:
         return self.clock.tick(self.frame_rate) / 1000
 
     def _draw_field(self, world: World, alpha: float) -> None:
+        self._checkpoints = world.query(Transform, Checkpoint)
         field_rect = world.resource(Field).rect.move(self.offset)
         # pygame draws a 1 px outline inside the rect's right and bottom
         # edges. One extra pixel puts the line exactly on the physics
@@ -136,6 +139,16 @@ class Renderer:
             field_rect.x, field_rect.y, field_rect.w + 1, field_rect.h + 1
         )
         pygame.draw.rect(self.display, theme.FIELD_BORDER, border, 1)
+        for _, (spot, trigger, _) in world.query(
+            Transform, Trigger, Checkpoint
+        ):
+            pygame.draw.circle(
+                self.display,
+                theme.CHECKPOINT,
+                (spot.x + self.offset[0], spot.y + self.offset[1]),
+                trigger.radius,
+                width=2,
+            )
         sim = world.resource(SimConfig)
         for _, (transform, motion, hitbox, sensors, renderable, previous) in (
             world.query(
@@ -231,6 +244,15 @@ class Renderer:
         )
         rotated = pygame.transform.rotate(surface, angle)
         screen_center = (center_x + self.offset[0], center_y + self.offset[1])
+        if self.show_lines:
+            # Guide to the checkpoint, under the car.
+            for _, (spot, _) in self._checkpoints:
+                pygame.draw.line(
+                    self.display,
+                    theme.GUIDE,
+                    screen_center,
+                    (spot.x + self.offset[0], spot.y + self.offset[1]),
+                )
         self.display.blit(rotated, rotated.get_rect(center=screen_center))
 
         if not self.show_lines:

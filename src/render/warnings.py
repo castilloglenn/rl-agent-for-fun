@@ -9,10 +9,20 @@ from ml_collections import ConfigDict
 from src.render import theme
 from src.utils.types import ColorValue
 
-NORMAL, CAUTION, DANGER = 0, 1, 2
+NORMAL, CAUTION, DANGER, GOOD = 0, 1, 2, 3
 
-LABEL_COLORS = {NORMAL: theme.TEXT_DIM, CAUTION: theme.WARN, DANGER: theme.BAD}
-VALUE_COLORS = {NORMAL: theme.TEXT, CAUTION: theme.WARN, DANGER: theme.BAD}
+LABEL_COLORS = {
+    NORMAL: theme.TEXT_DIM,
+    CAUTION: theme.WARN,
+    DANGER: theme.BAD,
+    GOOD: theme.GOOD,
+}
+VALUE_COLORS = {
+    NORMAL: theme.TEXT,
+    CAUTION: theme.WARN,
+    DANGER: theme.BAD,
+    GOOD: theme.GOOD,
+}
 
 
 def label_color(level: int) -> ColorValue:
@@ -110,3 +120,8 @@ def time_level(seconds_left: float, hud: ConfigDict) -> int:
     if seconds_left < hud.time_caution:
         return CAUTION
     return NORMAL
+
+
+def checkpoint_level(distance: float, hud: ConfigDict) -> int:
+    """Green when the checkpoint is close."""
+    return GOOD if distance < hud.checkpoint_near else NORMAL

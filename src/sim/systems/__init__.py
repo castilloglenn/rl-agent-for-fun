@@ -1,15 +1,19 @@
 from src.sim.systems.clock import clock_system
 from src.sim.systems.movement import movement_system
 from src.sim.systems.pose_history import pose_history_system
+from src.sim.systems.rewards import reward_system
 from src.sim.systems.round import round_system
 from src.sim.systems.sensors import sensor_system
 from src.sim.systems.steering import steering_system
+from src.sim.systems.triggers import trigger_system
 
 # Run order per step. See docs/decisions/005-entity-component-system.md.
 SIMULATION_SYSTEMS = (
     pose_history_system,
     steering_system,
     movement_system,
+    reward_system,
+    trigger_system,
     sensor_system,
     clock_system,
     round_system,
@@ -20,7 +24,9 @@ __all__ = [
     "clock_system",
     "movement_system",
     "pose_history_system",
+    "reward_system",
     "round_system",
     "sensor_system",
     "steering_system",
+    "trigger_system",
 ]

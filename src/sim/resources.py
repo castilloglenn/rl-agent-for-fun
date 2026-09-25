@@ -1,5 +1,6 @@
 """Per-world shared data. Replaces the pre-ECS singletons and FLAGS reads."""
 
+import random
 from dataclasses import dataclass, field
 
 from ml_collections import ConfigDict
@@ -105,6 +106,36 @@ class EventLog:
 
     def of_kind(self, kind: str) -> list[Event]:
         return [event for event in self.events if event.kind == kind]
+
+
+@dataclass
+class Rng:
+    """The world's only source of randomness, seeded, so replays repeat."""
+
+    seed: int
+    random: random.Random = field(init=False)
+
+    def __post_init__(self):
+        self.random = random.Random(self.seed)
+
+
+@dataclass(frozen=True)
+class GameRules:
+    distance_step: float  # px driven forward per point
+    checkpoint_points: float
+    checkpoint_radius: float
+    checkpoint_min_car_distance: float
+    checkpoint_border_margin: float
+
+    @staticmethod
+    def from_config(config: ConfigDict) -> "GameRules":
+        return GameRules(
+            distance_step=config.rewards.distance_step,
+            checkpoint_points=config.rewards.checkpoint,
+            checkpoint_radius=config.checkpoint.radius,
+            checkpoint_min_car_distance=config.checkpoint.min_car_distance,
+            checkpoint_border_margin=config.checkpoint.border_margin,
+        )
 
 
 @dataclass

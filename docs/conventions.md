@@ -24,7 +24,7 @@
 
 - The physics uses a **fixed timestep**: `sim.steps_per_second` (120), independent of the display. Config speeds and accelerations (px/s, px/s²) are converted to per-step units by dividing by the step rate (and its square for accelerations).
 - Real elapsed time only decides **how many** steps the demo runs per frame (`FixedStepClock`), never **what** a step does. Never feed it into a system.
-- Any future randomness (spawn position, maze layout) must be seeded.
+- All randomness goes through the world's `Rng` resource (seeded by `game.seed` or `reset(seed)`). Never use the global `random` module inside a system.
 - Replay depends on all of this: see [decision 003](decisions/003-replay-over-multi-window.md).
 
 ## Code style

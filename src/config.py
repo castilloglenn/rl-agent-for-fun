@@ -45,6 +45,16 @@ def get_maze_car_config() -> ConfigDict:
     config.round.seconds = 60
     config.game = ConfigDict()
     config.game.rounds = 1
+    config.game.seed = 0  # checkpoint spawns; the demo picks a new one per R
+
+    config.rewards = ConfigDict()
+    config.rewards.distance_step = 10.0  # px driven forward per +1 point
+    config.rewards.checkpoint = 100
+
+    config.checkpoint = ConfigDict()
+    config.checkpoint.radius = 15.0
+    config.checkpoint.min_car_distance = 100.0  # px from the car's center
+    config.checkpoint.border_margin = 40.0  # px from the field border
 
     # HUD warning colors (amber = caution, red = danger).
     config.hud = ConfigDict()
@@ -57,6 +67,7 @@ def get_maze_car_config() -> ConfigDict:
     config.hud.fps_danger = 0.5  # red below this share of the target
     config.hud.time_caution = 10.0  # seconds left: amber
     config.hud.time_danger = 5.0  # seconds left: red
+    config.hud.checkpoint_near = 80.0  # px: checkpoint distance turns green
 
     config.car = ConfigDict()
     config.car.width = 24

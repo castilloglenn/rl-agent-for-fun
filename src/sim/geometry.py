@@ -100,3 +100,28 @@ def distance_to_bounds(
     elif dy < -1e-12:
         distance = min(distance, (bounds.top - y) / dy)
     return max(distance, 0.0)
+
+
+def circle_touches_car(
+    circle_x: float,
+    circle_y: float,
+    radius: float,
+    x: float,
+    y: float,
+    angle: float,
+    width: float,
+    height: float,
+) -> bool:
+    """True when a circle overlaps a car's rotated hitbox (edges count).
+
+    The circle's center is moved into the car's own frame, where the
+    hitbox is an axis-aligned box, then clamped to that box.
+    """
+    forward_x, forward_y = direction(angle)
+    left_x, left_y = direction(angle + 90)
+    rel_x, rel_y = circle_x - x, circle_y - y
+    along = rel_x * forward_x + rel_y * forward_y
+    side = rel_x * left_x + rel_y * left_y
+    nearest_along = max(-width / 2, min(along, width / 2))
+    nearest_side = max(-height / 2, min(side, height / 2))
+    return math.hypot(along - nearest_along, side - nearest_side) <= radius

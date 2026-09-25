@@ -27,6 +27,8 @@ The HUD shows the remaining time.
 
 ### Rewards
 
+**Implemented in step 3g.** The env returns each step's points as the reward, and the HUD shows score, distance points, checkpoint points, and the last step.
+
 | Event | Reward |
 |---|---|
 | Driving forward | **+1 per 10 px** driven. The distance accumulates across frames, so slow driving still earns |
@@ -35,6 +37,8 @@ The HUD shows the remaining time.
 | Crash | Ends the round, so all future reward is lost |
 
 ### Checkpoints
+
+**Implemented in step 3g**, as generic triggers (see Hazards below): a `Trigger` circle plus `ScoreReward` and `Respawn` effects. The demo picks a fresh seed each round, shown in the bottom bar; agents and tests use `game.seed`.
 
 - One on the field at a time. Collecting it spawns the next one.
 - Random position from a **seeded** random number generator, so replays reproduce it.

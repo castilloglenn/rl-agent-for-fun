@@ -7,6 +7,7 @@ Sections for features that don't exist yet (round, score, checkpoints,
 rewards, agent) show a dash. Their roadmap steps fill them in.
 """
 
+import math
 from dataclasses import dataclass
 
 from ml_collections import ConfigDict
@@ -18,14 +19,22 @@ from src.ecs import World
 from src.render import theme, warnings
 from src.sim.components import (
     ActionInput,
+    Checkpoint,
     Eliminated,
     Motion,
     Ray,
     Renderable,
+    Score,
     Sensors,
     Transform,
 )
-from src.sim.resources import EventLog, RoundState, SimClock, SimConfig
+from src.sim.resources import (
+    EventLog,
+    Rng,
+    RoundState,
+    SimClock,
+    SimConfig,
+)
 from src.utils.ui import draw_text
 
 DASH = "—"
@@ -43,6 +52,7 @@ class CarInfo:
     action: ActionInput
     rays: list[Ray]
     eliminated: bool
+    score: Score
 
 
 def car_infos(world: World) -> list[CarInfo]:
@@ -58,11 +68,43 @@ def car_infos(world: World) -> list[CarInfo]:
             action=action,
             rays=sensors.rays,
             eliminated=world.try_component(car, Eliminated) is not None,
+            score=score,
         )
-        for car, (renderable, motion, transform, action, sensors) in (
-            world.query(Renderable, Motion, Transform, ActionInput, Sensors)
+        for car, (renderable, motion, transform, action, sensors, score) in (
+            world.query(
+                Renderable, Motion, Transform, ActionInput, Sensors, Score
+            )
         )
     ]
+
+
+DIRECTIONS = (
+    "ahead",
+    "ahead-left",
+    "left",
+    "behind-left",
+    "behind",
+    "behind-right",
+    "right",
+    "ahead-right",
+)
+
+
+def nearest_checkpoint(
+    world: World, car: CarInfo
+) -> tuple[float, str] | None:
+    """Distance (center to center) and direction, relative to the car's
+    heading, of the nearest checkpoint.
+    """
+    spots = [spot for _, (spot, _) in world.query(Transform, Checkpoint)]
+    if not spots:
+        return None
+    x, y = car.center
+    spot = min(spots, key=lambda s: math.dist((s.x, s.y), (x, y)))
+    bearing = math.degrees(math.atan2(-(spot.y - y), spot.x - x))
+    relative = (bearing - car.heading) % 360
+    direction = DIRECTIONS[int((relative + 22.5) // 45) % 8]
+    return math.dist((spot.x, spot.y), (x, y)), direction
 
 
 def format_time(seconds: float) -> str:
@@ -97,7 +139,7 @@ def draw_top_bar(
     items = (
         ("ROUND", f"{state.number}/{state.total}", warnings.NORMAL),
         ("TIME", format_time(time_left), warnings.time_level(time_left, hud)),
-        ("SCORE", DASH, warnings.NORMAL),
+        ("SCORE", f"{car.score.total:,.0f}" if car else DASH, warnings.NORMAL),
     )
     for label, value, level in items:
         label_rect = draw_text(
@@ -241,13 +283,24 @@ def draw_side_panel(
     column.gap()
 
     column.header("OBJECTIVE")
-    column.row("Checkpoint", DASH)
-    column.row("Collected", DASH)
+    checkpoint = nearest_checkpoint(world, car) if car else None
+    if checkpoint:
+        distance, direction = checkpoint
+        column.row(
+            "Checkpoint",
+            f"{distance:,.0f} px {direction}",
+            warnings.checkpoint_level(distance, hud),
+        )
+    else:
+        column.row("Checkpoint", DASH)
+    column.row("Collected", str(car.score.checkpoints) if car else DASH)
     column.gap()
 
     column.header("REWARD")
-    column.row("Distance", DASH)
-    column.row("Checkpoints", DASH)
+    if car:
+        column.row("Distance", f"+{car.score.distance_points:,.0f}")
+        column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
+        column.row("Last step", f"+{car.score.last_step:g}")
     column.gap()
 
     column.header("AGENT VIEW")
@@ -255,8 +308,9 @@ def draw_side_panel(
     column.gap()
 
     column.header("LEADERBOARD")
-    for rank, info in enumerate(cars, start=1):
-        column.row(f"{rank}  {info.label}", DASH)
+    ranked = sorted(cars, key=lambda info: -info.score.total)
+    for rank, info in enumerate(ranked, start=1):
+        column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
 
 
 # Mirrored columns: the car's left side on the left, right side on the right.
@@ -380,6 +434,7 @@ def draw_bottom_bar(
         (f"FPS {fps:.0f}/{frame_rate}{sync}", warnings.label_color(fps_level)),
         (f"SIM {sim_rate}/s", theme.TEXT_DIM),
         (f"Step {step:,}", theme.TEXT_DIM),
+        (f"Seed {world.resource(Rng).seed}", theme.TEXT_DIM),
     )
     x = rect.right - PADDING
     for text, color in parts:
@@ -398,7 +453,12 @@ def _draw_events(surface: Surface, rect: Rect, world: World) -> None:
         event = events[-1]
         sps = world.resource(SimConfig).steps_per_second
         text = f"{format_time(event.step / sps)}  {event.text}"
-        color = theme.BAD if event.danger else theme.TEXT
+        if event.danger:
+            color = theme.BAD
+        elif event.kind == "checkpoint":
+            color = theme.GOOD
+        else:
+            color = theme.TEXT
     draw_text(
         surface,
         text,

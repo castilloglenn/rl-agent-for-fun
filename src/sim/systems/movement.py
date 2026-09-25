@@ -25,7 +25,9 @@ def movement_system(world: World) -> None:
         delta_x, delta_y = get_angular_movement_deltas(
             angle=transform.angle, speed=motion.speed
         )
-        if not _move(delta_x, delta_y, transform, hitbox, field):
+        fraction = _move(delta_x, delta_y, transform, hitbox, field)
+        motion.moved = motion.speed * fraction
+        if fraction < 1.0:
             eliminate(world, car, "wall")
 
 
@@ -67,9 +69,10 @@ def _move(
     transform: Transform,
     hitbox: Hitbox,
     field: Field,
-) -> bool:
+) -> float:
     """Moves as far as possible until a corner touches the border.
-    Returns False when it touched (a crash).
+    Returns the fraction of the move made: below 1 means it touched (a
+    crash).
     """
     corners = car_corners(
         transform.x, transform.y, transform.angle, hitbox.width, hitbox.height
@@ -78,4 +81,4 @@ def _move(
     transform.x += dx * fraction
     transform.y += dy * fraction
 
-    return fraction >= 1.0
+    return fraction

@@ -1,3 +1,4 @@
+import random
 from typing import Optional
 
 from ml_collections import ConfigDict
@@ -5,7 +6,8 @@ from ml_collections import ConfigDict
 from src.envs.base import Environment
 from src.render.renderer import Command, Renderer
 from src.sim.components import ActionInput
-from src.sim.factories import create_start_car, create_world
+from src.sim.components import Score as CarScore
+from src.sim.factories import create_game
 from src.sim.resources import RoundState
 from src.utils.types import GameOver, Reward, Score
 
@@ -13,19 +15,34 @@ from src.utils.types import GameOver, Reward, Score
 class MazeCarEnv(Environment):
     """Wraps a simulation World. Renders it when config.show_gui is on."""
 
-    def __init__(self, config: ConfigDict, driver: str = "Agent") -> None:
+    def __init__(
+        self,
+        config: ConfigDict,
+        driver: str = "Agent",
+        random_seeds: bool = False,
+    ) -> None:
+        """random_seeds: pick a fresh seed on every reset (the demo), rather
+        than `game.seed` (agents and tests, for repeatable rounds).
+        """
         self.config = config
         self.driver = driver  # shown in the HUD
+        self.random_seeds = random_seeds
         self.renderer: Renderer | None = (
             Renderer(config) if config.show_gui else None
         )
         self.reset()
 
-    def reset(self) -> None:
-        self.world = create_world(self.config)
-        self.car = create_start_car(self.world, label=self.driver)
-        self.score: int | float = 0
+    def reset(self, seed: int | None = None) -> None:
+        if seed is None and self.random_seeds:
+            seed = random.SystemRandom().randrange(1_000_000)
+        self.world, self.car = create_game(
+            self.config, label=self.driver, seed=seed
+        )
         self.running: bool = True
+
+    @property
+    def score(self) -> float:
+        return self.world.component(self.car, CarScore).total
 
     @property
     def is_game_over(self) -> bool:
@@ -58,7 +75,7 @@ class MazeCarEnv(Environment):
         self.world.add_component(self.car, action_input)
         self.world.step()
 
-        reward: int | float = self._calculate_reward()
+        reward = self.world.component(self.car, CarScore).last_step
         return (reward, self.is_game_over, self.score)
 
     def render(self, alpha: float = 1.0) -> float:
@@ -72,6 +89,3 @@ class MazeCarEnv(Environment):
             self.reset()
         self.renderer.draw(self.world, alpha)
         return self.renderer.present()
-
-    def _calculate_reward(self) -> int | float:
-        return 0

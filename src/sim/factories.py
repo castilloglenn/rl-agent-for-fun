@@ -4,30 +4,55 @@ from src.ecs import World
 from src.sim.components import (
     ActionInput,
     CarSpec,
+    Checkpoint,
     Hitbox,
     Motion,
     PreviousPose,
     Ray,
     Renderable,
+    Respawn,
+    Score,
+    ScoreReward,
     Sensors,
     Transform,
+    Trigger,
 )
 from src.sim.geometry import body_edge_distance
 from src.sim.resources import (
     EventLog,
     Field,
+    GameRules,
+    Rng,
     RoundState,
     SimClock,
     SimConfig,
 )
 from src.sim.systems import SIMULATION_SYSTEMS
 from src.sim.systems.sensors import RAY_LAYOUT, cast_rays
+from src.sim.systems.triggers import random_spot
 from src.utils.types import Colors, ColorValue
 
 
-def create_world(config: ConfigDict) -> World:
+def create_game(
+    config: ConfigDict, label: str = "Car 1", seed: int | None = None
+) -> tuple[World, int]:
+    """The first-goal game: one car in the box map, plus a checkpoint.
+    Returns the world and the car.
+    """
+    world = create_world(config, seed)
+    car = create_start_car(world, label=label)
+    create_checkpoint(world)
+    return world, car
+
+
+def create_world(config: ConfigDict, seed: int | None = None) -> World:
+    """seed: for everything random (checkpoint spawns). Defaults to
+    `game.seed`.
+    """
     world = World()
     world.add_resource(SimConfig.from_config(config))
+    world.add_resource(GameRules.from_config(config))
+    world.add_resource(Rng(config.game.seed if seed is None else seed))
     world.add_resource(Field.from_config(config))
     world.add_resource(SimClock())
     world.add_resource(
@@ -75,6 +100,7 @@ def create_car(
         Hitbox(width=width, height=height),
         sensors,
         PreviousPose(x, y, angle),
+        Score(),
         Renderable(color=color, label=label),
     )
 
@@ -97,6 +123,21 @@ def create_start_car(
         height=config.car_height,
         color=color,
         label=label,
+    )
+
+
+def create_checkpoint(world: World) -> int:
+    """A checkpoint at a seeded random spot, away from every car."""
+    rules = world.resource(GameRules)
+    cars = world.query(Transform, Hitbox)
+    avoid = (cars[0][1][0].x, cars[0][1][0].y) if cars else (-1e9, -1e9)
+    x, y = random_spot(world, avoid=avoid)
+    return world.create_entity(
+        Transform(x=x, y=y),
+        Trigger(radius=rules.checkpoint_radius),
+        ScoreReward(points=rules.checkpoint_points, label="checkpoint"),
+        Respawn(),
+        Checkpoint(),
     )
 
 

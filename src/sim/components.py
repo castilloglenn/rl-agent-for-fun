@@ -40,6 +40,7 @@ class Motion:
     speed: float = 0.0  # px per step along the heading; negative = reversing
     pedal: str = Pedal.IDLE  # what the car did this step, for HUD and logs
     steering: float = 0.0  # wheel position: -1 full right .. +1 full left
+    moved: float = 0.0  # px actually moved along the heading this step
 
 
 @dataclass(frozen=True)
@@ -94,6 +95,45 @@ class Ray:
 @dataclass
 class Sensors:
     rays: list[Ray]
+
+
+@dataclass
+class Score:
+    """A car's points in the current game (kept across rounds)."""
+
+    total: float = 0.0
+    distance_points: float = 0.0
+    checkpoint_points: float = 0.0
+    checkpoints: int = 0
+    last_step: float = 0.0  # points earned in the latest step
+    distance_carry: float = 0.0  # px driven toward the next distance point
+
+
+@dataclass
+class Trigger:
+    """A circular zone that fires when a car's hitbox touches it.
+    Its effects are the other components on the same entity.
+    """
+
+    radius: float
+
+
+@dataclass
+class ScoreReward:
+    """Trigger effect: the car that touches it gains points."""
+
+    points: float
+    label: str  # e.g. "checkpoint", for the event log
+
+
+@dataclass
+class Respawn:
+    """Trigger effect: after firing, move to a new random spot."""
+
+
+@dataclass
+class Checkpoint:
+    """Tag for checkpoint entities (HUD, observation)."""
 
 
 @dataclass

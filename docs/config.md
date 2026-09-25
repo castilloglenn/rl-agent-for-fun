@@ -18,6 +18,13 @@
 | `hud.near_caution` | 40.0 px | Proximity: any ray this close turns amber (about 1.7 car lengths) |
 | `hud.near_danger` | 15.0 px | Proximity: any ray this close turns red |
 | `hud.time_caution`, `hud.time_danger` | 10.0, 5.0 s | TIME turns amber / red below these seconds left |
+| `game.seed` | 0 | Seed for checkpoint spawns (agents and tests). The demo picks a fresh one per round |
+| `rewards.distance_step` | 10.0 px | Driven forward per +1 point |
+| `rewards.checkpoint` | 100 | Points per checkpoint |
+| `checkpoint.radius` | 15.0 px | Trigger circle |
+| `checkpoint.min_car_distance` | 100.0 px | Spawns at least this far from the car's center |
+| `checkpoint.border_margin` | 40.0 px | Spawns at least this far inside the field border |
+| `hud.checkpoint_near` | 80.0 px | Checkpoint distance turns green below this |
 | `round.seconds` | 60 | Round length. In steps: seconds × `sim.steps_per_second` (7,200) |
 | `game.rounds` | 1 | Rounds per game. The game is over when the last round ends |
 | `hud.fps_caution`, `hud.fps_danger` | 0.9, 0.5 | FPS turns amber / red below this share of the target frame rate |
