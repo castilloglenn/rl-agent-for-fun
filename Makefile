@@ -9,3 +9,7 @@ test:
 maze_car:
 	clear
 	python app.py -demo maze_car
+
+replay:
+	clear
+	python app.py -replay $(FILE)

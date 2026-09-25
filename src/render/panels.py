@@ -36,10 +36,24 @@ from src.sim.resources import (
     SimConfig,
 )
 from src.sim.stage import Stage
+from src.utils.types import ColorValue
 from src.utils.ui import draw_text
 
 DASH = "—"
 PADDING = 14
+
+
+@dataclass(frozen=True)
+class ModeInfo:
+    """A window mode other than live play (for example a replay): a label
+    for the top bar, the bottom bar's key hints, and messages for the
+    field. The renderer shows it without knowing what the mode is.
+    """
+
+    label: str
+    label_color: ColorValue
+    hints: str
+    messages: tuple[tuple[str, ColorValue], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -141,6 +155,7 @@ def draw_top_bar(
     car: CarInfo | None,
     hud: ConfigDict,
     reward: RewardStatus | None = None,
+    mode: ModeInfo | None = None,
 ) -> None:
     _box(surface, rect)
     x = rect.x + PADDING
@@ -175,7 +190,19 @@ def draw_top_bar(
             status, color = "REVERSING", theme.GOOD
         else:
             status, color = "STOPPED", theme.WARN
-        draw_text(surface, status, (x, y + 2), theme.TEXT_SIZE, color, True)
+        status_rect = draw_text(
+            surface, status, (x, y + 2), theme.TEXT_SIZE, color, True
+        )
+        x = status_rect.right + 28
+    if mode:
+        draw_text(
+            surface,
+            mode.label,
+            (x, y + 2),
+            theme.TEXT_SIZE,
+            mode.label_color,
+            bold=True,
+        )
 
     y += 26
     x = rect.x + PADDING
@@ -459,6 +486,7 @@ def draw_bottom_bar(
     frame_rate: int,
     vsync: bool,
     hud: ConfigDict,
+    hints: str = "R: restart  H: lines",
 ) -> None:
     _box(surface, rect)
     y = rect.centery
@@ -469,7 +497,7 @@ def draw_bottom_bar(
     fps_level = warnings.fps_level(fps, frame_rate, hud)
     # Drawn right to left, so only the FPS part can change color.
     parts = (
-        ("R: restart  H: lines", theme.TEXT_DIM),
+        (hints, theme.TEXT_DIM),
         (f"FPS {fps:.0f}/{frame_rate}{sync}", warnings.label_color(fps_level)),
         (f"SIM {sim_rate}/s", theme.TEXT_DIM),
         (f"Step {step:,}", theme.TEXT_DIM),

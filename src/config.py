@@ -3,6 +3,7 @@ from ml_collections import ConfigDict
 
 flags.DEFINE_boolean("tests", False, "Run unit tests.")
 flags.DEFINE_string("demo", "", "Run games with human inputs.")
+flags.DEFINE_string("replay", "", "Play a replay file in the window.")
 
 
 # Every top-level maze_car key is one of these (tests/test_config.py checks).
@@ -36,11 +37,12 @@ def game_config(config: ConfigDict) -> dict:
     return {key: data[key] for key in GAME_KEYS}
 
 
-def config_with_game(game: dict) -> ConfigDict:
-    """The default config, with a saved game-defining part applied on top
-    (for example from a replay). Presentation keys keep their defaults.
+def config_with_game(game: dict, base: ConfigDict | None = None) -> ConfigDict:
+    """A saved game-defining part (for example from a replay) applied on
+    top of `base` (default: the defaults). Presentation keys stay base's,
+    so a replay viewer keeps your HUD settings.
     """
-    config = get_maze_car_config()
+    config = (base or get_maze_car_config()).copy_and_resolve_references()
     config.update(game)
     return config
 

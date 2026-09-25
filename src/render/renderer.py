@@ -83,10 +83,13 @@ class Renderer:
     def poll_events(self) -> set[str]:
         """Handles window events. Returns the commands asked for."""
         commands = set()
+        # Keys pressed this frame, for modes with their own controls.
+        self.keys_pressed: list[int] = []
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 commands.add(Command.QUIT)
             elif event.type == pygame.KEYDOWN:
+                self.keys_pressed.append(event.key)
                 if event.key == pygame.K_ESCAPE:
                     commands.add(Command.QUIT)
                 elif event.key == pygame.K_r:
@@ -105,10 +108,12 @@ class Renderer:
         world: World,
         alpha: float = 1.0,
         reward: panels.RewardStatus | None = None,
+        mode: panels.ModeInfo | None = None,
     ) -> None:
         """alpha: how far between the previous and current step to draw
         the cars (1.0 = exactly the current step). reward: the agent
         reward to show (it comes from the env, not the simulation).
+        mode: a window mode other than live play, such as a replay.
         """
         self.display.fill(theme.BACKGROUND)
         self._draw_field(world, alpha)
@@ -120,6 +125,7 @@ class Renderer:
             cars[0] if cars else None,
             self.config.hud,
             reward,
+            mode,
         )
         panels.draw_side_panel(
             self.display,
@@ -137,8 +143,9 @@ class Renderer:
             self.frame_rate,
             self.vsync,
             self.config.hud,
+            **({"hints": mode.hints} if mode else {}),
         )
-        self._draw_round_over(world)
+        self._draw_round_over(world, mode)
 
     def present(self) -> float:
         """Shows the frame. Returns the real seconds since the last one."""
@@ -187,15 +194,22 @@ class Renderer:
                 ray_levels,
             )
 
-    def _draw_round_over(self, world: World) -> None:
+    def _draw_round_over(
+        self, world: World, mode: panels.ModeInfo | None = None
+    ) -> None:
         state = world.resource(RoundState)
+        messages = [
+            (text, theme.TEXT_SIZE, color, False)
+            for text, color in (mode.messages if mode else ())
+        ]
         if not state.over:
+            if messages:
+                self._draw_centered_lines(messages)
             return
         reason = {
             "time": "Time up",
             "all_out": "Every car is out",
         }.get(state.reason, "")
-        center_x, center_y = self.layout.field_view.center
         sps = world.resource(SimConfig).steps_per_second
         eliminations = [
             (
@@ -210,8 +224,13 @@ class Renderer:
             ("ROUND OVER", theme.BIG_SIZE, theme.BAD, True),
             (reason, theme.TEXT_SIZE, theme.TEXT, False),
             *eliminations,
+            *messages,
             ("Press R to restart", theme.TEXT_SIZE, theme.TEXT_DIM, False),
         ]
+        self._draw_centered_lines(lines)
+
+    def _draw_centered_lines(self, lines: list[tuple]) -> None:
+        center_x, center_y = self.layout.field_view.center
         y = center_y - 13 * len(lines)
         for text, size, color, bold in lines:
             draw_text(

@@ -70,8 +70,10 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 |---|---|
 | `format.py` | `Replay` (header, action changes, end), `write_replay` / `read_replay` (`.jsonl`, or `.jsonl.gz` gzipped), and `to_current_actions` (reads actions by name) |
 | `recorder.py` | `ReplayRecorder(drivers)`: plug into `MazeCarEnv(..., recorder=...)`. The env calls `on_reset` (header), `on_step` (stores only action changes), and `on_finish` (end line). Driver records: `human_driver(player)`, `agent_driver(id, checkpoint)` |
+| `viewer.py` | `ReplayViewer`: replay mode in a window (`app.py -replay <file>`). Verifies the replay headless first, then plays it with `PlaybackControl` (SPACE pause, 1-4 for 0.5×/1×/2×/4×, N one step while paused, R restart). Shows its state through a `ModeInfo` |
 | `replayer.py` | `Replayer(replay)`: rebuilds the game from the file alone (embedded stage, seed, game-defining config via `config_with_game`, reward profile), re-simulates, and `verify()`s the end line (step, reason, score, reward). Code and observation version differences are reported as notes |
 
+- **Window modes:** `Renderer.draw(..., mode=ModeInfo(...))` shows a mode's label in the top bar (for example "REPLAY 2× · verified"), its key hints in the bottom bar, and its messages in the field. The renderer doesn't know what the mode is. `Renderer.keys_pressed` lists this frame's key presses for modes with their own controls.
 - `env.finish_recording()` ends a recording early (for example when the player quits). The replay then verifies up to that step.
 - Actions are coerced to plain bools, so agents may pass numpy booleans.
 - A full 60 s round is a few KB (about 1.4 KB, or 0.7 KB gzipped, for a short sample round).

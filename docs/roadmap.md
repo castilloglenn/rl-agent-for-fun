@@ -28,8 +28,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Done |
 | 4c | **Reward profiles:** agent rewards as weighted terms in `rewards/<name>.json`, separate from the game score ([decision 011](decisions/011-reward-profiles.md)) | Done |
 | 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record (with player), reward profile, code version | Done |
-| 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Next |
-| 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Planned |
+| 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Done |
+| 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Next |
 | 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward profile, game-defining config, and code version | Planned |
 | 4h | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
@@ -174,8 +174,8 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 #### 4e. Replay mode
 
 - `python app.py -replay <file>` opens a simulation window playing the recording.
-- Controls: pause, speed 0.5× / 1× / 2× / 4×, step one frame, restart. The HUD shows "REPLAY", and the top bar shows the replay's driver, stage, seed, and reward profile as usual.
-- An out-of-date replay (its end line doesn't match on re-simulation) is flagged in the window.
+- Controls: SPACE pause, 1 to 4 for speed 0.5× / 1× / 2× / 4×, N steps one frame while paused, R restart, H lines, Esc quit (`make replay FILE=<path>`). The HUD shows "REPLAY", and the top bar shows the replay's driver, stage, seed, and reward profile as usual.
+- The replay is **verified up front** (a quick headless re-simulation): the top bar shows "REPLAY 2× · verified" in green, or "OUT OF DATE" in red. At the end, the field lists the verification result and any mismatches.
 
 #### 4f. Baseline drivers
 

@@ -8,6 +8,8 @@ changed since recording: the replay is out of date, and says so.
 
 from dataclasses import dataclass, field
 
+from ml_collections import ConfigDict
+
 from src.config import config_with_game
 from src.envs.maze_car.env import MazeCarEnv
 from src.envs.maze_car.rewards import RewardProfile
@@ -34,10 +36,18 @@ def driver_label(driver: dict) -> str:
 
 
 class Replayer:
-    def __init__(self, replay: Replay, show_gui: bool = False) -> None:
+    def __init__(
+        self,
+        replay: Replay,
+        show_gui: bool = False,
+        base_config: ConfigDict | None = None,
+    ) -> None:
+        """base_config: presentation settings (HUD, display) to keep. The
+        game-defining part always comes from the replay.
+        """
         self.replay = replay
         header = replay.header
-        config = config_with_game(header["config"])
+        config = config_with_game(header["config"], base_config)
         config.show_gui = show_gui
         self.env = MazeCarEnv(
             config,
@@ -54,6 +64,11 @@ class Replayer:
         else:
             self.total_steps = 0
         self._actions = replay.actions_by_step(self.total_steps)
+        self.step_index = 0
+
+    def restart(self) -> None:
+        """Back to the first step, with a fresh game."""
+        self.env.reset(seed=self.replay.header["seed"])
         self.step_index = 0
 
     @property

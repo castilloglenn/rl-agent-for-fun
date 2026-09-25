@@ -10,6 +10,10 @@ def run(_):
     cl_args = flags.FLAGS
     if cl_args.tests:
         print("TODO: Run unittests")
+    elif cl_args.replay:
+        from src.replay.viewer import ReplayViewer
+
+        ReplayViewer.open(cl_args.replay, cl_args.maze_car).run()
     elif game := cl_args.demo:
         match game:
             case "maze_car":

@@ -17,9 +17,10 @@ pip install -r requirements.txt
 
 | Command | Runs | Status |
 |---|---|---|
-| `make maze_car` | `python app.py -demo maze_car` | Works. Human-driven demo: WASD/arrows drive, Esc quits |
+| `make maze_car` | `python app.py -demo maze_car` | Works. Human-driven demo: WASD/arrows drive, SPACE brakes, R restarts, H toggles lines, Esc quits |
+| `make replay FILE=<path>` | `python app.py -replay <path>` | Works. Plays a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart, Esc quits |
 | `make run` | `python app.py` | Stub. `src/main.py` `Main` prints "Done." |
-| `make test` | `python -m pytest` | Works. Runs the behavior tests |
+| `make test` | `python -m pytest` | Works. Runs all tests |
 
 Every `make` target runs `clear` first.
 
