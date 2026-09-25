@@ -8,6 +8,7 @@ import pytest
 
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
+from src.sim.rules import load_rules
 from src.envs.maze_car.rewards import (
     PROFILES_DIR,
     TERMS,
@@ -25,8 +26,10 @@ NONE = (False,) * 5
 def _env(seconds: float = 60, **kwargs) -> MazeCarEnv:
     config = get_maze_car_config()
     config.show_gui = False
-    config.round.seconds = seconds
-    return MazeCarEnv(config, **kwargs)
+    rules = load_rules("standard")
+    if seconds != 60:
+        rules = rules.with_round_seconds(seconds)
+    return MazeCarEnv(config, rules=rules, **kwargs)
 
 
 def _profile(**terms) -> RewardProfile:

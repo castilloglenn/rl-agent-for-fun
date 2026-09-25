@@ -18,14 +18,20 @@ from src.replay.format import (
 from src.replay.recorder import ReplayRecorder, human_driver
 from src.replay.replayer import Replayer
 from src.sim.components import Score, Transform
+from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 
 
-def _config(seconds: float = 60):
+def _config():
     config = get_maze_car_config()
     config.show_gui = False
-    config.round.seconds = seconds
     return config
+
+
+def _rules(seconds: float = 60):
+    """Standard rules, with another round length when asked."""
+    standard = load_rules("standard")
+    return standard if seconds == 60 else standard.with_round_seconds(seconds)
 
 
 def _held_inputs(seed: int, steps: int):
@@ -47,7 +53,10 @@ def _held_inputs(seed: int, steps: int):
 def _record(seed=3, steps=2000, seconds=60, reward=None, finish=True):
     recorder = ReplayRecorder({"1": human_driver("zen")})
     env = MazeCarEnv(
-        _config(seconds), reward=reward or "default", recorder=recorder
+        _config(),
+        reward=reward or "default",
+        rules=_rules(seconds),
+        recorder=recorder,
     )
     env.reset(seed=seed)
     for action in _held_inputs(seed, steps):

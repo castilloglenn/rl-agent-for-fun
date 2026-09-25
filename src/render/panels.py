@@ -35,9 +35,10 @@ from src.sim.resources import (
     SimClock,
     SimConfig,
 )
+from src.sim.rules import Rules
 from src.sim.stage import Stage
 from src.utils.types import ColorValue
-from src.utils.ui import draw_text
+from src.utils.ui import draw_text, get_font
 
 DASH = "—"
 PADDING = 14
@@ -210,18 +211,33 @@ def draw_top_bar(
         ("DRIVER", car.label if car else DASH),
         *round_details(world, reward),
     ]
+    right_edge = rect.right - PADDING
+    label_font = get_font(theme.HEADER_SIZE)
+    min_value = get_font(theme.TEXT_SIZE).size("xx…")[0]
     for label, value in details:
+        if x + label_font.size(label)[0] + 6 + min_value > right_edge:
+            break  # no room for this label and a short value
         label_rect = draw_text(
             surface, label, (x, y + 1), theme.HEADER_SIZE, theme.TEXT_DIM
         )
+        value_x = label_rect.right + 6
+        value = _fit(value, right_edge - value_x, theme.TEXT_SIZE)
         value_rect = draw_text(
-            surface,
-            value,
-            (label_rect.right + 8, y),
-            theme.TEXT_SIZE,
-            theme.TEXT,
+            surface, value, (value_x, y), theme.TEXT_SIZE, theme.TEXT
         )
-        x = value_rect.right + 24
+        x = value_rect.right + 16
+        if x >= right_edge:
+            break
+
+
+def _fit(text: str, width: float, size: int) -> str:
+    """`text`, shortened with "…" to fit `width` pixels."""
+    font = get_font(size)
+    if font.size(text)[0] <= width:
+        return text
+    while text and font.size(text + "…")[0] > width:
+        text = text[:-1]
+    return text + "…" if text else ""
 
 
 def round_details(
@@ -231,7 +247,8 @@ def round_details(
     stage = world.resource(Stage)
     details = [
         ("STAGE", f"{stage.name} {stage.width:g}×{stage.height:g}"),
-        ("CHECKPOINTS", stage.checkpoints.mode),
+        ("RULES", world.resource(Rules).name),
+        ("SPAWNS", stage.checkpoints.mode),
         ("SEED", str(world.resource(Rng).seed)),
     ]
     if reward:

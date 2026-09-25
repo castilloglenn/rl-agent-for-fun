@@ -12,6 +12,7 @@ from src.sim.components import Checkpoint, Transform
 from src.sim.factories import create_game
 from src.sim.observation import OBSERVATION_NAMES, observe
 from src.sim.resources import Field
+from src.sim.rules import load_rules
 
 GAS = (False, False, True, False, False)
 
@@ -19,8 +20,10 @@ GAS = (False, False, True, False, False)
 def _env(seconds: float = 60) -> MazeCarEnv:
     config = get_maze_car_config()
     config.show_gui = False
-    config.round.seconds = seconds
-    return MazeCarEnv(config)
+    rules = load_rules("standard")
+    if seconds != 60:
+        rules = rules.with_round_seconds(seconds)
+    return MazeCarEnv(config, rules=rules)
 
 
 def _value(observation, name):

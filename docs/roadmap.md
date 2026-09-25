@@ -30,8 +30,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record (with player), reward profile, code version | Done |
 | 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Done |
 | 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Done |
-| 4g | **Game rules** as files: round length, rounds per game, and scoring together in `rules/<name>.json` ([decision 013](decisions/013-game-rules-files.md)) | Next |
-| 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Planned |
+| 4g | **Game rules** as files: round length, rounds per game, and scoring together in `rules/<name>.json` ([decision 013](decisions/013-game-rules-files.md)) | Done |
+| 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Next |
 | 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
@@ -51,7 +51,7 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 
 - Each sub-step changes behavior on purpose. Regenerate the fixtures (`python -m tests.generate_behavior_fixtures`) and add scenarios for the new behavior, for example tapping vs holding the brake, coasting to a stop, and a crash.
 - The round timer and checkpoint randomness are world resources, seeded per round. Timer and randomness stay deterministic ([conventions](conventions.md#determinism-must-keep)). Since 4b, checkpoints follow the stage's spawn schedule.
-- New config keys (all values tunable): reward distance, drag, brake strength, `round.seconds`, `game.rounds`. Checkpoint radius and margins started in config and moved to the stage file in 4b.
+- New config keys (all values tunable): reward distance, drag, brake strength, `round.seconds`, `game.rounds`. Checkpoint radius and margins started in config and moved to the stage file in 4b; round length, rounds, and scoring moved to rules files in 4g.
 - The HUD shows the remaining time, score, and 8 ray distances.
 - Observation layout: [game design](game-design.md#observation-what-the-agent-sees). Normalize every input, and keep the layout in one place so the agent and replays agree on it.
 
@@ -60,7 +60,7 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 ```
 ┌──────────────────────────────────────────────┬─────────────────────┐
 │ ROUND 1/1  TIME 00:42.3  SCORE 1,240 DRIVING │ CAR: speed, stop    │
-│ DRIVER  STAGE  CHECKPOINTS  SEED  REWARD     │  dist, pedal,       │
+│ DRIVER STAGE RULES SPAWNS SEED REWARD        │  dist, pedal,       │
 ├──────────────────────────────────────────────┤  steering, heading, │
 │                                              │  position, inputs   │
 │                                              ├─────────────────────┤

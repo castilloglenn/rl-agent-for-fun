@@ -20,15 +20,17 @@ Action = tuple[bool, bool, bool, bool, bool]
 
 
 def config_snapshot() -> dict:
-    """The game-defining config and the stage's content: fixtures fail if
-    any of it changes.
+    """The game-defining config, and the stage's and rules' content:
+    fixtures fail if any of it changes.
     """
+    from src.sim.rules import load_rules
     from src.sim.stage import load_stage
 
     config = get_maze_car_config()
     return {
         "game": game_config(config),
         "stage": load_stage(config.stage).to_dict(),
+        "rules": load_rules(config.rules).to_dict(),
     }
 
 

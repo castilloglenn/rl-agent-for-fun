@@ -10,7 +10,8 @@ src/envs/maze_car/     MazeCarEnv wraps a World; MazeCarDemo drives it by keyboa
 src/render/            Renderer: pygame window, reads the World, never writes it
 src/replay/            Replay files: format, recorder (env hooks), replayer
 src/drivers/           Who drives: keyboard, baselines, later agents (one interface)
-stages/, rewards/      Data files: stages and reward profiles
+stages/, rules/,       Data files: stages (where), rules (how the game is
+rewards/               played and scored), reward profiles (what agents learn)
 ```
 
 Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks.
@@ -30,13 +31,14 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 | File | Contents |
 |---|---|
 | `components.py` | Cars: `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `PreviousPose`, `Score`, `Eliminated`, `Renderable`. Triggers: `Trigger` (circle), effects `ScoreReward` and `Respawn`, and the `Checkpoint` tag |
-| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `GameRules` (scoring), `Rng` (the seed, with one named random stream per use), `Stage`, `Field` (spans the stage from (0, 0)), `SpawnSchedules`, `SimClock`, `RoundState`, and `EventLog` |
+| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `Rng` (the seed, with one named random stream per use), `Stage`, `Rules`, `Field` (spans the stage from (0, 0)), `SpawnSchedules`, `SimClock`, `RoundState`, and `EventLog` |
 | `systems/` | `pose_history_system`, `steering_system`, `movement_system`, `reward_system` (+1 per 10 px forward), `trigger_system` (car touches trigger: apply effects), `sensor_system`, `clock_system`, then `round_system`. The order is fixed by `SIMULATION_SYSTEMS` |
 | `elimination.py` | `eliminate(world, car, reason)`: the single way a car leaves a round (walls now, hazards and weapons later). Marks it `Eliminated`, stops it, logs the event |
 | `observation.py` | `observe(world, car)`: the agent's 14 normalized inputs, with a versioned layout (`OBSERVATION_NAMES`, `OBSERVATION_VERSION`) |
 | `stage.py` | `Stage` (size, walls, spawns, checkpoint rules), `load_stage(name or path)`, validation, and `to_dict()` for embedding in replays |
+| `rules.py` | `Rules` (round length, rounds per game, scoring), `load_rules(name or path)`, validation, `to_dict()`, and `with_round_seconds()` (a renamed round-length override). The `Rules` object is also the world resource the reward and round systems read. See [decision 013](decisions/013-game-rules-files.md) |
 | `spawning.py` | `SpawnSchedule`: stage + seed decide every spawn. Slot N's candidates depend only on (seed, spawner, N); `random` or `scripted` mode |
-| `factories.py` | `create_game(config, label, seed, stage)` (world + car at the stage's spawn + checkpoint: used by the env and tests), `create_world`, `create_car`, `create_start_car`, `create_checkpoint` |
+| `factories.py` | `create_game(config, label, seed, stage, rules)` (world + car at the stage's spawn + checkpoint: used by the env and tests), `create_world`, `create_car`, `create_start_car`, `create_checkpoint` |
 | `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
 
 **The car's position is its float center** (`Transform.x`, `Transform.y`), and `Hitbox` holds its size. The hitbox is the car's 4 real corners. The field border is the only obstacle so far: cars stop exactly on contact (`movement_system`), turns into it are cancelled (`steering_system`), and it stops rays (`sensor_system`).
@@ -113,7 +115,7 @@ A controller decides the car's `ActionInput` before each step. Live, that's a **
 |---|---|
 | `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
 | `layout.py` | `Layout.for_field`: screen rects for the top bar, field view, side panel, and bottom bar. The window size follows from the field size |
-| `panels.py` | Top bar (round, time, score, status; then driver, stage name and size, checkpoint mode, seed, reward profile), side panel (car, sensor distances, objective, score (game points), agent reward (profile, last step, this game), leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
+| `panels.py` | Top bar (round, time, score, status; then driver, stage name and size, rules, spawn mode, seed, reward profile, shortened with "…" if too long), side panel (car, sensor distances, objective, score (game points), agent reward (profile, last step, this game), leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
 | `warnings.py` | When HUD values and ray lines turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, time, FPS. Pure functions, shared by the panels and the field |
 | `theme.py` | Colors and text sizes |
 

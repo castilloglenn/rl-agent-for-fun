@@ -21,13 +21,13 @@ from src.sim.geometry import body_edge_distance
 from src.sim.resources import (
     EventLog,
     Field,
-    GameRules,
     Rng,
     RoundState,
     SimClock,
     SimConfig,
     SpawnSchedules,
 )
+from src.sim.rules import Rules, load_rules
 from src.sim.spawning import SpawnSchedule
 from src.sim.stage import Stage, load_stage
 from src.sim.systems import SIMULATION_SYSTEMS
@@ -41,11 +41,12 @@ def create_game(
     label: str = "Car 1",
     seed: int | None = None,
     stage: Stage | None = None,
+    rules: Rules | None = None,
 ) -> tuple[World, int]:
     """The first-goal game: one car at the stage's spawn, plus a
     checkpoint. Returns the world and the car.
     """
-    world = create_world(config, seed, stage)
+    world = create_world(config, seed, stage, rules)
     car = create_start_car(world, label=label)
     create_checkpoint(world)
     return world, car
@@ -55,16 +56,18 @@ def create_world(
     config: ConfigDict,
     seed: int | None = None,
     stage: Stage | None = None,
+    rules: Rules | None = None,
 ) -> World:
     """seed: for everything random (spawn schedules). Defaults to
-    `game.seed`. stage: defaults to loading `config.stage` (a replay passes
-    its embedded stage instead).
+    `game.seed`. stage and rules: default to loading `config.stage` and
+    `config.rules` (a replay passes its embedded ones instead).
     """
     stage = stage or load_stage(config.stage)
+    rules = rules or load_rules(config.rules)
     seed = config.game.seed if seed is None else seed
     world = World()
     world.add_resource(SimConfig.from_config(config))
-    world.add_resource(GameRules.from_config(config))
+    world.add_resource(rules)
     world.add_resource(Rng(seed))
     world.add_resource(stage)
     world.add_resource(Field.from_stage(stage))
@@ -82,12 +85,12 @@ def create_world(
         )
     )
     world.add_resource(SimClock())
-    round_steps = round(config.round.seconds * config.sim.steps_per_second)
+    round_steps = round(rules.round_seconds * config.sim.steps_per_second)
     world.add_resource(
         RoundState(
             steps_left=round_steps,
             steps_total=round_steps,
-            total=config.game.rounds,
+            total=rules.rounds,
         )
     )
     world.add_resource(EventLog())
@@ -161,7 +164,7 @@ def create_checkpoint(world: World) -> int:
         Transform(x=x, y=y),
         Trigger(radius=world.resource(Stage).checkpoints.radius),
         ScoreReward(
-            points=world.resource(GameRules).checkpoint_points,
+            points=world.resource(Rules).scoring.checkpoint,
             label="checkpoint",
         ),
         Respawn(spawner="checkpoints"),

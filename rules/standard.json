@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "standard",
+  "description": "One 60 s round, points for distance and checkpoints.",
+  "round_seconds": 60,
+  "rounds": 1,
+  "scoring": {"distance_step": 10, "checkpoint": 100}
+}

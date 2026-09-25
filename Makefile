@@ -2,7 +2,7 @@
 
 .PHONY: help run test test_file fixtures maze_car maze_car_heuristic \
 	maze_car_random maze_car_driver maze_car_player maze_car_stage \
-	maze_car_reward maze_car_seconds maze_car_fps replay
+	maze_car_reward maze_car_rules maze_car_seconds maze_car_fps replay
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -15,7 +15,8 @@ help:
 	@echo "  make maze_car_player PLAYER=name     drive, with your player name"
 	@echo "  make maze_car_stage STAGE=name       another stage (name or path)"
 	@echo "  make maze_car_reward REWARD=name     another reward profile"
-	@echo "  make maze_car_seconds SECONDS=n      another round length"
+	@echo "  make maze_car_rules RULES=name       other game rules (standard, sprint, marathon)"
+	@echo "  make maze_car_seconds SECONDS=n      another round length (renames the rules)"
 	@echo "  make maze_car_fps FPS=n              cap the frame rate"
 	@echo "Replays"
 	@echo "  make replay FILE=path                watch a replay (.jsonl, .jsonl.gz)"
@@ -73,10 +74,15 @@ maze_car_reward:
 	clear
 	python app.py -demo maze_car --reward $(REWARD)
 
-maze_car_seconds:
-	$(call require,SECONDS,120)
+maze_car_rules:
+	$(call require,RULES,sprint)
 	clear
-	python app.py -demo maze_car --maze_car.round.seconds=$(SECONDS)
+	python app.py -demo maze_car --maze_car.rules=$(RULES)
+
+maze_car_seconds:
+	$(call require,SECONDS,90)
+	clear
+	python app.py -demo maze_car --round_seconds $(SECONDS)
 
 maze_car_fps:
 	$(call require,FPS,60)

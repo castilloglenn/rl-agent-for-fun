@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "sprint",
+  "description": "A short 30 s round: grab checkpoints fast.",
+  "round_seconds": 30,
+  "rounds": 1,
+  "scoring": {"distance_step": 10, "checkpoint": 100}
+}

@@ -139,7 +139,8 @@ def test_top_bar_shows_the_stage_and_seed():
     world, _ = create_game(get_maze_car_config(), seed=42)
     assert round_details(world) == [
         ("STAGE", "box 855×480"),
-        ("CHECKPOINTS", "random"),
+        ("RULES", "standard"),
+        ("SPAWNS", "random"),
         ("SEED", "42"),
     ]
 
@@ -169,3 +170,26 @@ def test_side_panel_content_fits_inside_the_panel():
 
     colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
     assert colors == {theme.BACKGROUND}  # no text touching the border
+
+
+def test_top_bar_fits_long_names():
+    """Long names are shortened with "…", never drawn past the edge."""
+    from src.render import theme
+    from src.render.panels import RewardStatus
+    from src.sim.rules import load_rules
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(
+        config, rules=load_rules("standard").with_round_seconds(1234.5)
+    )
+    create_start_car(world, label="A very long player name (keyboard)")
+    status = RewardStatus(profile="an-extremely-long-profile", last=0, total=0)
+    renderer.draw(world, 1.0, status)
+    bar = renderer.layout.top_bar
+    edge = renderer.display.subsurface(
+        (bar.right - 12, bar.y + 2, 10, bar.h - 4)
+    )
+    data = pygame.image.tobytes(edge, "RGB")
+    colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+    assert colors == {theme.BACKGROUND}

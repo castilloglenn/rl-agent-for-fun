@@ -4,6 +4,7 @@ from ml_collections import ConfigDict
 from src.drivers.registry import make_driver
 from src.envs.maze_car.env import MazeCarEnv
 from src.sim.resources import Rng
+from src.sim.rules import load_rules
 from src.utils.timing import FixedStepClock
 
 
@@ -18,15 +19,23 @@ class MazeCarDemo:
         driver: str = "keyboard",
         player: str = "You",
         reward: str = "default",
+        round_seconds: float = 0.0,
     ) -> None:
+        """round_seconds: above 0, overrides the rules' round length (the
+        rules get a new name, so leaderboards don't mix them).
+        """
         config = config.copy_and_resolve_references()
         config.show_gui = True  # the demo is always drawn
         self.driver = make_driver(driver, player=player)
+        rules = load_rules(config.rules)
+        if round_seconds > 0:
+            rules = rules.with_round_seconds(round_seconds)
         self.env = MazeCarEnv(
             config,
             driver=self.driver.label,
             random_seeds=True,
             reward=reward,
+            rules=rules,
         )
         self.run()
 

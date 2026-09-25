@@ -19,11 +19,8 @@
 | `hud.near_danger` | 15.0 px | Proximity: any ray this close turns red |
 | `hud.time_caution`, `hud.time_danger` | 10.0, 5.0 s | TIME turns amber / red below these seconds left |
 | `game.seed` | 0 | Seed for the spawn schedules (agents and tests). The demo picks a fresh one per round |
-| `rewards.distance_step` | 10.0 px | Driven forward per +1 point |
-| `rewards.checkpoint` | 100 | Points per checkpoint |
 | `hud.checkpoint_near` | 80.0 px | Checkpoint distance turns green below this |
-| `round.seconds` | 60.0 | Round length. In steps: seconds × `sim.steps_per_second` (7,200) |
-| `game.rounds` | 1 | Rounds per game. The game is over when the last round ends |
+| `rules` | `"standard"` | How the game is played and scored: a rules file in `rules/`, by name or path (round length, rounds per game, scoring). `standard`: one 60 s round (7,200 steps), +1 per 10 px, +100 per checkpoint. Also `sprint` (30 s) and `marathon` (120 s). See [decision 013](decisions/013-game-rules-files.md) |
 | `hud.fps_caution`, `hud.fps_danger` | 0.9, 0.5 | FPS turns amber / red below this share of the target frame rate |
 | `display.max_fps` | 0 | `Renderer`: frame rate cap. 0 = match the display's refresh rate (auto-detected) |
 | `car.width`, `car.height` | 24, 16 | `SimConfig`: start car size |
@@ -40,6 +37,8 @@
 
 All `car.*` driving values go into `SimConfig`, and `create_car` converts them to per-step units (`CarSpec`).
 
+**Round length override:** `--round_seconds 90` (or `make maze_car_seconds SECONDS=90`) plays the rules with another round length, renamed (for example `standard-90s`) so leaderboards never mix it with the original.
+
 **Tuning by feel** without editing code: `python app.py -demo maze_car --maze_car.car.max_speed=250 --maze_car.car.max_turn_rate=270`
 
 `get_agent_config()` is empty.
@@ -50,16 +49,16 @@ Every top-level key belongs to exactly one group (`GAME_KEYS` and `PRESENTATION_
 
 | Group | Keys | Saved in replays and runs? |
 |---|---|---|
-| Game-defining | `sim`, `stage`, `car`, `sensors`, `round`, `game`, `rewards` | Yes, via `game_config(config)` |
+| Game-defining | `sim`, `stage`, `rules`, `car`, `sensors`, `game` | Yes, via `game_config(config)` |
 | Presentation | `show_gui`, `show_bounds`, `show_collision_distance`, `window`, `display`, `hud` | Never |
 
-Tuning a presentation value can't make a saved replay look "changed". The behavior fixtures record `game_config()` and the stage's content too, so changing any game-defining default fails them until they're regenerated.
+Tuning a presentation value can't make a saved replay look "changed". The behavior fixtures record `game_config()` and the stage's and rules' content too, so changing any game-defining default fails them until they're regenerated.
 
 ## How it flows
 
 1. `app.py` registers the config dicts as absl flags, so any key can be overridden from the command line (see [setup](setup.md#config-overrides)).
 2. `app.py` passes `FLAGS.maze_car` into `MazeCarDemo`. **This is the only place that reads `FLAGS`.**
-3. `MazeCarEnv(config)` hands the config to `create_world`, which loads the stage and turns both into resources (`SimConfig`, `GameRules`, `Stage`, `Field`, `SpawnSchedules`), and to `Renderer`.
+3. `MazeCarEnv(config)` hands the config to `create_world`, which loads the stage and rules and turns them into resources (`SimConfig`, `Rules`, `Stage`, `Field`, `SpawnSchedules`, `RoundState`), and to `Renderer`.
 4. Systems read only resources, never the `ConfigDict` itself.
 
 Tests call `get_maze_car_config()` directly, with no flags.

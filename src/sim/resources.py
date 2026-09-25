@@ -130,21 +130,6 @@ class SpawnSchedules:
         return self.schedules[name]
 
 
-@dataclass(frozen=True)
-class GameRules:
-    """Scoring. Where things spawn comes from the stage."""
-
-    distance_step: float  # px driven forward per point
-    checkpoint_points: float
-
-    @staticmethod
-    def from_config(config: ConfigDict) -> "GameRules":
-        return GameRules(
-            distance_step=config.rewards.distance_step,
-            checkpoint_points=config.rewards.checkpoint,
-        )
-
-
 @dataclass
 class SimClock:
     """Steps simulated so far. Time is counted in steps, never real time."""

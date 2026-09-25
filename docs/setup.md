@@ -26,7 +26,8 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |
 | `make maze_car_stage STAGE=name` | Another stage: a name in `stages/`, or a path |
 | `make maze_car_reward REWARD=name` | Another reward profile: a name in `rewards/`, or a path |
-| `make maze_car_seconds SECONDS=n` | Another round length |
+| `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), a name in `rules/`, or a path |
+| `make maze_car_seconds SECONDS=n` | Another round length (the rules get renamed, for example `standard-90s`) |
 | `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
 | `make replay FILE=path` | Watch a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart |
 | `make test` | Run all tests |
@@ -36,7 +37,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `--driver`, `--player`, `--reward`, plus any config key (below).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `--driver`, `--player`, `--reward`, `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 

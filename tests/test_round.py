@@ -5,15 +5,19 @@ from src.envs.maze_car.env import MazeCarEnv
 from src.sim.components import ActionInput, Eliminated, Transform
 from src.sim.factories import create_start_car, create_world
 from src.sim.resources import EventLog, RoundState, SimClock
+from src.sim.rules import load_rules
 
 GAS = ActionInput(gas=True)
 
 
-def _short_round_config(seconds: float = 1):
+def _config():
     config = get_maze_car_config()
-    config.round.seconds = seconds
     config.show_gui = False
     return config
+
+
+def _short_rules(seconds: float = 1):
+    return load_rules("standard").with_round_seconds(seconds)
 
 
 def test_round_is_60_seconds_of_steps():
@@ -22,7 +26,7 @@ def test_round_is_60_seconds_of_steps():
 
 
 def test_time_up_ends_the_round_and_freezes_the_world():
-    world = create_world(_short_round_config(seconds=1))
+    world = create_world(_config(), rules=_short_rules(1))
     car = create_start_car(world)
     world.add_component(car, ActionInput(gas=True, turn_left=True))
     for _ in range(120):
@@ -62,7 +66,7 @@ def test_crash_eliminates_the_car_and_ends_the_round():
 
 
 def test_env_reports_game_over_and_stops_stepping():
-    env = MazeCarEnv(_short_round_config(seconds=1))
+    env = MazeCarEnv(_config(), rules=_short_rules(1))
     results = [env.game_step((False, False, True, False, False))]
     while not results[-1][1]:
         results.append(env.game_step((False, False, True, False, False)))
@@ -75,7 +79,7 @@ def test_env_reports_game_over_and_stops_stepping():
 
 
 def test_reset_starts_a_fresh_round():
-    env = MazeCarEnv(_short_round_config(seconds=1))
+    env = MazeCarEnv(_config(), rules=_short_rules(1))
     for _ in range(200):
         env.game_step((False, False, True, False, False))
     assert env.is_game_over

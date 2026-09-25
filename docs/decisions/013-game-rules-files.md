@@ -1,6 +1,6 @@
 # 013: Game rules as files, next to stages and reward profiles
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap step 4g).
+**Date:** 2026-09-25. **Status:** Implemented in roadmap step 4g (`src/sim/rules.py`, `rules/standard.json`, plus `sprint` and `marathon` examples). A round-length override (`--round_seconds`) renames the rules, for example `standard-90s`. Replays recorded before 4g rebuild their rules from their old config keys.
 
 ## Context
 

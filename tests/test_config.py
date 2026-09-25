@@ -35,3 +35,15 @@ def test_game_changes_show_up_in_game_config():
     before = game_config(config)
     config.car.max_speed = 250.0
     assert game_config(config) != before
+
+
+def test_config_with_game_skips_keys_that_no_longer_exist():
+    """Old replays hold removed keys; the flags' config is locked."""
+    from src.config import config_with_game
+
+    base = get_maze_car_config()
+    base.lock()
+    old = {"round": {"seconds": 30.0}, "car": {"max_speed": 250.0, "gone": 1}}
+    config = config_with_game(old, base)
+    assert config.car.max_speed == 250.0
+    assert "round" not in config

@@ -10,6 +10,7 @@ from src.config import game_config
 from src.replay.format import REPLAY_FORMAT, Replay, write_replay
 from src.sim.components import Score
 from src.sim.resources import RoundState, Rng, SimClock, SimConfig
+from src.sim.rules import Rules
 from src.sim.stage import Stage
 from src.utils.version import code_version
 
@@ -44,6 +45,7 @@ class ReplayRecorder:
                 ),
                 "code": code_version(),
                 "stage": world.resource(Stage).to_dict(),
+                "rules": world.resource(Rules).to_dict(),
                 "seed": world.resource(Rng).seed,
                 "config": game_config(env.config),
                 "reward": env.reward_profile.to_dict(),

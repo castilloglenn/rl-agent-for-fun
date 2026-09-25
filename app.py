@@ -22,6 +22,7 @@ def run(_):
                     driver=cl_args.driver,
                     player=cl_args.player,
                     reward=cl_args.reward,
+                    round_seconds=cl_args.round_seconds,
                 )
             case _:
                 pass

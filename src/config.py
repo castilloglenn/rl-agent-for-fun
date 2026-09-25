@@ -11,6 +11,11 @@ flags.DEFINE_string("player", "You", "Your player name (recordings, HUD).")
 flags.DEFINE_string(
     "reward", "default", "Reward profile: a name in rewards/, or a path."
 )
+flags.DEFINE_float(
+    "round_seconds",
+    0.0,
+    "Override the rules' round length (renames the rules, e.g. standard-90s).",
+)
 
 
 # Every top-level maze_car key is one of these (tests/test_config.py checks).
@@ -20,11 +25,10 @@ flags.DEFINE_string(
 GAME_KEYS = (
     "sim",
     "stage",
+    "rules",
     "car",
     "sensors",
-    "round",
     "game",
-    "rewards",
 )
 PRESENTATION_KEYS = (
     "show_gui",
@@ -50,8 +54,22 @@ def config_with_game(game: dict, base: ConfigDict | None = None) -> ConfigDict:
     so a replay viewer keeps your HUD settings.
     """
     config = (base or get_maze_car_config()).copy_and_resolve_references()
-    config.update(game)
+    _merge_known(config, game)
     return config
+
+
+def _merge_known(config: ConfigDict, data: dict) -> None:
+    """Sets the keys `config` knows, recursively, and skips the rest: old
+    replays can hold keys that no longer exist (the flags' config is
+    locked, so unknown keys can't be added).
+    """
+    for key, value in data.items():
+        if key not in config:
+            continue
+        if isinstance(value, dict) and isinstance(config[key], ConfigDict):
+            _merge_known(config[key], value)
+        else:
+            config[key] = value
 
 
 def get_agent_config() -> ConfigDict:
@@ -84,16 +102,11 @@ def get_maze_car_config() -> ConfigDict:
     config.sensors = ConfigDict()
     config.sensors.ray_length = 1800
 
-    # Rounds and games. See docs/game-design.md.
-    config.round = ConfigDict()
-    config.round.seconds = 60.0
+    # How the game is played and scored: a rules file in rules/, by name or
+    # path (round length, rounds per game, scoring). See docs/decisions/013.
+    config.rules = "standard"
     config.game = ConfigDict()
-    config.game.rounds = 1
-    config.game.seed = 0  # checkpoint spawns; the demo picks a new one per R
-
-    config.rewards = ConfigDict()
-    config.rewards.distance_step = 10.0  # px driven forward per +1 point
-    config.rewards.checkpoint = 100
+    config.game.seed = 0  # spawn schedules; the demo picks a new one per R
 
     # HUD warning colors (amber = caution, red = danger).
     config.hud = ConfigDict()
