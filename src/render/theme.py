@@ -13,7 +13,7 @@ GOOD: ColorValue = (70, 200, 120)
 WARN: ColorValue = (240, 180, 60)  # caution
 BAD: ColorValue = (230, 80, 80)  # danger
 
-RAY: ColorValue = (255, 255, 255)
+RAY: ColorValue = (70, 72, 82)  # muted; warning rays use WARN / BAD
 HITBOX: ColorValue = (255, 255, 255)
 
 HEADER_SIZE = 13

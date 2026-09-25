@@ -97,6 +97,16 @@ class Sensors:
 
 
 @dataclass
+class Eliminated:
+    """Marks a car that is out of the round (crash, later hazards or
+    weapons). Car systems skip it. Added by `eliminate`.
+    """
+
+    reason: str  # e.g. "wall"
+    step: int
+
+
+@dataclass
 class Renderable:
     color: ColorValue
     label: str = "Car"  # shown in the HUD, e.g. "You (keyboard)"

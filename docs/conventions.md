@@ -12,7 +12,8 @@
 
 - The car's position is its **float center** (`Transform.x`, `Transform.y`), in world coordinates.
 - The hitbox is the car's **4 real corners** (`car_corners` in `src/sim/geometry.py`), rotating with it. It never grows with the angle: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
-- **Border contact is exact:** a move goes as far as it can until a corner touches the border (`max_move_fraction`), then the car stops. A turn that would push a corner out is cancelled. Both become crashes in roadmap step 3f.
+- **Border contact is exact:** a move goes as far as it can until a corner touches the border (`max_move_fraction`), and that contact is a **crash**. A turn that would push a corner out is also a crash (the turn doesn't happen). Crashes go through `eliminate()` (`src/sim/elimination.py`).
+- **After a round ends**, the world is frozen: car systems and the step counter stop, so stepping a finished round changes nothing.
 - The field's physics boundary is `Field.rect` (left/top edges included, right/bottom at `rect.right`/`rect.bottom`). The drawn border line sits exactly on it.
 - `Motion.speed` is signed, in px per step along the heading: positive forward, negative reversing.
 - `Motion.steering` is the wheel position, -1 (full right) to +1 (full left). A/D move it gradually (`next_steering`), and the turn rate follows it.

@@ -20,8 +20,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3c | Fixed-timestep clock: simulation at a fixed 120 steps/s, drawing at the auto-detected display rate with vsync, interpolated car drawing ([decision 008](decisions/008-fixed-timestep-clock.md)) | Done |
 | 3d | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3f | Done |
 | 3e | 8 rays around the car, starting at the car's body edge | Done |
-| 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Next |
-| 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
+| 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Done |
+| 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Next |
 | 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
@@ -77,14 +77,16 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 
   | Row | Amber | Red |
   |---|---|---|
-  | Rays on the travel path (front three forward, back three reversing) | Below 2× stopping distance | Below stopping distance, or under 5 px |
-  | Other rays | Under 20 px | Under 5 px |
+  | **Every ray** (proximity) | Under 40 px | Under 15 px |
+  | Rays on the travel path (front three forward, back three reversing) | Below 2× stopping distance | Below stopping distance |
   | Speed | | Too fast to stop before the wall ahead |
   | Status (top bar) | STOPPED | |
   | FPS (bottom bar) | Below 90 % of target | Below 50 % |
-  | Time left (with 3f) | Under 10 s | Under 5 s |
+  | Time left (top bar) | Under 10 s | Under 5 s |
 
-  A "Stop dist" row shows the current stopping distance (reaction + braking; 150 px at max speed). Planned with later steps: checkpoint distance turns green when close (3g), status "CRASHED" in red (3f), agent inputs at their extremes highlighted (step 5).
+  The ray lines in the field use the same levels: **muted gray when safe**, amber and red otherwise, with warning rays drawn on top (`warnings.ray_levels` is shared by panel and field). The hitbox outline stays white. Each ray shows the more severe of its two rules.
+
+  A "Stop dist" row shows the current stopping distance (reaction + braking; 150 px at max speed). Time left and the red "CRASHED" status arrived with 3f. Planned with later steps: checkpoint distance turns green when close (3g), agent inputs at their extremes highlighted (step 5).
 - **Retro style** (changed after 3a): panels use only lines and text, with colors and bold for distinction. The sensor radar and filled boxes were removed. Graphics belong inside the field.
 - **Game leaderboard slot:** ranks cars in the current game by score. Built as a panel section now, and it fills in once there are several cars (step 8) or parallel games (step 10).
 - **H** shows and hides the debug lines in the field: rays, hitbox, and future distance or boundary lines. The panels always stay visible.

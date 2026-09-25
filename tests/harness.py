@@ -7,7 +7,13 @@ that code was removed.
 
 from src.config import get_maze_car_config
 from src.ecs import World
-from src.sim.components import ActionInput, Motion, Sensors, Transform
+from src.sim.components import (
+    ActionInput,
+    Eliminated,
+    Motion,
+    Sensors,
+    Transform,
+)
 
 Action = tuple[bool, bool, bool, bool, bool]
 
@@ -45,12 +51,14 @@ def config_snapshot() -> dict:
 def _snapshot(world: World, car: int) -> dict:
     transform = world.component(car, Transform)
     motion = world.component(car, Motion)
+    eliminated = world.try_component(car, Eliminated)
     return {
         "center": [transform.x, transform.y],
         "angle": transform.angle,
         "speed": motion.speed,
         "pedal": motion.pedal,
         "steering": motion.steering,
+        "eliminated": eliminated.reason if eliminated else None,
         # Start and end points follow from the pose and distance
         # (tests/test_sensors.py checks them), so only distances are kept.
         "rays": {

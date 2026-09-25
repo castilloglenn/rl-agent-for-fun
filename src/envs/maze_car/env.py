@@ -3,9 +3,10 @@ from typing import Optional
 from ml_collections import ConfigDict
 
 from src.envs.base import Environment
-from src.render.renderer import Renderer
+from src.render.renderer import Command, Renderer
 from src.sim.components import ActionInput
 from src.sim.factories import create_start_car, create_world
+from src.sim.resources import RoundState
 from src.utils.types import GameOver, Reward, Score
 
 
@@ -24,8 +25,11 @@ class MazeCarEnv(Environment):
         self.world = create_world(self.config)
         self.car = create_start_car(self.world, label=self.driver)
         self.score: int | float = 0
-        self.is_game_over: bool = False
         self.running: bool = True
+
+    @property
+    def is_game_over(self) -> bool:
+        return self.world.resource(RoundState).game_over
 
     def get_state(self) -> tuple:
         pass
@@ -45,22 +49,27 @@ class MazeCarEnv(Environment):
     def step_world(
         self, action: Optional[tuple] = None
     ) -> tuple[Reward, GameOver, Score]:
-        """One simulation step, without drawing."""
+        """One simulation step, without drawing. Does nothing once the
+        game is over.
+        """
+        if self.is_game_over:
+            return (0, True, self.score)
         action_input = ActionInput(*action) if action else ActionInput()
         self.world.add_component(self.car, action_input)
         self.world.step()
 
         reward: int | float = self._calculate_reward()
-        game_over: bool = False
-
-        return (reward, game_over, self.score)
+        return (reward, self.is_game_over, self.score)
 
     def render(self, alpha: float = 1.0) -> float:
         """Handles window events and draws one frame. Returns the real
         seconds since the previous frame.
         """
-        if self.renderer.poll_events():
+        commands = self.renderer.poll_events()
+        if Command.QUIT in commands:
             self.running = False
+        if Command.RESTART in commands:
+            self.reset()
         self.renderer.draw(self.world, alpha)
         return self.renderer.present()
 

@@ -21,7 +21,7 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 | Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1) |
 | Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
 | Round ends | When the timer hits 0, or when the car crashes |
-| Crash | Touching the border = game over for that car. Later, with several cars, the round continues until the timer ends or every car is out |
+| Crash | Touching the border (driving or turning into it) = game over for that car. Later, with several cars, the round continues until the timer ends or every car is out. **Implemented in step 3f**: the HUD shows CRASHED, the event log records it, and R restarts |
 
 The HUD shows the remaining time.
 
@@ -58,6 +58,8 @@ The HUD shows the remaining time.
 The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 ### Sensors
+
+Rays only detect things that can crash a car (the border now; later walls, other cars, and explosion hazards). They pass through checkpoints and fuel, which agents perceive through the compass inputs instead (see Observation).
 
 8 rays at 0°, ±45°, ±90°, ±135°, and 180° around the car's heading: front, front-left, left, back-left, back, back-right, right, front-right. Each ray starts where it leaves the car's body, so distance 0 means touching. Distances are exact floats. **Implemented in step 3e.**
 

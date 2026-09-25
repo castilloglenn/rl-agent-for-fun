@@ -15,8 +15,11 @@
 | `sim.steps_per_second` | 120 | `SimConfig`: the fixed simulation rate. Per-step physics values and step-based durations come from it ([decision 008](decisions/008-fixed-timestep-clock.md)) |
 | `hud.reaction_time` | 0.25 s | HUD stopping distance: reaction part (speed × time), plus braking (speed² / 2 × brake) |
 | `hud.caution_factor` | 2.0 | Rays on the travel path turn amber below this × stopping distance (red below 1×) |
-| `hud.near_contact` | 5.0 px | Any ray this close is red |
-| `hud.side_caution` | 20.0 px | Rays off the travel path turn amber this close |
+| `hud.near_caution` | 40.0 px | Proximity: any ray this close turns amber (about 1.7 car lengths) |
+| `hud.near_danger` | 15.0 px | Proximity: any ray this close turns red |
+| `hud.time_caution`, `hud.time_danger` | 10.0, 5.0 s | TIME turns amber / red below these seconds left |
+| `round.seconds` | 60 | Round length. In steps: seconds × `sim.steps_per_second` (7,200) |
+| `game.rounds` | 1 | Rounds per game. The game is over when the last round ends |
 | `hud.fps_caution`, `hud.fps_danger` | 0.9, 0.5 | FPS turns amber / red below this share of the target frame rate |
 | `display.max_fps` | 0 | `Renderer`: frame rate cap. 0 = match the display's refresh rate (auto-detected) |
 | `car.width`, `car.height` | 24, 16 | `SimConfig`: start car size |

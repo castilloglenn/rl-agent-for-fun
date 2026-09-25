@@ -18,7 +18,7 @@ Dependencies point one way: `envs` uses `sim` and `render`, `render` reads `sim`
 - **Components** are plain dataclasses, stored per type.
 - **Resources** are per-world shared objects, one per type.
 - **Systems** are functions `system(world)`, run by `world.step()` in the order they were added.
-- `world.query(*types)` returns matching entities in **ascending ID order**, as a list (safe to delete while looping).
+- `world.query(*types, exclude=(...))` returns entities that have all `types` and none of `exclude`, in **ascending ID order**, as a list (safe to delete while looping). Car systems use `exclude=(Eliminated,)`.
 
 Every world is independent. Nothing is global, so several worlds can exist in one process.
 
@@ -26,9 +26,10 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 
 | File | Contents |
 |---|---|
-| `components.py` | `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `Renderable` |
-| `resources.py` | `SimConfig` (FPS, car size, ray length, driving limits), `Field` (drivable area), and `SimClock` (steps simulated so far), built from the config |
-| `systems/` | `pose_history_system` (remembers each car's pose for interpolated drawing), `steering_system`, `movement_system`, `sensor_system`, then `clock_system`. The order is fixed by `SIMULATION_SYSTEMS` |
+| `components.py` | `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `PreviousPose`, `Eliminated` (car is out of the round), `Renderable` |
+| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `Field` (drivable area), `SimClock` (steps simulated), `RoundState` (countdown, over, reason), and `EventLog` (crashes, round end) |
+| `systems/` | `pose_history_system`, `steering_system`, `movement_system`, `sensor_system`, `clock_system`, then `round_system` (countdown, ends the round on time up or when every car is out). The order is fixed by `SIMULATION_SYSTEMS` |
+| `elimination.py` | `eliminate(world, car, reason)`: the single way a car leaves a round (walls now, hazards and weapons later). Marks it `Eliminated`, stops it, logs the event |
 | `factories.py` | `create_world(config)`, `create_car(...)`, `create_start_car(world)` |
 | `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
 
@@ -44,7 +45,8 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step_world(action)` writes the car's `ActionInput` and calls `world.step()` (one simulation step, no drawing). It returns `(reward, game_over, score)`.
 - `game_step(action)` is `step_world` plus one drawn frame if `config.show_gui` is on. That's the agent-facing API.
 - `render(alpha)` handles window events and draws one frame, interpolated by `alpha`. It returns the real seconds since the previous frame.
-- `get_state()` returns `None`, the reward is always 0, and `game_over` is always `False` (roadmap step 3).
+- `get_state()` returns `None` and the reward is always 0 (roadmap steps 3g and 3h). `game_over` is true once the round (the whole game, with 1 round) is over, and `step_world` then does nothing.
+- `reset()` also runs when the player presses R in the window.
 
 An action is `(turn_left, turn_right, gas, reverse, brake)`.
 
@@ -59,10 +61,11 @@ A controller decides the car's `ActionInput` before each step. The only one toda
 | `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
 | `layout.py` | `Layout.for_field`: screen rects for the top bar, field view, side panel, and bottom bar. The window size follows from the field size |
 | `panels.py` | Top bar (round, time, score, status, driver), side panel (car, sensor distances, objective, reward, agent view, leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
-| `warnings.py` | When HUD values turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, FPS. Pure functions |
+| `warnings.py` | When HUD values and ray lines turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, time, FPS. Pure functions, shared by the panels and the field |
 | `theme.py` | Colors and text sizes |
 
-- `poll_events()`: quit on window close or Esc, H toggles the debug lines (rays and hitbox, gated by `show_collision_distance` and `show_bounds`), and a left click prints its **world** coordinates.
+- `poll_events()`: returns commands: quit (window close or Esc) and restart (R). H toggles the debug lines (rays and hitbox, gated by `show_collision_distance` and `show_bounds`), and a left click prints its **world** coordinates.
+- **Round over:** the field shows "ROUND OVER", the reason, the eliminations, and "Press R to restart".
 - `draw(world)`: field view (border, cars, optional bounds and rays via `show_bounds` and `show_collision_distance`), then the panels.
 - `present()`: display flip (vsync when available), then a clock tick at the frame rate. Returns the real seconds since the last frame.
 - **Frame rate:** `display.max_fps` if set, else the detected refresh rate, else 60.

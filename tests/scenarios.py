@@ -32,8 +32,9 @@ SCENARIOS: dict[str, list[tuple]] = {
     "turn_left_moving": _seq((GAS, 30), (GAS_LEFT, 120)),
     "turn_right_moving": _seq((GAS, 30), (GAS_RIGHT, 120)),
     "reverse_turning": _seq((REVERSE_LEFT, 60), (REVERSE_RIGHT, 60)),
-    "border_clamp": _seq((GAS, 400)),
-    "circle_to_max_acceleration": _seq((GAS_LEFT, 400)),
+    # Touching the border is a crash: the car is out and stays put.
+    "border_crash": _seq((GAS, 400)),
+    "full_circle": _seq((GAS_LEFT, 400)),
     "coast_to_stop": _seq((GAS, 90), (NONE, 200)),
     "brake_hold": _seq((GAS, 120), (BRAKE, 60)),
     "brake_taps": _seq((GAS, 120), *[(BRAKE, 6), (NONE, 24)] * 4),

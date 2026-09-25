@@ -70,6 +70,44 @@ class Field:
 
 
 @dataclass
+class RoundState:
+    """The current round: a countdown in steps, and whether it's over."""
+
+    steps_left: int
+    number: int = 1
+    total: int = 1  # rounds per game
+    over: bool = False
+    reason: str | None = None  # "time" or "all_out" once over
+
+    @property
+    def game_over(self) -> bool:
+        return self.over and self.number >= self.total
+
+
+@dataclass
+class Event:
+    step: int
+    text: str
+    kind: str = "info"  # "elimination", "round", or "info"
+    danger: bool = False
+
+
+@dataclass
+class EventLog:
+    """Things that happened, for the HUD and replays."""
+
+    events: list[Event] = field(default_factory=list)
+
+    def add(
+        self, step: int, text: str, kind: str = "info", danger: bool = False
+    ) -> None:
+        self.events.append(Event(step, text, kind, danger))
+
+    def of_kind(self, kind: str) -> list[Event]:
+        return [event for event in self.events if event.kind == kind]
+
+
+@dataclass
 class SimClock:
     """Steps simulated so far. Time is counted in steps, never real time."""
 

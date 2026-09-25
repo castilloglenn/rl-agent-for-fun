@@ -5,7 +5,13 @@ import math
 import pytest
 
 from src.config import get_maze_car_config
-from src.sim.components import ActionInput, Hitbox, Motion, Transform
+from src.sim.components import (
+    ActionInput,
+    Eliminated,
+    Hitbox,
+    Motion,
+    Transform,
+)
 from src.sim.factories import create_car, create_world
 from src.sim.geometry import car_corners, inside, max_move_fraction
 from src.sim.resources import Field
@@ -63,7 +69,7 @@ def _corners(world, car):
 
 
 @pytest.mark.parametrize("angle", [0, 30, 45, 60])
-def test_driving_into_the_border_stops_on_contact(angle):
+def test_driving_into_the_border_crashes_on_exact_contact(angle):
     field = get_maze_car_config().field
     right = int(field.x) + int(field.width)
     world, car = _world_with_car(right - 60, field.y + 240, angle=angle)
@@ -76,9 +82,10 @@ def test_driving_into_the_border_stops_on_contact(angle):
     assert max(x for x, _ in corners) == pytest.approx(right, abs=1e-9)
     assert inside(corners, world.resource(Field).rect)
     assert world.component(car, Motion).speed == 0
+    assert world.component(car, Eliminated).reason == "wall"
 
 
-def test_turn_into_the_border_is_cancelled():
+def test_turn_into_the_border_crashes():
     world, car = _world_with_car(0, 0)
     field = world.resource(Field).rect
     # Nose touching the right border, moving slowly.
@@ -89,18 +96,22 @@ def test_turn_into_the_border_is_cancelled():
 
     world.step()
 
-    assert transform.angle == 0
+    assert transform.angle == 0  # the turn didn't happen
     assert inside(_corners(world, car), field)
+    assert world.component(car, Eliminated).reason == "wall"
 
 
-def test_car_can_back_away_after_contact():
+def test_crashed_car_stays_put():
     field = get_maze_car_config().field
     right = int(field.x) + int(field.width)
-    world, car = _world_with_car(right - 12, field.y + 240)
-    world.add_component(car, ActionInput(reverse=True))
-    x_before = world.component(car, Transform).x
-
+    world, car = _world_with_car(right - 30, field.y + 240, speed=2.0)
+    world.add_component(car, ActionInput(gas=True))
     for _ in range(60):
         world.step()
+    assert world.try_component(car, Eliminated)
 
-    assert world.component(car, Transform).x < x_before
+    x_after_crash = world.component(car, Transform).x
+    world.add_component(car, ActionInput(reverse=True))
+    for _ in range(60):
+        world.step()
+    assert world.component(car, Transform).x == x_after_crash

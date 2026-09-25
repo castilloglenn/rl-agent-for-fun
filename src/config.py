@@ -40,14 +40,23 @@ def get_maze_car_config() -> ConfigDict:
     config.sensors = ConfigDict()
     config.sensors.ray_length = 1800
 
+    # Rounds and games. See docs/game-design.md.
+    config.round = ConfigDict()
+    config.round.seconds = 60
+    config.game = ConfigDict()
+    config.game.rounds = 1
+
     # HUD warning colors (amber = caution, red = danger).
     config.hud = ConfigDict()
     config.hud.reaction_time = 0.25  # seconds, for the stopping distance
     config.hud.caution_factor = 2.0  # amber below this x stopping distance
-    config.hud.near_contact = 5.0  # px: red for any ray this close
-    config.hud.side_caution = 20.0  # px: amber for rays off the travel path
+    # Proximity, for all 8 rays in any direction (car is 24 x 16 px).
+    config.hud.near_caution = 40.0  # px: amber
+    config.hud.near_danger = 15.0  # px: red
     config.hud.fps_caution = 0.9  # amber below this share of the target
     config.hud.fps_danger = 0.5  # red below this share of the target
+    config.hud.time_caution = 10.0  # seconds left: amber
+    config.hud.time_danger = 5.0  # seconds left: red
 
     config.car = ConfigDict()
     config.car.width = 24

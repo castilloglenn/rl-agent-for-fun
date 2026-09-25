@@ -51,15 +51,38 @@ def ray_level(
     stop_distance: float,
     hud: ConfigDict,
 ) -> int:
-    if distance < hud.near_contact:
+    """The more severe of two rules: proximity (every ray), and stopping
+    distance (rays on the travel path).
+    """
+    if distance < hud.near_danger:
         return DANGER
-    level = CAUTION if distance < hud.side_caution else NORMAL
+    level = CAUTION if distance < hud.near_caution else NORMAL
     if on_travel_path(ray_angle, speed):
         if distance < stop_distance:
             return DANGER
         if distance < hud.caution_factor * stop_distance:
             level = CAUTION
     return level
+
+
+def ray_levels(
+    rays: list, speed: float, brake_deceleration: float, hud: ConfigDict
+) -> dict[str, int]:
+    """Warning level per ray name. `speed` in px/s. Shared by the sensor
+    panel and the field, so both always agree.
+    """
+    stop = stopping_distance(speed, hud.reaction_time, brake_deceleration)
+    return {
+        ray.name: ray_level(ray.angle, ray.distance, speed, stop, hud)
+        for ray in rays
+    }
+
+
+RAY_COLORS = {NORMAL: theme.RAY, CAUTION: theme.WARN, DANGER: theme.BAD}
+
+
+def ray_color(level: int) -> ColorValue:
+    return RAY_COLORS[level]
 
 
 def speed_level(
@@ -77,5 +100,13 @@ def fps_level(fps: float, target: int, hud: ConfigDict) -> int:
     if fps < hud.fps_danger * target:
         return DANGER
     if fps < hud.fps_caution * target:
+        return CAUTION
+    return NORMAL
+
+
+def time_level(seconds_left: float, hud: ConfigDict) -> int:
+    if seconds_left < hud.time_danger:
+        return DANGER
+    if seconds_left < hud.time_caution:
         return CAUTION
     return NORMAL

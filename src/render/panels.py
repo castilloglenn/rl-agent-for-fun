@@ -18,13 +18,14 @@ from src.ecs import World
 from src.render import theme, warnings
 from src.sim.components import (
     ActionInput,
+    Eliminated,
     Motion,
     Ray,
     Renderable,
     Sensors,
     Transform,
 )
-from src.sim.resources import SimClock, SimConfig
+from src.sim.resources import EventLog, RoundState, SimClock, SimConfig
 from src.utils.ui import draw_text
 
 DASH = "—"
@@ -41,6 +42,7 @@ class CarInfo:
     center: tuple[float, float]
     action: ActionInput
     rays: list[Ray]
+    eliminated: bool
 
 
 def car_infos(world: World) -> list[CarInfo]:
@@ -55,11 +57,22 @@ def car_infos(world: World) -> list[CarInfo]:
             center=(transform.x, transform.y),
             action=action,
             rays=sensors.rays,
+            eliminated=world.try_component(car, Eliminated) is not None,
         )
-        for _, (renderable, motion, transform, action, sensors) in (
+        for car, (renderable, motion, transform, action, sensors) in (
             world.query(Renderable, Motion, Transform, ActionInput, Sensors)
         )
     ]
+
+
+def format_time(seconds: float) -> str:
+    minutes, seconds = divmod(max(seconds, 0.0), 60)
+    return f"{int(minutes):02d}:{seconds:04.1f}"
+
+
+def seconds_left(world: World) -> float:
+    state = world.resource(RoundState)
+    return state.steps_left / world.resource(SimConfig).steps_per_second
 
 
 def _box(surface: Surface, rect: Rect) -> None:
@@ -69,11 +82,24 @@ def _box(surface: Surface, rect: Rect) -> None:
 # Top bar
 
 
-def draw_top_bar(surface: Surface, rect: Rect, car: CarInfo | None) -> None:
+def draw_top_bar(
+    surface: Surface,
+    rect: Rect,
+    world: World,
+    car: CarInfo | None,
+    hud: ConfigDict,
+) -> None:
     _box(surface, rect)
     x = rect.x + PADDING
     y = rect.y + 8
-    for label, value in (("ROUND", DASH), ("TIME", DASH), ("SCORE", DASH)):
+    state = world.resource(RoundState)
+    time_left = seconds_left(world)
+    items = (
+        ("ROUND", f"{state.number}/{state.total}", warnings.NORMAL),
+        ("TIME", format_time(time_left), warnings.time_level(time_left, hud)),
+        ("SCORE", DASH, warnings.NORMAL),
+    )
+    for label, value, level in items:
         label_rect = draw_text(
             surface, label, (x, y + 3), theme.HEADER_SIZE, theme.TEXT_DIM
         )
@@ -82,13 +108,15 @@ def draw_top_bar(surface: Surface, rect: Rect, car: CarInfo | None) -> None:
             value,
             (label_rect.right + 8, y),
             theme.BIG_SIZE,
-            theme.TEXT,
+            warnings.value_color(level),
             bold=True,
         )
         x = value_rect.right + 28
 
     if car is not None:
-        if car.speed > 0:
+        if car.eliminated:
+            status, color = "CRASHED", theme.BAD
+        elif car.speed > 0:
             status, color = "DRIVING", theme.GOOD
         elif car.speed < 0:
             status, color = "REVERSING", theme.GOOD
@@ -207,7 +235,9 @@ def draw_side_panel(
 
     column.header("SENSORS (px to border)")
     if car:
-        _draw_sensors(column, car, stop_distance, hud)
+        _draw_sensors(
+            column, car, world.resource(SimConfig).brake_deceleration, hud
+        )
     column.gap()
 
     column.header("OBJECTIVE")
@@ -255,9 +285,10 @@ def _ahead_distance(car: CarInfo) -> float | None:
 
 
 def _draw_sensors(
-    column: _Column, car: CarInfo, stop_distance: float, hud: ConfigDict
+    column: _Column, car: CarInfo, brake_deceleration: float, hud: ConfigDict
 ) -> None:
     rays = {ray.name: ray for ray in car.rays}
+    levels = warnings.ray_levels(car.rays, car.speed, brake_deceleration, hud)
     middle = (column.left + column.right) // 2
     for left_name, right_name in SENSOR_ROWS:
         for name, x, right_edge in (
@@ -267,9 +298,7 @@ def _draw_sensors(
             if name not in rays:
                 continue
             ray = rays[name]
-            level = warnings.ray_level(
-                ray.angle, ray.distance, car.speed, stop_distance, hud
-            )
+            level = levels[name]
             draw_text(
                 column.surface,
                 SENSOR_LABELS.get(name, name),
@@ -340,21 +369,14 @@ def draw_bottom_bar(
 ) -> None:
     _box(surface, rect)
     y = rect.centery
-    draw_text(
-        surface,
-        "No events yet",
-        (rect.x + PADDING, y),
-        theme.TEXT_SIZE,
-        theme.TEXT_DIM,
-        anchor="midleft",
-    )
+    _draw_events(surface, rect, world)
     step = world.resource(SimClock).step
     sim_rate = world.resource(SimConfig).steps_per_second
     sync = " vsync" if vsync else ""
     fps_level = warnings.fps_level(fps, frame_rate, hud)
     # Drawn right to left, so only the FPS part can change color.
     parts = (
-        ("H: toggle lines", theme.TEXT_DIM),
+        ("R: restart  H: lines", theme.TEXT_DIM),
         (f"FPS {fps:.0f}/{frame_rate}{sync}", warnings.label_color(fps_level)),
         (f"SIM {sim_rate}/s", theme.TEXT_DIM),
         (f"Step {step:,}", theme.TEXT_DIM),
@@ -364,4 +386,24 @@ def draw_bottom_bar(
         drawn = draw_text(
             surface, text, (x, y), theme.TEXT_SIZE, color, anchor="midright"
         )
-        x = drawn.left - 24
+        x = drawn.left - 20
+
+
+def _draw_events(surface: Surface, rect: Rect, world: World) -> None:
+    """The latest event, with its time into the round."""
+    events = world.resource(EventLog).events
+    if not events:
+        text, color = "No events yet", theme.TEXT_DIM
+    else:
+        event = events[-1]
+        sps = world.resource(SimConfig).steps_per_second
+        text = f"{format_time(event.step / sps)}  {event.text}"
+        color = theme.BAD if event.danger else theme.TEXT
+    draw_text(
+        surface,
+        text,
+        (rect.x + PADDING, rect.centery),
+        theme.TEXT_SIZE,
+        color,
+        anchor="midleft",
+    )

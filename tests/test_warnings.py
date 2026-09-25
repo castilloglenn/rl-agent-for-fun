@@ -45,15 +45,22 @@ def test_same_distance_is_safe_when_slow():
     assert warnings.ray_level(0, 100, 40, stop, HUD) == NORMAL
 
 
-def test_rays_off_the_travel_path_use_fixed_thresholds():
+def test_proximity_applies_to_every_ray():
     stop = 150
-    assert warnings.ray_level(90, 100, 300, stop, HUD) == NORMAL
-    assert warnings.ray_level(90, 15, 300, stop, HUD) == CAUTION  # < 20
-    assert warnings.ray_level(90, 3, 300, stop, HUD) == DANGER  # < 5
+    for angle in (90, -90, 135, 180):  # off the travel path when driving
+        assert warnings.ray_level(angle, 100, 300, stop, HUD) == NORMAL
+        assert warnings.ray_level(angle, 30, 300, stop, HUD) == CAUTION
+        assert warnings.ray_level(angle, 10, 300, stop, HUD) == DANGER
 
 
-def test_near_contact_is_danger_even_when_stopped():
-    assert warnings.ray_level(0, 2, 0, 0, HUD) == DANGER
+def test_proximity_applies_even_when_stopped():
+    assert warnings.ray_level(90, 30, 0, 0, HUD) == CAUTION  # < 40
+    assert warnings.ray_level(0, 10, 0, 0, HUD) == DANGER  # < 15
+
+
+def test_the_more_severe_rule_wins():
+    # 30 px is only amber by proximity, but red on the path at speed.
+    assert warnings.ray_level(0, 30, 300, 150, HUD) == DANGER
 
 
 def test_speed_is_danger_when_the_wall_ahead_is_too_close():

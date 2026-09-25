@@ -2,26 +2,31 @@ from src.ecs import World
 from src.sim.components import (
     ActionInput,
     CarSpec,
+    Eliminated,
     Hitbox,
     Motion,
     Pedal,
     Transform,
 )
+from src.sim.elimination import eliminate, round_active
 from src.sim.geometry import car_corners, max_move_fraction
 from src.sim.resources import Field
 from src.utils.common import get_angular_movement_deltas
 
 
 def movement_system(world: World) -> None:
+    if not round_active(world):
+        return
     field = world.resource(Field)
-    for _, (action, transform, motion, spec, hitbox) in world.query(
-        ActionInput, Transform, Motion, CarSpec, Hitbox
+    for car, (action, transform, motion, spec, hitbox) in world.query(
+        ActionInput, Transform, Motion, CarSpec, Hitbox, exclude=(Eliminated,)
     ):
         motion.speed, motion.pedal = next_speed(motion.speed, action, spec)
         delta_x, delta_y = get_angular_movement_deltas(
             angle=transform.angle, speed=motion.speed
         )
-        _move(delta_x, delta_y, transform, motion, hitbox, field)
+        if not _move(delta_x, delta_y, transform, hitbox, field):
+            eliminate(world, car, "wall")
 
 
 def next_speed(
@@ -60,11 +65,12 @@ def _move(
     dx: float,
     dy: float,
     transform: Transform,
-    motion: Motion,
     hitbox: Hitbox,
     field: Field,
-) -> None:
-    """Moves as far as possible until a corner touches the border."""
+) -> bool:
+    """Moves as far as possible until a corner touches the border.
+    Returns False when it touched (a crash).
+    """
     corners = car_corners(
         transform.x, transform.y, transform.angle, hitbox.width, hitbox.height
     )
@@ -72,6 +78,4 @@ def _move(
     transform.x += dx * fraction
     transform.y += dy * fraction
 
-    # The border stops the car until crashes arrive (roadmap step 3f).
-    if fraction < 1.0:
-        motion.speed = 0.0
+    return fraction >= 1.0

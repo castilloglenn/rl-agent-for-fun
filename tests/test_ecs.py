@@ -66,6 +66,18 @@ def test_query_order_ignores_insertion_order():
     assert [entity for entity, _ in world.query(Tag)] == [first, second]
 
 
+def test_query_exclude():
+    world = World()
+    a = world.create_entity(Position(1))
+    world.create_entity(Position(2), Tag())
+    c = world.create_entity(Position(3))
+
+    result = world.query(Position, exclude=(Tag,))
+
+    assert [entity for entity, _ in result] == [a, c]
+    assert world.query(Position, exclude=(Velocity,)) == world.query(Position)
+
+
 def test_query_unknown_type_is_empty():
     world = World()
     world.create_entity(Position())

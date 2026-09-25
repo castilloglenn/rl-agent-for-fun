@@ -1,13 +1,23 @@
 from src.ecs import World
-from src.sim.components import ActionInput, CarSpec, Hitbox, Motion, Transform
+from src.sim.components import (
+    ActionInput,
+    CarSpec,
+    Eliminated,
+    Hitbox,
+    Motion,
+    Transform,
+)
+from src.sim.elimination import eliminate, round_active
 from src.sim.geometry import car_corners, inside
 from src.sim.resources import Field
 
 
 def steering_system(world: World) -> None:
+    if not round_active(world):
+        return
     field = world.resource(Field)
-    for _, (action, transform, motion, spec, hitbox) in world.query(
-        ActionInput, Transform, Motion, CarSpec, Hitbox
+    for car, (action, transform, motion, spec, hitbox) in world.query(
+        ActionInput, Transform, Motion, CarSpec, Hitbox, exclude=(Eliminated,)
     ):
         motion.steering = next_steering(motion.steering, action, spec)
         turn = turn_step(motion.steering, motion.speed, spec)
@@ -18,10 +28,11 @@ def steering_system(world: World) -> None:
         corners = car_corners(
             transform.x, transform.y, angle, hitbox.width, hitbox.height
         )
-        # A turn that would push a corner past the border is cancelled,
-        # until crashes arrive (roadmap step 3f).
+        # Turning a corner into the border is a crash.
         if inside(corners, field.rect):
             transform.angle = angle
+        else:
+            eliminate(world, car, "wall")
 
 
 def next_steering(steering: float, action: ActionInput, spec: CarSpec) -> float:

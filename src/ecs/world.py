@@ -61,18 +61,23 @@ class World:
         components = self._entities[entity]
         return all(ct in components for ct in component_types)
 
-    def query(self, *component_types: type) -> list[tuple[int, tuple]]:
-        """Entities that have every given component type, by ascending ID.
+    def query(
+        self, *component_types: type, exclude: tuple[type, ...] = ()
+    ) -> list[tuple[int, tuple]]:
+        """Entities that have every given component type, and none of the
+        `exclude` types, by ascending ID.
 
         Returns a list, so systems may add or delete entities while
         iterating over the result.
         """
         stores = [self._stores.get(ct, {}) for ct in component_types]
+        excluded = [self._stores.get(ct, {}) for ct in exclude]
         smallest = min(stores, key=len)
         return [
             (entity, tuple(store[entity] for store in stores))
             for entity in sorted(smallest)
             if all(entity in store for store in stores)
+            and not any(entity in store for store in excluded)
         ]
 
     # Resources

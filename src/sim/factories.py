@@ -13,7 +13,13 @@ from src.sim.components import (
     Transform,
 )
 from src.sim.geometry import body_edge_distance
-from src.sim.resources import Field, SimClock, SimConfig
+from src.sim.resources import (
+    EventLog,
+    Field,
+    RoundState,
+    SimClock,
+    SimConfig,
+)
 from src.sim.systems import SIMULATION_SYSTEMS
 from src.sim.systems.sensors import RAY_LAYOUT, cast_rays
 from src.utils.types import Colors, ColorValue
@@ -24,6 +30,13 @@ def create_world(config: ConfigDict) -> World:
     world.add_resource(SimConfig.from_config(config))
     world.add_resource(Field.from_config(config))
     world.add_resource(SimClock())
+    world.add_resource(
+        RoundState(
+            steps_left=config.round.seconds * config.sim.steps_per_second,
+            total=config.game.rounds,
+        )
+    )
+    world.add_resource(EventLog())
     for system in SIMULATION_SYSTEMS:
         world.add_system(system)
     return world

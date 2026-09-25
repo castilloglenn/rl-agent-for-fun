@@ -25,6 +25,16 @@ def main() -> None:
         path.write_text(_dumps(fixture))
         print(f"wrote {path} ({len(actions)} steps)")
 
+    stale = sorted(
+        path.name
+        for path in FIXTURE_DIR.glob("*.json")
+        if path.stem not in SCENARIOS
+    )
+    if stale:
+        print("\nNot in SCENARIOS anymore, delete with git rm:")
+        for name in stale:
+            print(f"  tests/fixtures/behavior/{name}")
+
 
 def _dumps(fixture: dict) -> str:
     # One line per step, so a diff points at the step that changed.

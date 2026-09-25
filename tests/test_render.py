@@ -87,3 +87,46 @@ def test_interpolated_drawing_lands_between_steps():
 def _crop(image: bytes, renderer, rect) -> bytes:
     surface = pygame.image.frombytes(image, renderer.display.get_size(), "RGB")
     return pygame.image.tobytes(surface.subsurface(rect), "RGB")
+
+
+def _field_colors(renderer) -> set:
+    """Every color in the field view (1 px lines included)."""
+    field = renderer.display.subsurface(renderer.layout.field_view)
+    data = pygame.image.tobytes(field, "RGB")
+    return {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+
+
+def test_rays_are_muted_when_safe():
+    from src.render import theme
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    create_start_car(world)
+    world.step()
+    renderer.draw(world)
+
+    colors = _field_colors(renderer)
+    assert theme.RAY in colors
+    assert theme.WARN not in colors and theme.BAD not in colors
+
+
+def test_rays_turn_red_when_the_wall_ahead_is_too_close():
+    from src.render import theme
+    from src.sim.components import Sensors
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    car = create_start_car(world)
+    while True:
+        world.add_component(car, ActionInput(gas=True))
+        world.step()
+        rays = world.component(car, Sensors).rays
+        if next(r for r in rays if r.name == "front").distance < 130:
+            break
+    renderer.draw(world)
+
+    colors = _field_colors(renderer)
+    assert theme.BAD in colors  # front ray: closer than the 150 px stop
+    assert theme.WARN in colors  # front diagonals: within 2x stop
