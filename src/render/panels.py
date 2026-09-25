@@ -42,6 +42,15 @@ DASH = "—"
 PADDING = 14
 
 
+@dataclass(frozen=True)
+class RewardStatus:
+    """The agent reward, from the env (it isn't part of the simulation)."""
+
+    profile: str  # reward profile name
+    last: float  # reward of the latest step
+    total: float  # summed over this game
+
+
 @dataclass
 class CarInfo:
     label: str
@@ -131,6 +140,7 @@ def draw_top_bar(
     world: World,
     car: CarInfo | None,
     hud: ConfigDict,
+    reward: RewardStatus | None = None,
 ) -> None:
     _box(surface, rect)
     x = rect.x + PADDING
@@ -169,7 +179,10 @@ def draw_top_bar(
 
     y += 26
     x = rect.x + PADDING
-    details = [("DRIVER", car.label if car else DASH), *round_details(world)]
+    details = [
+        ("DRIVER", car.label if car else DASH),
+        *round_details(world, reward),
+    ]
     for label, value in details:
         label_rect = draw_text(
             surface, label, (x, y + 1), theme.HEADER_SIZE, theme.TEXT_DIM
@@ -184,14 +197,19 @@ def draw_top_bar(
         x = value_rect.right + 24
 
 
-def round_details(world: World) -> list[tuple[str, str]]:
-    """Which stage and seed this round runs on, for the top bar."""
+def round_details(
+    world: World, reward: RewardStatus | None = None
+) -> list[tuple[str, str]]:
+    """Which stage, seed, and reward profile this round runs on."""
     stage = world.resource(Stage)
-    return [
+    details = [
         ("STAGE", f"{stage.name} {stage.width:g}×{stage.height:g}"),
         ("CHECKPOINTS", stage.checkpoints.mode),
         ("SEED", str(world.resource(Rng).seed)),
     ]
+    if reward:
+        details.append(("REWARD", reward.profile))
+    return details
 
 
 # Side panel
@@ -249,7 +267,7 @@ class _Column:
         self.y += theme.LINE_HEIGHT
 
     def gap(self) -> None:
-        self.y += 10
+        self.y += 6
 
 
 def draw_side_panel(
@@ -258,6 +276,7 @@ def draw_side_panel(
     world: World,
     cars: list[CarInfo],
     hud: ConfigDict,
+    reward: RewardStatus | None = None,
 ) -> None:
     _box(surface, rect)
     column = _Column(surface, rect)
@@ -310,15 +329,21 @@ def draw_side_panel(
     column.row("Collected", str(car.score.checkpoints) if car else DASH)
     column.gap()
 
-    column.header("REWARD")
+    column.header("SCORE (game points)")
     if car:
         column.row("Distance", f"+{car.score.distance_points:,.0f}")
         column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
         column.row("Last step", f"+{car.score.last_step:g}")
     column.gap()
 
-    column.header("AGENT VIEW")
-    column.note("Not driven by an agent")
+    column.header(
+        f"AGENT REWARD ({reward.profile})" if reward else "AGENT REWARD"
+    )
+    if reward:
+        column.row("Last step", f"{reward.last:+,.2f}")
+        column.row("This game", f"{reward.total:+,.2f}")
+    else:
+        column.note("No reward profile")
     column.gap()
 
     column.header("LEADERBOARD")

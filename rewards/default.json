@@ -1,5 +1,6 @@
 {
   "format": 1,
   "name": "default",
+  "description": "Game points only: the agent reward equals the game score gained.",
   "terms": {"points": 1.0}
 }

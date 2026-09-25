@@ -142,3 +142,30 @@ def test_top_bar_shows_the_stage_and_seed():
         ("CHECKPOINTS", "random"),
         ("SEED", "42"),
     ]
+
+
+def test_top_bar_shows_the_reward_profile():
+    from src.render.panels import RewardStatus, round_details
+    from src.sim.factories import create_game
+
+    world, _ = create_game(get_maze_car_config(), seed=42)
+    status = RewardStatus(profile="cautious", last=0.0, total=0.0)
+    assert round_details(world, status)[-1] == ("REWARD", "cautious")
+
+
+def test_side_panel_content_fits_inside_the_panel():
+    """The last line must end above the panel's bottom border."""
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    create_start_car(world)
+    renderer.draw(world)
+    panel = renderer.layout.panel
+    bottom_rows = renderer.display.subsurface(
+        (panel.x + 2, panel.bottom - 4, panel.width - 4, 3)
+    )
+    data = pygame.image.tobytes(bottom_rows, "RGB")
+    from src.render import theme
+
+    colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+    assert colors == {theme.BACKGROUND}  # no text touching the border

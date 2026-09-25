@@ -100,9 +100,15 @@ class Renderer:
                     print(f"left click at world ({x}, {y})")
         return commands
 
-    def draw(self, world: World, alpha: float = 1.0) -> None:
+    def draw(
+        self,
+        world: World,
+        alpha: float = 1.0,
+        reward: panels.RewardStatus | None = None,
+    ) -> None:
         """alpha: how far between the previous and current step to draw
-        the cars (1.0 = exactly the current step).
+        the cars (1.0 = exactly the current step). reward: the agent
+        reward to show (it comes from the env, not the simulation).
         """
         self.display.fill(theme.BACKGROUND)
         self._draw_field(world, alpha)
@@ -113,9 +119,15 @@ class Renderer:
             world,
             cars[0] if cars else None,
             self.config.hud,
+            reward,
         )
         panels.draw_side_panel(
-            self.display, self.layout.panel, world, cars, self.config.hud
+            self.display,
+            self.layout.panel,
+            world,
+            cars,
+            self.config.hud,
+            reward,
         )
         panels.draw_bottom_bar(
             self.display,

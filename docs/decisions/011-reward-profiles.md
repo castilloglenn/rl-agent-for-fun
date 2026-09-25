@@ -14,10 +14,12 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
 {
   "format": 1,
   "name": "cautious",
+  "description": "Stay alive: crashing costs far more than points earn.",
   "terms": {"points": 1.0, "crash": -200, "per_step": -0.01}
 }
 ```
 
+- `description` is optional, in plain words: what the profile is for. It'll show on agent profile pages.
 - Profiles live in `rewards/<name>.json`. `rewards/default.json` is `{"points": 1.0}`, exactly today's reward.
 - **reward = Σ weight × term.** Each term is one number measured over a single step:
 
@@ -50,3 +52,4 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
 - **The game score is never affected.** Agents trained with different profiles still compete on the same leaderboard.
 - Agents can exploit weights in unexpected ways. A crash penalty that's too large can teach "never move", the classic loophole. Replays make such behavior visible.
 - The agent profile page (step 6) shows which reward profile trained the agent, next to its skills.
+- **Shown in the window:** the top bar has `REWARD <profile name>`, and the side panel's AGENT REWARD section shows the last step's reward and the total this game. The reward is computed in the human demo too, so you can see how a profile would judge your own driving. The panel's SCORE section keeps showing game points.

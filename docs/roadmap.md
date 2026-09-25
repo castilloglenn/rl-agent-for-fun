@@ -156,6 +156,7 @@ Details: [decision 011](decisions/011-reward-profiles.md).
 - Unknown terms or a wrong format fail early with a clear error. New terms can be added later without breaking old profiles.
 - **The game score is never affected**, so agents trained with different profiles still compete on the same leaderboard.
 - The env takes a profile by name or path. Replays (4d) and runs (4g) record the profile used, and agent profiles (step 5) show "trained with".
+- Profiles have a `name` and an optional `description`. The window shows the profile name in the top bar, and the agent reward (last step, this game) in the side panel, also while a human drives.
 
 #### 4d. Replay format
 

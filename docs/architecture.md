@@ -56,7 +56,7 @@ Geometry and physics rules: [conventions](conventions.md).
 - Measured: about 49,000 `step` calls per second on one core, headless (observation and reward included).
 
 **For the real-time demo:**
-- `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over.
+- `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over. It also scores the step with the reward profile (`last_reward`, `round_reward`), so the HUD shows the agent reward while a human drives.
 - `game_step(action)`: `step_world`, plus one drawn frame if `config.show_gui` is on (`step` uses it, so an agent can be watched).
 - `render(alpha)`: handles window events (R runs `reset()`) and draws one frame, interpolated by `alpha`. Returns the real seconds since the previous frame.
 
@@ -74,7 +74,7 @@ A controller decides the car's `ActionInput` before each step. The only one toda
 |---|---|
 | `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
 | `layout.py` | `Layout.for_field`: screen rects for the top bar, field view, side panel, and bottom bar. The window size follows from the field size |
-| `panels.py` | Top bar (round, time, score, status; then driver, stage name and size, checkpoint mode, seed), side panel (car, sensor distances, objective, reward, agent view, leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
+| `panels.py` | Top bar (round, time, score, status; then driver, stage name and size, checkpoint mode, seed, reward profile), side panel (car, sensor distances, objective, score (game points), agent reward (profile, last step, this game), leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
 | `warnings.py` | When HUD values and ray lines turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, time, FPS. Pure functions, shared by the panels and the field |
 | `theme.py` | Colors and text sizes |
 

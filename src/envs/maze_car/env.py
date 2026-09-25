@@ -10,6 +10,7 @@ from src.envs.maze_car.rewards import (
     StepEvents,
     load_reward_profile,
 )
+from src.render.panels import RewardStatus
 from src.render.renderer import Command, Renderer
 from src.sim.components import ActionInput, Eliminated, Motion
 from src.sim.components import Score as CarScore
@@ -71,7 +72,10 @@ class MazeCarEnv(Environment):
             self.config, label=self.driver, seed=seed
         )
         self.running: bool = True
-        return self.get_state(), self.info()
+        self.last_reward = 0.0
+        self.round_reward = 0.0  # agent reward summed over this game
+        self.last_observation = self.get_state()
+        return self.last_observation, self.info()
 
     def step(
         self, action: tuple
@@ -84,41 +88,23 @@ class MazeCarEnv(Environment):
         ran out of time. The reward comes from the reward profile, and is 0
         once the game is over. The game points gained are in info["points"].
         """
-        score = self.world.component(self.car, CarScore)
-        motion = self.world.component(self.car, Motion)
-        checkpoints_before = score.checkpoints
-        steering_before = motion.steering
-        was_out, was_over = self._is_out(), self._round_over()
-
         points, _, _ = self.game_step(action)
-
-        out = self._is_out()
-        state = self.world.resource(RoundState)
-        truncated = state.over and state.reason == "time" and not out
-        observation = self.get_state()
-        reward = 0.0
-        if not was_over:
-            sim = self.world.resource(SimConfig)
-            events = StepEvents(
-                points=points,
-                checkpoints=score.checkpoints - checkpoints_before,
-                crashed=out and not was_out,
-                time_up=truncated,
-                distance=max(motion.moved, 0.0),
-                speed=motion.speed * sim.steps_per_second / sim.max_speed,
-                steering_change=abs(motion.steering - steering_before),
-                closest_wall=float(min(observation[:RAY_COUNT])),
-            )
-            reward = self.reward_profile(events)
         info = self.info()
         info["points"] = points
-        return observation, reward, out, truncated, info
+        return (
+            self.last_observation,
+            self.last_reward,
+            self._is_out(),
+            self._time_up(),
+            info,
+        )
 
     def _is_out(self) -> bool:
         return self.world.try_component(self.car, Eliminated) is not None
 
-    def _round_over(self) -> bool:
-        return self.world.resource(RoundState).over
+    def _time_up(self) -> bool:
+        state = self.world.resource(RoundState)
+        return state.over and state.reason == "time" and not self._is_out()
 
     def get_state(self) -> np.ndarray:
         """The observation: 14 floats, in `observation_names` order."""
@@ -158,16 +144,46 @@ class MazeCarEnv(Environment):
         self, action: Optional[tuple] = None
     ) -> tuple[Reward, GameOver, Score]:
         """One simulation step, without drawing. Does nothing once the
-        game is over.
+        game is over. Also scores the step with the reward profile (for
+        agents, and so the HUD can show it while a human drives).
+        Returns the game points gained, game over, and the game score.
         """
         if self.is_game_over:
+            self.last_reward = 0.0
             return (0, True, self.score)
+        score = self.world.component(self.car, CarScore)
+        motion = self.world.component(self.car, Motion)
+        checkpoints_before = score.checkpoints
+        steering_before = motion.steering
+        was_out = self._is_out()
+
         action_input = ActionInput(*action) if action else ActionInput()
         self.world.add_component(self.car, action_input)
         self.world.step()
 
-        reward = self.world.component(self.car, CarScore).last_step
-        return (reward, self.is_game_over, self.score)
+        points = score.last_step
+        self.last_observation = self.get_state()
+        sim = self.world.resource(SimConfig)
+        events = StepEvents(
+            points=points,
+            checkpoints=score.checkpoints - checkpoints_before,
+            crashed=self._is_out() and not was_out,
+            time_up=self._time_up(),
+            distance=max(motion.moved, 0.0),
+            speed=motion.speed * sim.steps_per_second / sim.max_speed,
+            steering_change=abs(motion.steering - steering_before),
+            closest_wall=float(min(self.last_observation[:RAY_COUNT])),
+        )
+        self.last_reward = self.reward_profile(events)
+        self.round_reward += self.last_reward
+        return (points, self.is_game_over, self.score)
+
+    def reward_status(self) -> RewardStatus:
+        return RewardStatus(
+            profile=self.reward_profile.name,
+            last=self.last_reward,
+            total=self.round_reward,
+        )
 
     def render(self, alpha: float = 1.0) -> float:
         """Handles window events and draws one frame. Returns the real
@@ -178,5 +194,5 @@ class MazeCarEnv(Environment):
             self.running = False
         if Command.RESTART in commands:
             self.reset()
-        self.renderer.draw(self.world, alpha)
+        self.renderer.draw(self.world, alpha, self.reward_status())
         return self.renderer.present()

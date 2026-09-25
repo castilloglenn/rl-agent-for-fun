@@ -189,3 +189,33 @@ def test_closest_wall_term_is_a_fraction():
 def test_unknown_profile_name_fails_early():
     with pytest.raises(FileNotFoundError):
         _env(reward="no_such_profile")
+
+
+def test_description_is_optional():
+    assert _profile(points=1.0).description == ""
+    assert load_reward_profile("default").description.startswith("Game points")
+
+
+def test_demo_path_tracks_the_reward_too():
+    """step_world (the human demo) scores steps with the profile as well."""
+    env = _env(reward=_profile(points=1.0, per_step=-0.01))
+    env.reset()
+    points = sum(env.step_world(GAS)[0] for _ in range(100))
+    status = env.reward_status()
+    assert status.profile == "test"
+    assert status.total == pytest.approx(points - 100 * 0.01)
+    assert status.last == pytest.approx(env.last_reward)
+
+    env.reset()
+    assert env.reward_status().total == 0
+
+
+def test_step_returns_the_same_reward_the_hud_shows():
+    env = _env(reward=_profile(points=2.0, per_step=-0.5))
+    env.reset()
+    total = 0.0
+    for _ in range(150):
+        _, reward, *_ = env.step(GAS)
+        total += reward
+        assert reward == env.reward_status().last
+    assert total == pytest.approx(env.reward_status().total)

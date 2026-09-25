@@ -55,6 +55,7 @@ TERMS: MappingProxyType[str, Callable[[StepEvents], float]] = MappingProxyType(
 class RewardProfile:
     name: str
     terms: MappingProxyType  # term name -> weight
+    description: str = ""  # what the profile is for, in plain words
     format: int = PROFILE_FORMAT
 
     def __call__(self, events: StepEvents) -> float:
@@ -84,6 +85,7 @@ class RewardProfile:
         return RewardProfile(
             name=data["name"],
             terms=MappingProxyType({t: float(w) for t, w in terms.items()}),
+            description=data.get("description", ""),
         )
 
     def to_dict(self) -> dict:
@@ -91,6 +93,7 @@ class RewardProfile:
         return {
             "format": self.format,
             "name": self.name,
+            "description": self.description,
             "terms": dict(self.terms),
         }
 
