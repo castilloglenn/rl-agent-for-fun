@@ -23,7 +23,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_heuristic` | Watch the heuristic baseline drive |
 | `make maze_car_random` | Watch the random baseline drive |
 | `make maze_car_driver DRIVER=name` | Any driver: `keyboard`, `random`, `heuristic` |
-| `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4h) |
+| `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |
 | `make maze_car_stage STAGE=name` | Another stage: a name in `stages/`, or a path |
 | `make maze_car_reward REWARD=name` | Another reward profile: a name in `rewards/`, or a path |
 | `make maze_car_seconds SECONDS=n` | Another round length |

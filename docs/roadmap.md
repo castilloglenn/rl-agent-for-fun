@@ -30,8 +30,9 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record (with player), reward profile, code version | Done |
 | 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Done |
 | 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Done |
-| 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward profile, game-defining config, and code version | Next |
-| 4h | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |
+| 4g | **Game rules** as files: round length, rounds per game, and scoring together in `rules/<name>.json` ([decision 013](decisions/013-game-rules-files.md)) | Next |
+| 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Planned |
+| 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
@@ -40,7 +41,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
-| Later | Hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (with per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills | Idea |
+| Later | Hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills | Idea |
 
 ## Step details
 
@@ -129,7 +130,7 @@ Goal: run many episodes headless, save each run's results, keep recordings of th
 
 #### 4a. Groundwork (urgent)
 
-Fixes to code that already exists, so the file formats in 4b to 4h start clean. Details: [decision 010](decisions/010-decouple-before-file-formats.md).
+Fixes to code that already exists, so the file formats in 4b to 4i start clean. Details: [decision 010](decisions/010-decouple-before-file-formats.md).
 
 - **Config split:** **game-defining** keys (driving, rules, rewards, round length, step rate, and later the stage) are saved in replays and runs. **Presentation** keys (`hud`, `display`, `window`, debug lines) are never saved, so tuning the HUD can't make an old replay look "changed". A `game_config()` helper returns only the game-defining part.
 - **Agent reward vs game score:** the **game score** stays the HUD and leaderboard value, with fixed rules. The **agent reward** becomes a small reward function of the step's events (points gained, crash, checkpoint, time). The default is "points gained", so nothing changes yet, but step 5 can experiment with rewards without touching the game. **Extended in 4c into reward profiles.**
@@ -155,7 +156,7 @@ Details: [decision 011](decisions/011-reward-profiles.md).
 - Terms are things measurable in one step: points, checkpoints, crashed, time up, per step, distance moved, speed, steering change, closest wall.
 - Unknown terms or a wrong format fail early with a clear error. New terms can be added later without breaking old profiles.
 - **The game score is never affected**, so agents trained with different profiles still compete on the same leaderboard.
-- The env takes a profile by name or path. Replays (4d) and runs (4g) record the profile used, and agent profiles (step 5) show "trained with".
+- The env takes a profile by name or path. Replays (4d) and runs (4h) record the profile used, and agent profiles (step 5) show "trained with".
 - Profiles have a `name` and an optional `description`. The window shows the profile name in the top bar, and the agent reward (last step, this game) in the side panel, also while a human drives.
 
 #### 4d. Replay format
@@ -185,14 +186,25 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 - **One driver interface** for every driver: observation in, action out. Random, heuristic, RL agents (5a), and imitation agents (5b) all plug in the same way, so nothing downstream (runner, replays, evaluation, live play) needs special cases.
 - **Built** (`src/drivers/`), with the keyboard as a driver too, so `app.py -demo maze_car --driver heuristic` shows a baseline live. On 30 unseen seeds: random scores 13.7 (no checkpoints), the heuristic 2,502 (16.2 checkpoints per round, 97 % survival). Slowing down near an off-center checkpoint took it from 0.9 to 16 checkpoints per round: at full speed it orbited them.
 
-#### 4g. Experiment runner
+#### 4g. Game rules
 
-- `python app.py -run <name> --driver heuristic --reward default --stage box --episodes 200`, headless at full speed.
+Details: [decision 013](decisions/013-game-rules-files.md).
+
+- **Rules files** in `rules/<name>.json`, starting with `rules/standard.json`: today's exact values (one 60 s round, +1 per 10 px, +100 per checkpoint). They replace `config.round`, `config.game.rounds`, and `config.rewards`.
+- Three swappable things, each a named file: **stage** (where), **rules** (how the game is played and scored), and **reward profile** (what an agent learns from).
+- Chosen with one setting: `--rules <name>` (and `make maze_car_rules RULES=<name>`). The top bar shows `RULES <name>`.
+- Replays embed the full rules, like stages. Runs record them.
+- **Leaderboards compare scores only within the same stage + rules**, since a longer round naturally scores more.
+- With `standard`, nothing behaves differently: the fixtures only change their config header.
+
+#### 4h. Experiment runner
+
+- `python app.py -run <name> --driver heuristic --rules standard --reward default --stage box --episodes 200`, headless at full speed, with a one-word make target per parameter (for example `make run_driver DRIVER=heuristic`).
 - Each run gets its own folder in `runs/`, which is **gitignored** (results are local data):
 
 ```
 runs/<date>_<name>_seed<N>/
-  config.json     all settings: stage, rewards, driver, seeds, versions
+  config.json     all settings: stage, rules, reward profile, driver, seeds, versions
   metrics.csv     one row per episode: seed, steps, score, distance points,
                   checkpoints, agent reward total, how it ended
   replays/        recordings of each new best episode
@@ -204,7 +216,7 @@ runs/<date>_<name>_seed<N>/
 - `config.json` records the **reward profile** used (name and full content), the **game-defining config**, and the **code version**.
 - Expected sizes, as ESTIMATES: replays a few KB each, model files KB to a few MB.
 
-#### 4h. Record your own demo rounds
+#### 4i. Record your own demo rounds
 
 - Every round you play in the demo is saved as a replay, **on by default**, keeping the **latest 50**.
 - Recordings are stored **per player** (`recordings/<player>/`).
@@ -264,7 +276,7 @@ agents/<agent_id>/
   profile.json      ~2 KB          current skills, lineage summary, totals. Read this first
   history.jsonl     ~200 B/event   one line per event, append-only
   checkpoints/      milestone weights only
-runs/<run_id>/      per-episode detail (step 4g)
+runs/<run_id>/      per-episode detail (step 4h)
 ```
 
 | Layer | Holds | Kept |
@@ -283,7 +295,7 @@ runs/<run_id>/      per-episode detail (step 4g)
 
 Learn to drive like a player from their recorded runs (**behavioral cloning**, a form of imitation learning).
 
-1. **Record:** play N rounds, and keep the good ones (4h).
+1. **Record:** play N rounds, and keep the good ones (4i).
 2. **Build a dataset:** re-simulate each kept replay (deterministic) and collect pairs of **observation → the player's action**. Replays don't store observations; re-simulation regenerates them exactly. A 60 s round gives 7,200 pairs.
 3. **Train:** supervised learning, predicting the player's action from the observation.
 4. **Test:** the clone is a driver like any other: watch it in replays and live play, and score it with the evaluation suite.
@@ -311,9 +323,9 @@ Control center window        Simulation window 1      Simulation window 2
 ```
 
 - **Control center:** runs list and status, learning curves, and a terminal-style console (scrolling log + command line). Example commands: `train`, `pause`, `resume`, `replay`, `spawn`, `join`, `compare`, `open`.
-- **Training setup:** pick the training mode (imitation, RL, or both, [decision 012](decisions/012-agent-training-modes.md)), stage, reward profile, seed or seed range, and driver or starting checkpoint, then start. It's a front end over the runner (4g): the same settings a command line run takes.
-- **Recordings and datasets:** browse recordings per player (4h), replay them, keep or unkeep runs, and pick kept runs as an imitation dataset (5b).
-- **Everything is a named file** (stages, reward profiles, recordings, runs, agents), so the control center lists and picks them rather than holding its own copies.
+- **Training setup:** pick the training mode (imitation, RL, or both, [decision 012](decisions/012-agent-training-modes.md)), stage, rules, reward profile, seed or seed range, and driver or starting checkpoint, then start. It's a front end over the runner (4h): the same settings a command line run takes.
+- **Recordings and datasets:** browse recordings per player (4i), replay them, keep or unkeep runs, and pick kept runs as an imitation dataset (5b).
+- **Everything is a named file** (stages, rules, reward profiles, recordings, runs, agents), so the control center lists and picks them rather than holding its own copies.
 - **Simulation windows:** each runs its own `World` + `Renderer`, for live play or a replay. Any number can be open side by side.
 - **Training runs headless in background processes**, at full speed, with no window. The control center shows their live metrics and logs.
 - **Live play:** trained agents (loaded from `.pt`) drive at normal speed. It only runs agents, it doesn't train them, so it's cheap.
@@ -322,7 +334,7 @@ Control center window        Simulation window 1      Simulation window 2
   - **Lineage:** initial training environment, then every later training phase (maps, episodes, which checkpoint it branched from).
   - **Skill radar chart:** one axis per skill from the evaluation suite, showing current levels.
   - **Skill history:** scores at each checkpoint, so you see skills grow, and sometimes drop. Further training on new environments can make an agent forget old skills ("catastrophic forgetting"), and this view reveals it.
-- **Agent leaderboard:** agents ranked by **evaluation suite score**, the fair comparison (same scenarios, same seeds), plus all-time high scores per map. Training scores aren't used for ranking, because random seeds and maps make some episodes easier than others.
+- **Agent leaderboard:** agents ranked by **evaluation suite score**, the fair comparison (same scenarios, same seeds), plus all-time high scores per stage + rules. Training scores aren't used for ranking, because random seeds and maps make some episodes easier than others.
 - **IPC:** commands go from the control center to the other processes, and metrics and logs come back. Candidates: `multiprocessing` queues, or a local socket.
 - **Why separate processes:** standard pygame gives one window per process. pygame-ce's multi-window API is NOT VERIFIED. Separate processes also mean a crashed or closed simulation window doesn't stop the control center or training.
 - UI library candidate: `pygame_gui`. NOT YET CHECKED FOR PYGAME-CE COMPATIBILITY.
@@ -347,7 +359,7 @@ A map is a **stage file** in `stages/` (format from step 4b). This step fills in
 - Walls are **axis-aligned rectangles** `[x, y, width, height]` for now: see [decision 006](decisions/006-rectangle-walls-first.md).
 - **Camera** for stages bigger than the window: zoom-to-fit or following the car.
 - The stage loader (`load_stage`) turns walls into entities too. Random spawn schedules must avoid walls, and rays and crashes check walls with the same exact math as the border.
-- Replays embed the full stage and runs record it (4d, 4g), so experiments always point at the exact layout.
+- Replays embed the full stage and runs record it (4d, 4h), so experiments always point at the exact layout.
 - **Map editor**, a simulation window mode:
   - Click and drag to draw walls, with snap-to-grid.
   - Place spawn points (with direction).
@@ -359,7 +371,7 @@ A map is a **stage file** in `stages/` (format from step 4b). This step fills in
 ### 8. Multiple cars and local multiplayer
 
 - Every car takes its `ActionInput` from a controller: keyboard, gamepad, a trained agent, or a replay.
-- **Game setup lobby:** pick the stage, number of rounds, and seed, add agents from the roster, add human slots, then start (a simulation window opens). Setups can be saved as presets (for example "me vs top 3 agents").
+- **Game setup lobby:** pick the stage, rules (round length, number of rounds), and seed, add agents from the roster, add human slots, then start (a simulation window opens). Setups can be saved as presets (for example "me vs top 3 agents").
 - **Local input devices** (on the same computer, including Bluetooth gamepads):
   - Keyboard split for 2 players: WASD + Space, and arrows + Right Shift.
   - Gamepads through pygame-ce's controller support: stick to steer, triggers for gas and brake. Analog input is converted to the 5 on/off actions with thresholds. Analog actions for agents could be a later experiment.

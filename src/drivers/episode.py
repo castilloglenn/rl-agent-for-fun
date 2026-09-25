@@ -17,7 +17,7 @@ class EpisodeResult:
 def run_episode(
     env, driver: Driver, seed: int | None = None, max_steps: int | None = None
 ) -> EpisodeResult:
-    """Plays one game with `driver`, headless. The runner (4g) and the
+    """Plays one game with `driver`, headless. The runner (4h) and the
     evaluation suite (5a) build on this.
     """
     from src.sim.components import Score

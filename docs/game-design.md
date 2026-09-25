@@ -18,7 +18,7 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 | Rule | Value |
 |---|---|
 | Round length | 60 seconds = **7,200 steps** at 120 steps/s ([decision 008](decisions/008-fixed-timestep-clock.md)). The timer counts simulation steps, never real time, to keep replays deterministic |
-| Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1) |
+| Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1). Round length, rounds, and scoring move into rules files in roadmap step 4g ([decision 013](decisions/013-game-rules-files.md)) |
 | Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
 | Round ends | When the timer hits 0, or when the car crashes |
 | Crash | Touching the border (driving or turning into it) = game over for that car. Later, with several cars, the round continues until the timer ends or every car is out. **Implemented in step 3f**: the HUD shows CRASHED, the event log records it, and R restarts |

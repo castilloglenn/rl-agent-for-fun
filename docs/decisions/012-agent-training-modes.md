@@ -1,6 +1,6 @@
 # 012: Agents can learn by imitation, by RL, or both, in any order
 
-**Date:** 2026-09-25. **Status:** Accepted. Implemented so far: the player in driver records (4d), the driver interface and the 12 canonical actions in code (4f, `src/drivers/`), with a test that all 32 key combinations behave like their canonical action. Planned: 4h, 5a, 5b. Baseline drivers use the record `{"type": "baseline", "id": ...}`.
+**Date:** 2026-09-25. **Status:** Accepted. Implemented so far: the player in driver records (4d), the driver interface and the 12 canonical actions in code (4f, `src/drivers/`), with a test that all 32 key combinations behave like their canonical action. Planned: 4i, 5a, 5b. Baseline drivers use the record `{"type": "baseline", "id": ...}`.
 
 ## Context
 
@@ -27,7 +27,7 @@ Any checkpoint can be **branched** into a new mode. The agent profile page lists
 |---|---|
 | 4d replay format | The human driver record includes the **player**: `{"type": "human", "player": "zen", "device": "keyboard"}` |
 | 4f baseline drivers | **One driver interface** (observation in, action out) for every driver: random, heuristic, RL, imitation |
-| 4h demo recordings | Stored **per player**, and runs can be **kept** (never removed by the latest-50 limit) |
+| 4i demo recordings | Stored **per player**, and runs can be **kept** (never removed by the latest-50 limit) |
 | 5a RL agent | The action set covers every human input, and the network shape works for both modes (below) |
 
 ### The action set loses nothing from human input

@@ -1,6 +1,6 @@
 # 011: Reward profiles: agent rewards as weighted terms in files
 
-**Date:** 2026-09-25. **Status:** Implemented in roadmap step 4c (`src/envs/maze_car/rewards.py`, `rewards/default.json`). Recording profiles in replays and runs follows in 4d and 4g.
+**Date:** 2026-09-25. **Status:** Implemented in roadmap step 4c (`src/envs/maze_car/rewards.py`, `rewards/default.json`). Recording profiles in replays and runs follows in 4d and 4h.
 
 ## Context
 

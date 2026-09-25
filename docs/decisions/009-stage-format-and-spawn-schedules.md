@@ -47,4 +47,4 @@ Stage + seed decide every spawn, independent of the driving:
 
 - Stage file + seed = the same round for every driver, which the leaderboards and evaluation suite rely on.
 - The field's world coordinates shift by the old offset, so behavior fixtures are regenerated once. Physics distances are unchanged.
-- `config.field` and `config.checkpoint` move into the stage file. The config keeps game-wide rules (round length, rewards, driving).
+- `config.field` and `config.checkpoint` move into the stage file. The config keeps game-wide settings (driving, sensors). Round length, rounds, and scoring later move to rules files ([decision 013](013-game-rules-files.md)).
