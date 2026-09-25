@@ -47,7 +47,7 @@ These pin down the current car physics exactly (roadmap step 1). They're the saf
 | File | Role |
 |---|---|
 | `tests/scenarios.py` | Scripted action sequences. Implementation-neutral |
-| `tests/fixtures/behavior/*.json` | Expected car state after every step (center, angle, speed, pedal, rays), one line per step |
+| `tests/fixtures/behavior/*.json` | Expected car state after every step (center, angle, speed, pedal, steering, ray distances), one line per step |
 | `tests/harness.py` | Two runners over the same scenarios: `run_world` (the simulation directly) and `run_env` (through `MazeCarEnv.game_step`, headless). Both must match the fixtures |
 | `tests/test_behavior.py` | Compares every runner against the fixtures exactly, and checks determinism |
 

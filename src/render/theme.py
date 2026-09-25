@@ -10,7 +10,8 @@ TEXT: ColorValue = (235, 235, 240)
 TEXT_DIM: ColorValue = (130, 133, 145)
 ACCENT: ColorValue = (0, 134, 212)  # section headers, pressed keys
 GOOD: ColorValue = (70, 200, 120)
-BAD: ColorValue = (230, 80, 80)
+WARN: ColorValue = (240, 180, 60)  # caution
+BAD: ColorValue = (230, 80, 80)  # danger
 
 RAY: ColorValue = (255, 255, 255)
 HITBOX: ColorValue = (255, 255, 255)

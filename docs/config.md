@@ -11,8 +11,13 @@
 | `show_collision_distance` | `True` | `Renderer`: ray lines exist (H toggles all debug lines at runtime) |
 | `window.title` | `"Maze Car"` | `Renderer`. The window size is derived from the field size plus the panel layout (`src/render/layout.py`), currently 1203×640 |
 | `field.x`, `field.y`, `field.width`, `field.height` | 22.5, 97.5, 855.0, 480.0 | `Field` resource, in world coordinates. The odd origin is a leftover from when the field sat inside a 900×600 window, kept so the physics fixtures stay unchanged |
-| `sensors.ray_length` | 1800 | `SimConfig`: how far rays are cast before clipping at the field |
+| `sensors.ray_length` | 1800 | `SimConfig`: maximum ray distance. Longer than the field's diagonal, so today every ray reaches the border |
 | `sim.steps_per_second` | 120 | `SimConfig`: the fixed simulation rate. Per-step physics values and step-based durations come from it ([decision 008](decisions/008-fixed-timestep-clock.md)) |
+| `hud.reaction_time` | 0.25 s | HUD stopping distance: reaction part (speed × time), plus braking (speed² / 2 × brake) |
+| `hud.caution_factor` | 2.0 | Rays on the travel path turn amber below this × stopping distance (red below 1×) |
+| `hud.near_contact` | 5.0 px | Any ray this close is red |
+| `hud.side_caution` | 20.0 px | Rays off the travel path turn amber this close |
+| `hud.fps_caution`, `hud.fps_danger` | 0.9, 0.5 | FPS turns amber / red below this share of the target frame rate |
 | `display.max_fps` | 0 | `Renderer`: frame rate cap. 0 = match the display's refresh rate (auto-detected) |
 | `car.width`, `car.height` | 24, 16 | `SimConfig`: start car size |
 | `car.max_speed` | 300.0 px/s | Forward speed cap |

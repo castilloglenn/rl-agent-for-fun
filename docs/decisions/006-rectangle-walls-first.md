@@ -4,17 +4,17 @@
 
 ## Context
 
-Maps (roadmap step 3) need walls, and the map editor (step 6) needs to draw them. Walls can be axis-aligned rectangles or line segments at any angle.
+Maps (roadmap step 7) need walls, and the map editor (also step 7) needs to draw them. Walls can be axis-aligned rectangles or line segments at any angle.
 
 | | Rectangles (axis-aligned) | Line segments (any angle) |
 |---|---|---|
 | Editing | Easiest: drag a box, snaps to a grid | Flexible: diagonal walls, curves from short segments |
-| Rays | Already work: rays use `Rect.clipline` | New code: segment-to-segment intersection |
-| Car collision | Works with the current `Rect` hitbox | Needs the polygon hitbox ([decision 004](004-polygon-hitbox-deferred.md)) to be accurate |
+| Rays | Easy: exact ray-to-rectangle distances, the same math as `distance_to_bounds` (step 3e) | New code: segment-to-segment intersection |
+| Car collision | Simple checks against the polygon hitbox ([decision 004](004-polygon-hitbox-deferred.md), step 3d) | Needs SAT against the polygon hitbox |
 
 ## Decision
 
-Start with axis-aligned rectangle walls, stored as `[x, y, width, height]` in map files. Add line segment walls in roadmap step 7, alongside the polygon hitbox.
+Start with axis-aligned rectangle walls, stored as `[x, y, width, height]` in map files. Add line segment walls later (roadmap step 8), alongside SAT collision.
 
 ## Consequences
 

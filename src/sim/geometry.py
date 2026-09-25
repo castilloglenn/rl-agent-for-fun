@@ -62,3 +62,41 @@ def max_move_fraction(
         elif dy < 0:
             fraction = min(fraction, (bounds.top - py) / dy)
     return max(fraction, 0.0)
+
+
+def direction(angle: float) -> Point:
+    """Unit vector for a heading in degrees (screen y grows downward)."""
+    radians = math.radians(angle)
+    return math.cos(radians), -math.sin(radians)
+
+
+def body_edge_distance(angle: float, width: float, height: float) -> float:
+    """Distance from a car's center to its body edge, along `angle`
+    degrees relative to its heading. Rays start there.
+    """
+    along = abs(math.cos(math.radians(angle)))
+    side = abs(math.sin(math.radians(angle)))
+    limits = []
+    if along > 1e-12:
+        limits.append((width / 2) / along)
+    if side > 1e-12:
+        limits.append((height / 2) / side)
+    return min(limits)
+
+
+def distance_to_bounds(
+    x: float, y: float, dx: float, dy: float, bounds: Rect
+) -> float:
+    """Distance from (x, y), inside bounds, along the unit vector
+    (dx, dy) until it reaches the bounds' edge.
+    """
+    distance = math.inf
+    if dx > 1e-12:
+        distance = min(distance, (bounds.right - x) / dx)
+    elif dx < -1e-12:
+        distance = min(distance, (bounds.left - x) / dx)
+    if dy > 1e-12:
+        distance = min(distance, (bounds.bottom - y) / dy)
+    elif dy < -1e-12:
+        distance = min(distance, (bounds.top - y) / dy)
+    return max(distance, 0.0)

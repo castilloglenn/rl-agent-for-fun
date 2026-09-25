@@ -1,5 +1,3 @@
-import math
-
 from ml_collections import ConfigDict
 
 from src.ecs import World
@@ -14,9 +12,10 @@ from src.sim.components import (
     Sensors,
     Transform,
 )
+from src.sim.geometry import body_edge_distance
 from src.sim.resources import Field, SimClock, SimConfig
 from src.sim.systems import SIMULATION_SYSTEMS
-from src.sim.systems.sensors import cast_rays
+from src.sim.systems.sensors import RAY_LAYOUT, cast_rays
 from src.utils.types import Colors, ColorValue
 
 
@@ -43,13 +42,14 @@ def create_car(
     """A car centered at (x, y) in world coordinates."""
     config = world.resource(SimConfig)
     transform = Transform(x=x, y=y, angle=angle)
-    corner_distance = math.hypot(width / 2, height / 2)
     sensors = Sensors(
         rays=[
-            Ray("front", angle=0, offset=width / 2),
-            Ray("left", angle=30, offset=corner_distance),
-            Ray("right", angle=-30, offset=corner_distance),
-            Ray("back", angle=180, offset=width / 2),
+            Ray(
+                name,
+                angle=ray_angle,
+                offset=body_edge_distance(ray_angle, width, height),
+            )
+            for name, ray_angle in RAY_LAYOUT
         ]
     )
     cast_rays(sensors, transform, world.resource(Field), config.ray_length)

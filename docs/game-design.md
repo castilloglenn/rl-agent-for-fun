@@ -59,7 +59,7 @@ The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 ### Sensors
 
-8 rays at 0°, 45°, 90°, and so on around the car's heading, replacing today's 4 (front, ±30°, back). Each ray starts where it leaves the car's body, so distance 0 means touching.
+8 rays at 0°, ±45°, ±90°, ±135°, and 180° around the car's heading: front, front-left, left, back-left, back, back-right, right, front-right. Each ray starts where it leaves the car's body, so distance 0 means touching. Distances are exact floats. **Implemented in step 3e.**
 
 ### Observation (what the agent sees)
 

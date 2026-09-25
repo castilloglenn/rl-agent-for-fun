@@ -9,11 +9,13 @@ rewards, agent) show a dash. Their roadmap steps fill them in.
 
 from dataclasses import dataclass
 
+from ml_collections import ConfigDict
+
 import pygame
 from pygame import Rect, Surface
 
 from src.ecs import World
-from src.render import theme
+from src.render import theme, warnings
 from src.sim.components import (
     ActionInput,
     Motion,
@@ -91,7 +93,7 @@ def draw_top_bar(surface: Surface, rect: Rect, car: CarInfo | None) -> None:
         elif car.speed < 0:
             status, color = "REVERSING", theme.GOOD
         else:
-            status, color = "STOPPED", theme.TEXT_DIM
+            status, color = "STOPPED", theme.WARN
         draw_text(surface, status, (x, y + 2), theme.TEXT_SIZE, color, True)
 
     driver = car.label if car else DASH
@@ -132,20 +134,22 @@ class _Column:
         )
         self.y += theme.LINE_HEIGHT
 
-    def row(self, label: str, value: str) -> None:
+    def row(
+        self, label: str, value: str, level: int = warnings.NORMAL
+    ) -> None:
         draw_text(
             self.surface,
             label,
             (self.left, self.y),
             theme.TEXT_SIZE,
-            theme.TEXT_DIM,
+            warnings.label_color(level),
         )
         draw_text(
             self.surface,
             value,
             (self.right, self.y),
             theme.TEXT_SIZE,
-            theme.TEXT,
+            warnings.value_color(level),
             anchor="topright",
         )
         self.y += theme.LINE_HEIGHT
@@ -165,15 +169,33 @@ class _Column:
 
 
 def draw_side_panel(
-    surface: Surface, rect: Rect, world: World, cars: list[CarInfo]
+    surface: Surface,
+    rect: Rect,
+    world: World,
+    cars: list[CarInfo],
+    hud: ConfigDict,
 ) -> None:
     _box(surface, rect)
     column = _Column(surface, rect)
     car = cars[0] if cars else None
+    stop_distance = 0.0
+    if car:
+        stop_distance = warnings.stopping_distance(
+            car.speed,
+            hud.reaction_time,
+            world.resource(SimConfig).brake_deceleration,
+        )
 
     column.header("CAR")
     if car:
-        column.row("Speed", f"{car.speed:,.1f} px/s")
+        column.row(
+            "Speed",
+            f"{car.speed:,.1f} px/s",
+            warnings.speed_level(
+                _ahead_distance(car), car.speed, stop_distance
+            ),
+        )
+        column.row("Stop dist", f"{stop_distance:,.0f} px")
         column.row("Pedal", car.pedal)
         column.row("Steering", _steering_text(car.steering))
         column.row("Heading", f"{car.heading:.0f}°")
@@ -183,10 +205,9 @@ def draw_side_panel(
         column.note("No car")
     column.gap()
 
-    column.header("SENSORS")
+    column.header("SENSORS (px to border)")
     if car:
-        for ray in car.rays:
-            column.row(ray.name.title(), f"{ray.distance:,.1f} px")
+        _draw_sensors(column, car, stop_distance, hud)
     column.gap()
 
     column.header("OBJECTIVE")
@@ -206,6 +227,65 @@ def draw_side_panel(
     column.header("LEADERBOARD")
     for rank, info in enumerate(cars, start=1):
         column.row(f"{rank}  {info.label}", DASH)
+
+
+# Mirrored columns: the car's left side on the left, right side on the right.
+SENSOR_ROWS = (
+    ("front", "back"),
+    ("front_left", "front_right"),
+    ("left", "right"),
+    ("back_left", "back_right"),
+)
+SENSOR_LABELS = {
+    "front": "Front",
+    "front_left": "F-left",
+    "left": "Left",
+    "back_left": "B-left",
+    "back": "Back",
+    "back_right": "B-right",
+    "right": "Right",
+    "front_right": "F-right",
+}
+
+
+def _ahead_distance(car: CarInfo) -> float | None:
+    """Distance straight along the direction of travel."""
+    name = "front" if car.speed > 0 else "back" if car.speed < 0 else None
+    return next((ray.distance for ray in car.rays if ray.name == name), None)
+
+
+def _draw_sensors(
+    column: _Column, car: CarInfo, stop_distance: float, hud: ConfigDict
+) -> None:
+    rays = {ray.name: ray for ray in car.rays}
+    middle = (column.left + column.right) // 2
+    for left_name, right_name in SENSOR_ROWS:
+        for name, x, right_edge in (
+            (left_name, column.left, middle - 12),
+            (right_name, middle + 12, column.right),
+        ):
+            if name not in rays:
+                continue
+            ray = rays[name]
+            level = warnings.ray_level(
+                ray.angle, ray.distance, car.speed, stop_distance, hud
+            )
+            draw_text(
+                column.surface,
+                SENSOR_LABELS.get(name, name),
+                (x, column.y),
+                theme.TEXT_SIZE,
+                warnings.label_color(level),
+            )
+            draw_text(
+                column.surface,
+                f"{ray.distance:.1f}",
+                (right_edge, column.y),
+                theme.TEXT_SIZE,
+                warnings.value_color(level),
+                anchor="topright",
+            )
+        column.y += theme.LINE_HEIGHT
 
 
 def _steering_text(steering: float) -> str:
@@ -256,6 +336,7 @@ def draw_bottom_bar(
     fps: float,
     frame_rate: int,
     vsync: bool,
+    hud: ConfigDict,
 ) -> None:
     _box(surface, rect)
     y = rect.centery
@@ -270,15 +351,17 @@ def draw_bottom_bar(
     step = world.resource(SimClock).step
     sim_rate = world.resource(SimConfig).steps_per_second
     sync = " vsync" if vsync else ""
-    status = (
-        f"Step {step:,}   SIM {sim_rate}/s   "
-        f"FPS {fps:.0f}/{frame_rate}{sync}   H: toggle lines"
+    fps_level = warnings.fps_level(fps, frame_rate, hud)
+    # Drawn right to left, so only the FPS part can change color.
+    parts = (
+        ("H: toggle lines", theme.TEXT_DIM),
+        (f"FPS {fps:.0f}/{frame_rate}{sync}", warnings.label_color(fps_level)),
+        (f"SIM {sim_rate}/s", theme.TEXT_DIM),
+        (f"Step {step:,}", theme.TEXT_DIM),
     )
-    draw_text(
-        surface,
-        status,
-        (rect.right - PADDING, y),
-        theme.TEXT_SIZE,
-        theme.TEXT_DIM,
-        anchor="midright",
-    )
+    x = rect.right - PADDING
+    for text, color in parts:
+        drawn = draw_text(
+            surface, text, (x, y), theme.TEXT_SIZE, color, anchor="midright"
+        )
+        x = drawn.left - 24

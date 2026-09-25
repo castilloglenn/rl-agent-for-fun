@@ -5,8 +5,8 @@
 - Angles are in degrees, in the range [0, 360).
 - 0 points right, and positive turns counterclockwise on screen.
 - Screen y grows downward, so `get_angular_movement_deltas` flips the sign of y (`src/utils/common.py`).
-- Collision rays are angled relative to the car's heading: front 0, left +30, right -30, back 180.
-- Rays start at an offset from the car center, and currently end where they hit the field border rect.
+- 8 rays are angled relative to the car's heading (`RAY_LAYOUT` in `src/sim/systems/sensors.py`): 0, ±45, ±90, ±135, 180.
+- Each ray starts on the car's body edge (`body_edge_distance`) and ends at the field border, with exact float distances (`distance_to_bounds`). Distance 0 means touching.
 
 ## Movement and physics
 

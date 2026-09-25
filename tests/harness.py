@@ -51,12 +51,10 @@ def _snapshot(world: World, car: int) -> dict:
         "speed": motion.speed,
         "pedal": motion.pedal,
         "steering": motion.steering,
+        # Start and end points follow from the pose and distance
+        # (tests/test_sensors.py checks them), so only distances are kept.
         "rays": {
-            ray.name: {
-                "start": [ray.start.x, ray.start.y],
-                "end": [ray.end.x, ray.end.y],
-                "distance": ray.distance,
-            }
+            ray.name: ray.distance
             for ray in world.component(car, Sensors).rays
         },
     }

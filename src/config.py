@@ -40,6 +40,15 @@ def get_maze_car_config() -> ConfigDict:
     config.sensors = ConfigDict()
     config.sensors.ray_length = 1800
 
+    # HUD warning colors (amber = caution, red = danger).
+    config.hud = ConfigDict()
+    config.hud.reaction_time = 0.25  # seconds, for the stopping distance
+    config.hud.caution_factor = 2.0  # amber below this x stopping distance
+    config.hud.near_contact = 5.0  # px: red for any ray this close
+    config.hud.side_caution = 20.0  # px: amber for rays off the travel path
+    config.hud.fps_caution = 0.9  # amber below this share of the target
+    config.hud.fps_danger = 0.5  # red below this share of the target
+
     config.car = ConfigDict()
     config.car.width = 24
     config.car.height = 16

@@ -93,7 +93,9 @@ class Renderer:
         panels.draw_top_bar(
             self.display, self.layout.top_bar, cars[0] if cars else None
         )
-        panels.draw_side_panel(self.display, self.layout.panel, world, cars)
+        panels.draw_side_panel(
+            self.display, self.layout.panel, world, cars, self.config.hud
+        )
         panels.draw_bottom_bar(
             self.display,
             self.layout.bottom_bar,
@@ -101,6 +103,7 @@ class Renderer:
             self.clock.get_fps(),
             self.frame_rate,
             self.vsync,
+            self.config.hud,
         )
 
     def present(self) -> float:

@@ -2,8 +2,21 @@ from pygame import Vector2
 
 from src.ecs import World
 from src.sim.components import Sensors, Transform
+from src.sim.geometry import direction, distance_to_bounds
 from src.sim.resources import Field, SimConfig
-from src.utils.common import get_extended_point
+
+# Name and angle (degrees, counterclockwise from the heading) of each ray,
+# going around the car.
+RAY_LAYOUT = (
+    ("front", 0),
+    ("front_left", 45),
+    ("left", 90),
+    ("back_left", 135),
+    ("back", 180),
+    ("back_right", -135),
+    ("right", -90),
+    ("front_right", -45),
+)
 
 
 def sensor_system(world: World) -> None:
@@ -19,19 +32,18 @@ def cast_rays(
     field: Field,
     ray_length: int,
 ) -> None:
-    center = Vector2(transform.x, transform.y)
+    """Each ray starts at the car's body edge (distance 0 = touching) and
+    stops at the field border, or at ray_length.
+    """
     for ray in sensors.rays:
-        heading = (transform.angle + ray.angle) % 360
-        ray.start = get_extended_point(
-            start_point=center,
-            angle=heading,
-            distance=ray.offset,
+        dx, dy = direction(transform.angle + ray.angle)
+        start_x = transform.x + dx * ray.offset
+        start_y = transform.y + dy * ray.offset
+        ray.distance = min(
+            distance_to_bounds(start_x, start_y, dx, dy, field.rect),
+            ray_length,
         )
-        far_point = get_extended_point(
-            start_point=ray.start,
-            angle=heading,
-            distance=ray_length,
+        ray.start = Vector2(start_x, start_y)
+        ray.end = Vector2(
+            start_x + dx * ray.distance, start_y + dy * ray.distance
         )
-        hit = field.rect.clipline(ray.start, far_point)
-        ray.end = Vector2(hit[1] if hit else ray.start)
-        ray.distance = ray.start.distance_to(ray.end)

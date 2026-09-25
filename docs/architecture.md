@@ -59,6 +59,7 @@ A controller decides the car's `ActionInput` before each step. The only one toda
 | `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
 | `layout.py` | `Layout.for_field`: screen rects for the top bar, field view, side panel, and bottom bar. The window size follows from the field size |
 | `panels.py` | Top bar (round, time, score, status, driver), side panel (car, sensor distances, objective, reward, agent view, leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
+| `warnings.py` | When HUD values turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, FPS. Pure functions |
 | `theme.py` | Colors and text sizes |
 
 - `poll_events()`: quit on window close or Esc, H toggles the debug lines (rays and hitbox, gated by `show_collision_distance` and `show_bounds`), and a left click prints its **world** coordinates.
