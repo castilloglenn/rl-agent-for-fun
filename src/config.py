@@ -42,7 +42,7 @@ def get_maze_car_config() -> ConfigDict:
 
     # Rounds and games. See docs/game-design.md.
     config.round = ConfigDict()
-    config.round.seconds = 60
+    config.round.seconds = 60.0
     config.game = ConfigDict()
     config.game.rounds = 1
     config.game.seed = 0  # checkpoint spawns; the demo picks a new one per R

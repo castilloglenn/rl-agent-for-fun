@@ -69,15 +69,17 @@ Rays only detect things that can crash a car (the border now; later walls, other
 
 ### Observation (what the agent sees)
 
-About 14 numbers, all normalized to a 0 to 1 or -1 to 1 range:
+**Implemented in step 3h** (`src/sim/observation.py`, layout version 1). 14 float32 numbers:
 
-| Input | Count |
-|---|---|
-| 8 ray distances (to walls) | 8 |
-| Speed | 1 |
-| Steering wheel position | 1 |
-| Checkpoint: distance, plus sin and cos of its angle relative to the car's heading | 3 |
-| Time left in the round (fraction) | 1 |
+| # | Input | Range and normalization |
+|---|---|---|
+| 0-7 | Ray distances (front, front-left, left, back-left, back, back-right, right, front-right) | 0 to 1, divided by the field diagonal (978 px) |
+| 8 | Speed | -⅓ (full reverse) to 1, divided by max speed |
+| 9 | Steering wheel position | -1 (full right) to 1 (full left) |
+| 10 | Checkpoint distance | 0 to 1, divided by the field diagonal |
+| 11 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
+| 12 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
+| 13 | Time left in the round | 1 at the start, down to 0 |
 
 - **Direction is relative to the car**, like a compass ("ahead-left, fairly close"). Sin and cos avoid the jump from 359° to 0°.
 - **Fixed size:** a neural network needs a fixed number of inputs. Objects that vary in count use the **nearest K of each type**, with empty slots filled by zeros plus an "absent" flag. For now there's always exactly 1 checkpoint.

@@ -14,7 +14,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 2b | Car components, systems (steering, movement, sensors), and factories in `src/sim/`. Behavior tests run against both old and new code | Done |
 | 2c | Render system, then switch the demo and env to the ECS. Removed the legacy test runner, since it needed the old env | Done |
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
-| **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
+| **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Done |
 | 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels, game leaderboard slot. Field size decoupled from the window | Done |
 | 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning. Later calibrated for human play, plus a steering wheel ramp | Done |
 | 3c | Fixed-timestep clock: simulation at a fixed 120 steps/s, drawing at the auto-detected display rate with vsync, interpolated car drawing ([decision 008](decisions/008-fixed-timestep-clock.md)) | Done |
@@ -22,8 +22,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3e | 8 rays around the car, starting at the car's body edge | Done |
 | 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Done |
 | 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Done |
-| 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Next |
-| 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
+| 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Done |
+| 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Next |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: map files, inner walls (rectangles), map editor. Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |

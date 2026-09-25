@@ -1,17 +1,21 @@
 from abc import ABC, abstractmethod
 
-from src.utils.types import GameOver, Reward, Score
+import numpy as np
 
 
 class Environment(ABC):
-    @abstractmethod
-    def reset(self) -> None:
-        pass
+    """Gymnasium-style environment API (without the dependency)."""
 
     @abstractmethod
-    def get_state(self) -> tuple:
-        pass
+    def reset(self, seed: int | None = None) -> tuple[np.ndarray, dict]:
+        """Starts a new episode. Returns (observation, info)."""
 
     @abstractmethod
-    def game_step(self, action: tuple) -> tuple[Reward, GameOver, Score]:
-        pass
+    def step(
+        self, action: tuple
+    ) -> tuple[np.ndarray, float, bool, bool, dict]:
+        """Returns (observation, reward, terminated, truncated, info)."""
+
+    @abstractmethod
+    def get_state(self) -> np.ndarray:
+        """The current observation."""

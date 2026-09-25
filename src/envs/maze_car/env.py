@@ -1,19 +1,35 @@
 import random
 from typing import Optional
 
+import numpy as np
 from ml_collections import ConfigDict
 
 from src.envs.base import Environment
 from src.render.renderer import Command, Renderer
-from src.sim.components import ActionInput
+from src.sim.components import ActionInput, Eliminated
 from src.sim.components import Score as CarScore
 from src.sim.factories import create_game
-from src.sim.resources import RoundState
+from src.sim.observation import (
+    OBSERVATION_NAMES,
+    OBSERVATION_VERSION,
+    observe,
+)
+from src.sim.resources import RoundState, SimClock
 from src.utils.types import GameOver, Reward, Score
+
+ACTION_NAMES = ("turn_left", "turn_right", "gas", "reverse", "brake")
 
 
 class MazeCarEnv(Environment):
-    """Wraps a simulation World. Renders it when config.show_gui is on."""
+    """Wraps a simulation World. Renders it when config.show_gui is on.
+
+    Agents use the Gymnasium-style `reset(seed)` and `step(action)`.
+    The demo uses `step_world` and `render` in its real-time loop.
+    """
+
+    observation_names = OBSERVATION_NAMES
+    observation_version = OBSERVATION_VERSION
+    action_names = ACTION_NAMES
 
     def __init__(
         self,
@@ -32,13 +48,45 @@ class MazeCarEnv(Environment):
         )
         self.reset()
 
-    def reset(self, seed: int | None = None) -> None:
+    def reset(self, seed: int | None = None) -> tuple[np.ndarray, dict]:
+        """Starts a new game. Returns the first observation and info."""
         if seed is None and self.random_seeds:
             seed = random.SystemRandom().randrange(1_000_000)
         self.world, self.car = create_game(
             self.config, label=self.driver, seed=seed
         )
         self.running: bool = True
+        return self.get_state(), self.info()
+
+    def step(
+        self, action: tuple
+    ) -> tuple[np.ndarray, float, bool, bool, dict]:
+        """One simulation step for an agent.
+
+        action: 5 bools, in `action_names` order.
+        Returns (observation, reward, terminated, truncated, info):
+        terminated when the car is out (a crash), truncated when the round
+        ran out of time.
+        """
+        reward, _, _ = self.game_step(action)
+        out = self.world.try_component(self.car, Eliminated) is not None
+        state = self.world.resource(RoundState)
+        truncated = state.over and state.reason == "time" and not out
+        return self.get_state(), reward, out, truncated, self.info()
+
+    def get_state(self) -> np.ndarray:
+        """The observation: 14 floats, in `observation_names` order."""
+        return observe(self.world, self.car)
+
+    def info(self) -> dict:
+        score = self.world.component(self.car, CarScore)
+        eliminated = self.world.try_component(self.car, Eliminated)
+        return {
+            "score": score.total,
+            "checkpoints": score.checkpoints,
+            "step": self.world.resource(SimClock).step,
+            "eliminated": eliminated.reason if eliminated else None,
+        }
 
     @property
     def score(self) -> float:
@@ -47,9 +95,6 @@ class MazeCarEnv(Environment):
     @property
     def is_game_over(self) -> bool:
         return self.world.resource(RoundState).game_over
-
-    def get_state(self) -> tuple:
-        pass
 
     def game_step(
         self, action: Optional[tuple] = None

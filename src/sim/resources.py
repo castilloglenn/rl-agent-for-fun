@@ -75,6 +75,7 @@ class RoundState:
     """The current round: a countdown in steps, and whether it's over."""
 
     steps_left: int
+    steps_total: int
     number: int = 1
     total: int = 1  # rounds per game
     over: bool = False

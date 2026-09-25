@@ -25,7 +25,7 @@
 | `checkpoint.min_car_distance` | 100.0 px | Spawns at least this far from the car's center |
 | `checkpoint.border_margin` | 40.0 px | Spawns at least this far inside the field border |
 | `hud.checkpoint_near` | 80.0 px | Checkpoint distance turns green below this |
-| `round.seconds` | 60 | Round length. In steps: seconds × `sim.steps_per_second` (7,200) |
+| `round.seconds` | 60.0 | Round length. In steps: seconds × `sim.steps_per_second` (7,200) |
 | `game.rounds` | 1 | Rounds per game. The game is over when the last round ends |
 | `hud.fps_caution`, `hud.fps_danger` | 0.9, 0.5 | FPS turns amber / red below this share of the target frame rate |
 | `display.max_fps` | 0 | `Renderer`: frame rate cap. 0 = match the display's refresh rate (auto-detected) |

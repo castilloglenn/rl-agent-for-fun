@@ -30,6 +30,7 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 | `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `GameRules` (rewards, checkpoint spawning), `Rng` (the only randomness, seeded), `Field`, `SimClock`, `RoundState`, and `EventLog` |
 | `systems/` | `pose_history_system`, `steering_system`, `movement_system`, `reward_system` (+1 per 10 px forward), `trigger_system` (car touches trigger: apply effects), `sensor_system`, `clock_system`, then `round_system`. The order is fixed by `SIMULATION_SYSTEMS` |
 | `elimination.py` | `eliminate(world, car, reason)`: the single way a car leaves a round (walls now, hazards and weapons later). Marks it `Eliminated`, stops it, logs the event |
+| `observation.py` | `observe(world, car)`: the agent's 14 normalized inputs, with a versioned layout (`OBSERVATION_NAMES`, `OBSERVATION_VERSION`) |
 | `factories.py` | `create_game(config, label, seed)` (world + start car + checkpoint: used by the env and tests), `create_world`, `create_car`, `create_start_car`, `create_checkpoint` |
 | `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
 
@@ -39,17 +40,22 @@ Geometry and physics rules: [conventions](conventions.md).
 
 ## Env (`src/envs/maze_car/env.py`)
 
-`MazeCarEnv` implements `src/envs/base.py` `Environment`:
+`MazeCarEnv` implements `src/envs/base.py` `Environment`, a **Gymnasium-style API** (without the dependency).
 
-- `reset()` builds a new world with one car at the start position.
-- `step_world(action)` writes the car's `ActionInput` and calls `world.step()` (one simulation step, no drawing). It returns `(reward, game_over, score)`.
-- `game_step(action)` is `step_world` plus one drawn frame if `config.show_gui` is on. That's the agent-facing API.
-- `render(alpha)` handles window events and draws one frame, interpolated by `alpha`. It returns the real seconds since the previous frame.
-- `get_state()` returns `None` (roadmap step 3h). The reward is the car's points this step (`Score.last_step`), and `score` is its total. `game_over` is true once the round (the whole game, with 1 round) is over, and `step_world` then does nothing.
-- `reset(seed)`: a new game. With `random_seeds=True` (the demo), each reset picks a fresh seed.
-- `reset()` also runs when the player presses R in the window.
+**For agents:**
+- `reset(seed)` starts a new game (world + car + checkpoint) and returns `(observation, info)`. With `random_seeds=True` (the demo), each reset picks a fresh seed. Otherwise `game.seed` is used.
+- `step(action)` returns `(observation, reward, terminated, truncated, info)`:
+  - `terminated`: the car is out (a crash).
+  - `truncated`: the round ran out of time.
+  - `reward`: the car's points this step. `info` has `score`, `checkpoints`, `step`, and `eliminated`.
+- `get_state()` returns the observation: 14 float32 values from `observe()` (`src/sim/observation.py`). The names are in `observation_names`, and the version is in `observation_version`. See [game design](game-design.md#observation-what-the-agent-sees).
+- An action is 5 bools, in `action_names` order: `(turn_left, turn_right, gas, reverse, brake)`.
+- Measured: about 54,000 `step` calls per second on one core, headless.
 
-An action is `(turn_left, turn_right, gas, reverse, brake)`.
+**For the real-time demo:**
+- `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over.
+- `game_step(action)`: `step_world`, plus one drawn frame if `config.show_gui` is on (`step` uses it, so an agent can be watched).
+- `render(alpha)`: handles window events (R runs `reset()`) and draws one frame, interpolated by `alpha`. Returns the real seconds since the previous frame.
 
 ## Controllers
 

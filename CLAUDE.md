@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal reinforcement learning playground. The first environment is **Maze Car**: a top-down pygame car with distance-sensing rays. The goal is for an agent to learn to drive it, and to make that learning visible.
 
-The simulation is an ECS (Entity Component System), built to support walls, replay, multiple cars, and parallel envs. The RL side is not built yet. Next: roadmap step 3 (first game rules in the box map). See [roadmap](docs/roadmap.md).
+The simulation is an ECS (Entity Component System), built to support walls, replay, multiple cars, and parallel envs. The first game rules (box map, crash, timer, rewards, checkpoints) and a Gymnasium-style env API for agents are built. No agent is trained yet. Next: roadmap step 4 (replay and experiment runs). See [roadmap](docs/roadmap.md).
 
 ## Core commands
 

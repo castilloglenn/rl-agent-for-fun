@@ -55,9 +55,11 @@ def create_world(config: ConfigDict, seed: int | None = None) -> World:
     world.add_resource(Rng(config.game.seed if seed is None else seed))
     world.add_resource(Field.from_config(config))
     world.add_resource(SimClock())
+    round_steps = round(config.round.seconds * config.sim.steps_per_second)
     world.add_resource(
         RoundState(
-            steps_left=config.round.seconds * config.sim.steps_per_second,
+            steps_left=round_steps,
+            steps_total=round_steps,
             total=config.game.rounds,
         )
     )
