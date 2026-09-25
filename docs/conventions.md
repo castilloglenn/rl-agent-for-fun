@@ -11,7 +11,7 @@
 ## Movement and physics
 
 - The car's position is an integer pygame `Rect`. Float remainders build up in `x_float`/`y_float`, giving sub-pixel movement.
-- The hitbox is currently the axis-aligned bounding box of the rotated image, so it grows when the car is angled. A polygon hitbox is planned but deferred: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
+- The hitbox is currently the axis-aligned bounding box of the rotated image, so it grows when the car is angled. It's replaced by the car's real 4 corners in roadmap step 3c: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
 - Reversing steers the other way: left input turns right while moving backward.
 - Turn rate scales with the current acceleration.
 

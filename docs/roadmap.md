@@ -15,16 +15,18 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 2c | Render system, then switch the demo and env to the ECS. Removed the legacy test runner, since it needed the old env | Done |
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
 | **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
-| 3a | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Next |
-| 3b | 8 rays around the car, starting at the car's body | Planned |
-| 3c | Round timer (60 s = 5,400 steps) and crash = game over | Planned |
-| 3d | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
-| 3e | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
+| 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels. Field size decoupled from the window | Next |
+| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Planned |
+| 3c | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3e | Planned |
+| 3d | 8 rays around the car, starting at the car's body edge | Planned |
+| 3e | Round timer (60 s = 5,400 steps) and crash = game over | Planned |
+| 3f | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
+| 3g | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch. **Milestone: the first skilled agent** | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: map files, inner walls (rectangles), map editor | Planned |
-| 8 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then polygon hitbox and car-vs-car collision, then angled (line segment) walls, then competition | Planned |
+| 8 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns, observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training | Planned |
 | Later | Multiple rounds per game, weapons and skills | Idea |
@@ -40,6 +42,49 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 - New config keys (all values tunable): reward distance, checkpoint radius and margins, drag, brake strength, `round.seconds`, `game.rounds`.
 - The HUD shows the remaining time, score, and 8 ray distances.
 - Observation layout: [game design](game-design.md#observation-what-the-agent-sees). Normalize every input, and keep the layout in one place so the agent and replays agree on it.
+
+### 3a. Simulation window UI
+
+```
+┌──────────────────────────────────────────────┬─────────────────────┐
+│ ROUND 1/1  TIME 00:42.3  SCORE 1,240  ● DRIVING │ CAR                 │
+│ DRIVER: You (keyboard)                       │  Speed, Throttle,   │
+├──────────────────────────────────────────────┤  Heading, Position, │
+│                                              │  Inputs [W]A S D ␣  │
+│                                              ├─────────────────────┤
+│                 FIELD                        │ SENSORS: radar of   │
+│           (same size as today)               │  8 rays + distances │
+│                                              ├─────────────────────┤
+│                                              │ OBJECTIVE: checkpoint│
+│                                              │  distance, direction│
+│                                              ├─────────────────────┤
+│                                              │ REWARD: distance,   │
+│                                              │  checkpoints, last  │
+│                                              ├─────────────────────┤
+│                                              │ AGENT VIEW: inputs  │
+│                                              │  as bars, action    │
+├──────────────────────────────────────────────┴─────────────────────┤
+│ event log (checkpoints, crash)          Step 3,812/5,400   FPS 90  │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+- **Top bar:** what you glance at most: round, time, score, status, who's driving.
+- **Right panel:** detail grouped by topic. Each later sub-step fills in its own section (timer, rewards, checkpoint, agent view).
+- **Bottom strip:** event log, step counter, FPS.
+- **Readable labels:** `SPD`/`ACC`/`AGL`/`LSC`/`FSC` become "Speed (px/s)", "Throttle", "Heading", and a labeled radar diagram.
+- **Hotkey** (for example H) hides and shows the panels.
+- **Field size gets its own config**, decoupled from the window (today it's calculated from the window size). It stays 855×480, so the physics doesn't change. Behavior tests must still pass unchanged in this sub-step.
+
+### 3c. Polygon hitbox
+
+Why before crashes: with the old growing box, "touching the border = game over" would end the round while a diagonal car is visibly still pixels away. That's unfair to a human driver, and it teaches agents the wrong safety margins.
+
+- The hitbox is the car's **4 real corners**, rotating with it. See [decision 004](decisions/004-polygon-hitbox-deferred.md).
+- **Position becomes a float center point**, replacing the integer `Rect` plus the `x_float`/`y_float` carry.
+- **Border check in the box map:** the car touches the border exactly when one of its corners leaves the field. The field is a convex rectangle, so this is exact.
+- The rays in 3d start at the body edge of this polygon.
+- SAT (Separating Axis Theorem) is added later, for inner walls (step 7) and car-vs-car collision (step 8), using this polygon.
+- `rotated_bounds` (`src/sim/geometry.py`) is no longer used by the physics.
 
 ### 4. Replay and experiment runs
 
@@ -126,7 +171,7 @@ A map is a JSON file in `maps/`:
 
 - Every car takes its `ActionInput` from a controller: keyboard (you), a trained agent, or a replay.
 - **Ghost mode:** several cars in one world that pass through each other, so you can drive among agents early.
-- Then the polygon hitbox ([decision 004](decisions/004-polygon-hitbox-deferred.md)) and car-vs-car collision in the `World`.
+- Then car-vs-car collision in the `World`: SAT on the polygon hitboxes from step 3c ([decision 004](decisions/004-polygon-hitbox-deferred.md)).
 - Then competition: agents learning against each other (multi-agent RL).
 
 ## Open questions
