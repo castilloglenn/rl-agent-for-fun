@@ -15,7 +15,13 @@ Action = tuple[bool, bool, bool, bool]
 def config_snapshot() -> dict:
     config = get_maze_car_config()
     return {
-        "window": [config.window.width, config.window.height],
+        "field": [
+            config.field.x,
+            config.field.y,
+            config.field.width,
+            config.field.height,
+        ],
+        "ray_length": config.sensors.ray_length,
         "fps": config.display.fps,
         "car": [config.car.width, config.car.height],
         "acceleration_unit": config.car.acceleration_unit,

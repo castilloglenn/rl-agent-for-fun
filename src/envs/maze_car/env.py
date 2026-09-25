@@ -12,8 +12,9 @@ from src.utils.types import GameOver, Reward, Score
 class MazeCarEnv(Environment):
     """Wraps a simulation World. Renders it when config.show_gui is on."""
 
-    def __init__(self, config: ConfigDict) -> None:
+    def __init__(self, config: ConfigDict, driver: str = "Agent") -> None:
         self.config = config
+        self.driver = driver  # shown in the HUD
         self.renderer: Renderer | None = (
             Renderer(config) if config.show_gui else None
         )
@@ -21,7 +22,7 @@ class MazeCarEnv(Environment):
 
     def reset(self) -> None:
         self.world = create_world(self.config)
-        self.car = create_start_car(self.world)
+        self.car = create_start_car(self.world, label=self.driver)
         self.score: int | float = 0
         self.is_game_over: bool = False
         self.running: bool = True

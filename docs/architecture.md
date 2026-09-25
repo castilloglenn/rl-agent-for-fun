@@ -27,8 +27,8 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 | File | Contents |
 |---|---|
 | `components.py` | `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `Renderable` |
-| `resources.py` | `SimConfig` (FPS, acceleration, car size, ray length) and `Field` (drivable area), built from the config |
-| `systems/` | `steering_system`, then `movement_system`, then `sensor_system`. The order is fixed by `SIMULATION_SYSTEMS` |
+| `resources.py` | `SimConfig` (FPS, acceleration, car size, ray length), `Field` (drivable area), and `SimClock` (steps simulated so far), built from the config |
+| `systems/` | `steering_system`, `movement_system`, `sensor_system`, then `clock_system`. The order is fixed by `SIMULATION_SYSTEMS` |
 | `factories.py` | `create_world(config)`, `create_car(...)`, `create_start_car(world)` |
 | `geometry.py` | `rotated_bounds`: the hitbox size after rotation |
 
@@ -50,13 +50,21 @@ An action is `(turn_left, turn_right, move_forward, move_backward)`.
 
 A controller decides the car's `ActionInput` before each step. The only one today is the keyboard: `read_keyboard()` in `demo.py`. It pumps events, then reads the key state. The agent and the replayer (roadmap steps 4 and 5) will be further controllers.
 
-## Rendering (`src/render/renderer.py`)
+## Rendering (`src/render/`)
 
-`Renderer` owns the pygame window and clock:
+| File | Contents |
+|---|---|
+| `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
+| `layout.py` | `Layout.for_field`: screen rects for the top bar, field view, side panel, and bottom bar. The window size follows from the field size |
+| `panels.py` | Top bar (round, time, score, status, driver), side panel (car, sensor radar, objective, reward, agent view, leaderboard), bottom bar (events, step, FPS) |
+| `theme.py` | Colors and text sizes |
 
-- `poll_events()`: quit on window close or Esc. A left click prints its coordinates.
-- `draw(world)`: HUD for the first car, field border, cars, and optionally bounds and rays (`show_bounds`, `show_collision_distance`).
+- `poll_events()`: quit on window close or Esc, H toggles the panels, and a left click prints its **world** coordinates.
+- `draw(world)`: field view (border, cars, optional bounds and rays via `show_bounds` and `show_collision_distance`), then the panels.
 - `present()`: display update, plus a clock tick at the configured FPS.
+- **World vs screen coordinates:** the simulation works in world coordinates. The renderer shifts everything by `Renderer.offset` so the field lands in the layout's field view.
+- Panel sections for features that don't exist yet show a dash, until their roadmap step fills them in.
+- The driver label (for example "You (keyboard)") comes from `Renderable.label`, set through `MazeCarEnv(config, driver=...)`.
 
 It only reads components, so turning it off (`show_gui=False`) never changes the simulation.
 
@@ -65,7 +73,7 @@ It only reads components, so turning it off (`show_gui=False`) never changes the
 ```
 read_keyboard() -> env.game_step(action)
                      -> ActionInput on the car
-                     -> world.step(): steering -> movement -> sensors
+                     -> world.step(): steering -> movement -> sensors -> clock
                      -> renderer: poll_events -> draw -> present
 ```
 

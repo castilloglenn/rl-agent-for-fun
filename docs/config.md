@@ -9,7 +9,9 @@
 | `show_gui` | `True` | `MazeCarEnv`: create a `Renderer` or not. The demo forces it on |
 | `show_bounds` | `True` | `Renderer`: draw hitbox rects |
 | `show_collision_distance` | `True` | `Renderer`: draw rays |
-| `window.title`, `window.width`, `window.height` | `"Maze Car"`, 900, 600 | `Renderer`. `Field` size and `SimConfig.ray_length` are also derived from width and height |
+| `window.title` | `"Maze Car"` | `Renderer`. The window size is derived from the field size plus the panel layout (`src/render/layout.py`), currently 1203×640 |
+| `field.x`, `field.y`, `field.width`, `field.height` | 22.5, 97.5, 855.0, 480.0 | `Field` resource, in world coordinates. The odd origin is a leftover from when the field sat inside a 900×600 window, kept so the physics fixtures stay unchanged |
+| `sensors.ray_length` | 1800 | `SimConfig`: how far rays are cast before clipping at the field |
 | `display.fps` | 90 | `SimConfig` (per-frame speeds) and `Renderer` (clock tick) |
 | `car.width`, `car.height` | 24, 16 | `SimConfig`: start car size |
 | `car.acceleration_unit` | 0.25 | `SimConfig`: turn rate floor, and per-frame acceleration |

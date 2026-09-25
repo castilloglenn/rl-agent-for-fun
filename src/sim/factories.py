@@ -12,7 +12,7 @@ from src.sim.components import (
     Sensors,
     Transform,
 )
-from src.sim.resources import Field, SimConfig
+from src.sim.resources import Field, SimClock, SimConfig
 from src.sim.systems import SIMULATION_SYSTEMS
 from src.sim.systems.sensors import cast_rays
 from src.utils.types import Colors, ColorValue
@@ -22,6 +22,7 @@ def create_world(config: ConfigDict) -> World:
     world = World()
     world.add_resource(SimConfig.from_config(config))
     world.add_resource(Field.from_config(config))
+    world.add_resource(SimClock())
     for system in SIMULATION_SYSTEMS:
         world.add_system(system)
     return world
@@ -35,6 +36,7 @@ def create_car(
     height: int,
     color: ColorValue,
     base_speed: float = 300.0,
+    label: str = "Car",
 ) -> int:
     config = world.resource(SimConfig)
 
@@ -81,11 +83,15 @@ def create_car(
         _car_spec(base_speed, config),
         hitbox,
         sensors,
-        Renderable(color=color),
+        Renderable(color=color, label=label),
     )
 
 
-def create_start_car(world: World, color: ColorValue = Colors.SKY_BLUE) -> int:
+def create_start_car(
+    world: World,
+    color: ColorValue = Colors.SKY_BLUE,
+    label: str = "Car 1",
+) -> int:
     """A car at the pre-ECS starting position: left quarter, mid height."""
     field = world.resource(Field)
     config = world.resource(SimConfig)
@@ -96,6 +102,7 @@ def create_start_car(world: World, color: ColorValue = Colors.SKY_BLUE) -> int:
         width=config.car_width,
         height=config.car_height,
         color=color,
+        label=label,
     )
 
 

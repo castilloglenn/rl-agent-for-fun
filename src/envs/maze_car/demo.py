@@ -13,7 +13,7 @@ class MazeCarDemo:
     def __init__(self, config: ConfigDict) -> None:
         config = config.copy_and_resolve_references()
         config.show_gui = True  # the demo is always drawn
-        self.env = MazeCarEnv(config)
+        self.env = MazeCarEnv(config, driver="You (keyboard)")
         self.run()
 
     def run(self) -> None:

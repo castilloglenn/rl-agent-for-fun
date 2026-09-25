@@ -3,34 +3,35 @@ from ml_collections import ConfigDict
 from pygame import Surface
 
 from src.ecs import World
-from src.sim.components import (
-    CarSpec,
-    Hitbox,
-    Motion,
-    Renderable,
-    Sensors,
-    Transform,
-)
+from src.render import panels, theme
+from src.render.layout import Layout
+from src.sim.components import Hitbox, Renderable, Sensors, Transform
 from src.sim.resources import Field
 from src.utils.common import get_triangle_coordinates_from_rect
 from src.utils.types import Colors, ColorValue
-from src.utils.ui import draw_texts, get_window_constants
 
 
 class Renderer:
     """Draws a World in a pygame window. Only reads components, so
     turning it on or off never changes the simulation.
+
+    World coordinates are drawn shifted by `offset`, so the field lands in
+    the layout's field view.
     """
 
     def __init__(self, config: ConfigDict) -> None:
         self.config = config
-        self.window = get_window_constants(config=config)
+        field_rect = Field.from_config(config).rect
+        self.layout = Layout.for_field(field_rect.width, field_rect.height)
+        self.offset = (
+            self.layout.field_view.x - field_rect.x,
+            self.layout.field_view.y - field_rect.y,
+        )
+        self.show_panels = True
 
         pygame.init()
-        pygame.display.set_caption(self.window.title)
-        self.display = pygame.display.set_mode(
-            (self.window.width, self.window.height)
-        )
+        pygame.display.set_caption(config.window.title)
+        self.display = pygame.display.set_mode(self.layout.window.size)
         self.clock = pygame.time.Clock()
         self._car_surfaces: dict[tuple, Surface] = {}
 
@@ -43,25 +44,45 @@ class Renderer:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     quit_requested = True
+                elif event.key == pygame.K_h:
+                    self.show_panels = not self.show_panels
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    print(f"left click at {event.pos}")
+                    x = event.pos[0] - self.offset[0]
+                    y = event.pos[1] - self.offset[1]
+                    print(f"left click at world ({x}, {y})")
         return quit_requested
 
     def draw(self, world: World) -> None:
-        self.display.fill(Colors.BLACK)
-        self._draw_hud(world)
-        pygame.draw.rect(
-            self.display, Colors.WHITE, world.resource(Field).rect, 1
-        )
-        for _, (transform, hitbox, sensors, renderable) in world.query(
-            Transform, Hitbox, Sensors, Renderable
-        ):
-            self._draw_car(transform, hitbox, sensors, renderable)
+        self.display.fill(theme.BACKGROUND)
+        self._draw_field(world)
+        if self.show_panels:
+            cars = panels.car_infos(world)
+            panels.draw_top_bar(
+                self.display, self.layout.top_bar, cars[0] if cars else None
+            )
+            panels.draw_side_panel(
+                self.display, self.layout.panel, world, cars
+            )
+            panels.draw_bottom_bar(
+                self.display,
+                self.layout.bottom_bar,
+                world,
+                self.clock.get_fps(),
+                self.config.display.fps,
+            )
 
     def present(self) -> None:
         pygame.display.update()
         self.clock.tick(self.config.display.fps)
+
+    def _draw_field(self, world: World) -> None:
+        field_rect = world.resource(Field).rect.move(self.offset)
+        pygame.draw.rect(self.display, theme.FIELD_BORDER, field_rect, 1)
+        for _, (transform, hitbox, sensors, renderable) in world.query(
+            Transform, Hitbox, Sensors, Renderable
+        ):
+            self._draw_car(transform, hitbox, sensors, renderable)
 
     def _car_surface(
         self, width: int, height: int, color: ColorValue
@@ -89,56 +110,17 @@ class Renderer:
             hitbox.width, hitbox.height, renderable.color
         )
         rotated = pygame.transform.rotate(surface, transform.angle)
-        self.display.blit(rotated, hitbox.rect)
+        screen_rect = hitbox.rect.move(self.offset)
+        self.display.blit(rotated, screen_rect)
 
         if self.config.show_bounds:
-            pygame.draw.rect(self.display, Colors.WHITE, hitbox.rect, width=1)
+            pygame.draw.rect(self.display, theme.HITBOX, screen_rect, width=1)
         if self.config.show_collision_distance:
+            dx, dy = self.offset
             for ray in sensors.rays:
                 pygame.draw.line(
                     surface=self.display,
-                    color=Colors.WHITE,
-                    start_pos=ray.start,
-                    end_pos=ray.end,
+                    color=theme.RAY,
+                    start_pos=(ray.start.x + dx, ray.start.y + dy),
+                    end_pos=(ray.end.x + dx, ray.end.y + dy),
                 )
-
-    def _draw_hud(self, world: World) -> None:
-        cars = world.query(Transform, Motion, CarSpec, Hitbox, Sensors)
-        if not cars:
-            return
-        # Debug overlay for the first car.
-        _, (transform, motion, spec, hitbox, sensors) = cars[0]
-        rays = {ray.name: ray.distance for ray in sensors.rays}
-
-        mf = self.config.display.fps
-        a = motion.acceleration_rate / self.config.car.acceleration_max
-        s = spec.base_speed * motion.speed
-        car = hitbox.rect
-        wh = f"({car.width:3,.0f}, {car.height:3,.0f})"
-        cn = f"({car.centerx:3,.0f}, {car.centery:3,.0f})"
-
-        sep = " " * 3
-        spd = f"SPD: {s:8,.2f}"
-        acc = f"ACC: {a * 100:7,.0f}%"
-        agl = f"AGL: {transform.angle:7.0f}°"
-        fps = f"FPS: {self.clock.get_fps():5.0f}/{mf}"
-        dim = f"DIM: {wh:>10s}"
-        dim_s = len(dim) * " " + (sep * 2)
-        cen = f"CEN: {cn:>10s}"
-        cll = f"LSC: {rays['left']:>6.2f}"
-        clb = f"BSC: {rays['back']:>6.2f}"
-        clf = f"FSC: {rays['front']:>6.2f}"
-        clr = f"RSC: {rays['right']:>6.2f}"
-
-        draw_texts(
-            surface=self.display,
-            texts=[
-                spd + sep + cen + sep + cll,
-                acc + sep + dim + sep + clf,
-                agl + dim_s + clr,
-                fps + dim_s + clb,
-            ],
-            size=12,
-            x=self.window.width * 0.025,
-            y=self.window.half_height * 0.075,
-        )

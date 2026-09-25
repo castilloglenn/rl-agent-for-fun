@@ -19,11 +19,21 @@ def get_maze_car_config() -> ConfigDict:
 
     config.window = ConfigDict()
     config.window.title = "Maze Car"
-    config.window.width = 900
-    config.window.height = 600
+
+    # World coordinates. The origin offset is a leftover from when the field
+    # was placed relative to a 900x600 window; it keeps the physics fixtures
+    # unchanged. The window size is derived from the field and panel layout.
+    config.field = ConfigDict()
+    config.field.x = 22.5
+    config.field.y = 97.5
+    config.field.width = 855.0
+    config.field.height = 480.0
 
     config.display = ConfigDict()
     config.display.fps = 90
+
+    config.sensors = ConfigDict()
+    config.sensors.ray_length = 1800
 
     config.car = ConfigDict()
     config.car.width = 24

@@ -76,3 +76,4 @@ class Sensors:
 @dataclass
 class Renderable:
     color: ColorValue
+    label: str = "Car"  # shown in the HUD, e.g. "You (keyboard)"

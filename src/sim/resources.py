@@ -23,7 +23,7 @@ class SimConfig:
             acceleration_max=config.car.acceleration_max,
             car_width=config.car.width,
             car_height=config.car.height,
-            ray_length=max(config.window.width, config.window.height) * 2,
+            ray_length=config.sensors.ray_length,
         )
 
 
@@ -51,11 +51,16 @@ class Field:
 
     @staticmethod
     def from_config(config: ConfigDict) -> "Field":
-        width = config.window.width
-        height = config.window.height
         return Field(
-            x=width * 0.025,
-            y=(height // 2) * 0.325,
-            width=width * 0.95,
-            height=height * 0.8,
+            x=config.field.x,
+            y=config.field.y,
+            width=config.field.width,
+            height=config.field.height,
         )
+
+
+@dataclass
+class SimClock:
+    """Steps simulated so far. Time is counted in steps, never real time."""
+
+    step: int = 0

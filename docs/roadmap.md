@@ -15,8 +15,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 2c | Render system, then switch the demo and env to the ECS. Removed the legacy test runner, since it needed the old env | Done |
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
 | **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
-| 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels, game leaderboard slot. Field size decoupled from the window | Next |
-| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Planned |
+| 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels, game leaderboard slot. Field size decoupled from the window | Done |
+| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Next |
 | 3c | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3e | Planned |
 | 3d | 8 rays around the car, starting at the car's body edge | Planned |
 | 3e | Round timer (60 s = 5,400 steps) and crash = game over | Planned |
