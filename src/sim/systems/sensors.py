@@ -1,7 +1,7 @@
-from pygame import Rect, Vector2
+from pygame import Vector2
 
 from src.ecs import World
-from src.sim.components import Hitbox, Sensors, Transform
+from src.sim.components import Sensors, Transform
 from src.sim.resources import Field, SimConfig
 from src.utils.common import get_extended_point
 
@@ -9,23 +9,21 @@ from src.utils.common import get_extended_point
 def sensor_system(world: World) -> None:
     field = world.resource(Field)
     ray_length = world.resource(SimConfig).ray_length
-    for _, (transform, hitbox, sensors) in world.query(
-        Transform, Hitbox, Sensors
-    ):
-        cast_rays(sensors, hitbox.rect, transform.angle, field, ray_length)
+    for _, (transform, sensors) in world.query(Transform, Sensors):
+        cast_rays(sensors, transform, field, ray_length)
 
 
 def cast_rays(
     sensors: Sensors,
-    rect: Rect,
-    angle: float,
+    transform: Transform,
     field: Field,
     ray_length: int,
 ) -> None:
+    center = Vector2(transform.x, transform.y)
     for ray in sensors.rays:
-        heading = (angle + ray.angle) % 360
+        heading = (transform.angle + ray.angle) % 360
         ray.start = get_extended_point(
-            start_point=Vector2(rect.center),
+            start_point=center,
             angle=heading,
             distance=ray.offset,
         )

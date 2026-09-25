@@ -1,5 +1,6 @@
+import math
+
 from ml_collections import ConfigDict
-from pygame import Rect, Vector2
 
 from src.ecs import World
 from src.sim.components import (
@@ -37,53 +38,30 @@ def create_car(
     height: int,
     color: ColorValue,
     label: str = "Car",
+    angle: float = 0.0,
 ) -> int:
+    """A car centered at (x, y) in world coordinates."""
     config = world.resource(SimConfig)
-
-    # Matches the pre-ECS Car: Rect truncates x/y, and they are then used
-    # as the center, not the top-left.
-    spec_rect = Rect(x, y, width, height)
-    rect = Rect(0, 0, spec_rect.width, spec_rect.height)
-    rect.center = (spec_rect.x, spec_rect.y)
-
-    transform = Transform()
-    hitbox = Hitbox(width=spec_rect.width, height=spec_rect.height, rect=rect)
+    transform = Transform(x=x, y=y, angle=angle)
+    corner_distance = math.hypot(width / 2, height / 2)
     sensors = Sensors(
         rays=[
-            Ray("front", angle=0, offset=rect.width // 2),
-            Ray(
-                "left",
-                angle=30,
-                offset=Vector2(rect.topright).distance_to(
-                    Vector2(rect.center)
-                ),
-            ),
-            Ray(
-                "right",
-                angle=-30,
-                offset=Vector2(rect.bottomright).distance_to(
-                    Vector2(rect.center)
-                ),
-            ),
-            Ray("back", angle=180, offset=rect.width // 2),
+            Ray("front", angle=0, offset=width / 2),
+            Ray("left", angle=30, offset=corner_distance),
+            Ray("right", angle=-30, offset=corner_distance),
+            Ray("back", angle=180, offset=width / 2),
         ]
     )
-    cast_rays(
-        sensors,
-        hitbox.rect,
-        transform.angle,
-        world.resource(Field),
-        config.ray_length,
-    )
+    cast_rays(sensors, transform, world.resource(Field), config.ray_length)
 
     return world.create_entity(
         ActionInput(),
         transform,
         Motion(),
         _car_spec(config),
-        hitbox,
+        Hitbox(width=width, height=height),
         sensors,
-        PreviousPose(*rect.center, transform.angle),
+        PreviousPose(x, y, angle),
         Renderable(color=color, label=label),
     )
 
@@ -93,13 +71,15 @@ def create_start_car(
     color: ColorValue = Colors.SKY_BLUE,
     label: str = "Car 1",
 ) -> int:
-    """A car at the pre-ECS starting position: left quarter, mid height."""
+    """A car at the starting position: left quarter, mid height, facing
+    right.
+    """
     field = world.resource(Field)
     config = world.resource(SimConfig)
     return create_car(
         world,
-        x=field.quarter_width - config.car_width // 2,
-        y=field.half_height - config.car_height // 2,
+        x=field.x + field.width / 4,
+        y=field.y + field.height / 2,
         width=config.car_width,
         height=config.car_height,
         color=color,
@@ -119,4 +99,6 @@ def _car_spec(config: SimConfig) -> CarSpec:
         drag=config.drag / fps**2,
         max_turn_rate=config.max_turn_rate / fps,
         full_turn_speed=config.full_turn_speed / fps,
+        steer_rate=1 / (config.steer_in_time * fps),
+        steer_return_rate=1 / (config.steer_return_time * fps),
     )

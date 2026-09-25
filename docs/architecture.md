@@ -30,9 +30,9 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 | `resources.py` | `SimConfig` (FPS, car size, ray length, driving limits), `Field` (drivable area), and `SimClock` (steps simulated so far), built from the config |
 | `systems/` | `pose_history_system` (remembers each car's pose for interpolated drawing), `steering_system`, `movement_system`, `sensor_system`, then `clock_system`. The order is fixed by `SIMULATION_SYSTEMS` |
 | `factories.py` | `create_world(config)`, `create_car(...)`, `create_start_car(world)` |
-| `geometry.py` | `rotated_bounds`: the hitbox size after rotation |
+| `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
 
-**The car's position is `Hitbox.rect`** (integer pygame `Rect`). `Transform` holds the angle and the sub-pixel carry. The field border is the only obstacle so far: it stops cars (`movement_system`) and rays (`sensor_system`).
+**The car's position is its float center** (`Transform.x`, `Transform.y`), and `Hitbox` holds its size. The hitbox is the car's 4 real corners. The field border is the only obstacle so far: cars stop exactly on contact (`movement_system`), turns into it are cancelled (`steering_system`), and it stops rays (`sensor_system`).
 
 Geometry and physics rules: [conventions](conventions.md).
 

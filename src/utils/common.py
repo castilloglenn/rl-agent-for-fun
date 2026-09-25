@@ -37,22 +37,6 @@ def get_triangle_coordinates_from_rect(rect: Rect) -> tuple:
     )
 
 
-def get_clamped_rect(
-    rect: Rect,
-    constraint: Rect,
-    new_x: int,
-    new_y: int,
-) -> tuple[bool, Rect]:
-    new_rect = rect.copy()
-    new_rect.x += new_x
-    new_rect.y += new_y
-    future_rect = new_rect.clamp(constraint)
-
-    if new_rect.center != future_rect.center:
-        return True, rect
-    return False, new_rect
-
-
 def lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 

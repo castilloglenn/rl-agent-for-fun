@@ -16,13 +16,13 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
 | **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
 | 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels, game leaderboard slot. Field size decoupled from the window | Done |
-| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Done |
+| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning. Later calibrated for human play, plus a steering wheel ramp | Done |
 | 3c | Fixed-timestep clock: simulation at a fixed 120 steps/s, drawing at the auto-detected display rate with vsync, interpolated car drawing ([decision 008](decisions/008-fixed-timestep-clock.md)) | Done |
-| 3d | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3f | Next |
-| 3e | 8 rays around the car, starting at the car's body edge | Planned |
+| 3d | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3f | Done |
+| 3e | 8 rays around the car, starting at the car's body edge | Next |
 | 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Planned |
 | 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
-| 3h | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
+| 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
@@ -97,7 +97,9 @@ Why before crashes: with the old growing box, "touching the border = game over" 
 - **Border check in the box map:** the car touches the border exactly when one of its corners leaves the field. The field is a convex rectangle, so this is exact.
 - The rays in 3e start at the body edge of this polygon.
 - SAT (Separating Axis Theorem) is added later, for inner walls (step 7) and car-vs-car collision (step 8), using this polygon.
-- `rotated_bounds` (`src/sim/geometry.py`) is no longer used by the physics.
+- `rotated_bounds` was removed, together with the integer-rect movement helpers.
+- **Exact contact:** moves go as far as possible until a corner touches the border, instead of stopping up to a step short. Turns into the border are cancelled.
+- The start position became exactly a quarter of the field's width, mid height, dropping the old truncation quirk.
 
 ### 4. Replay and experiment runs
 

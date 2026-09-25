@@ -5,7 +5,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pytest  # noqa: E402
 
 from src.config import get_maze_car_config  # noqa: E402
-from src.sim.components import ActionInput, Hitbox, Transform  # noqa: E402
+from src.sim.components import ActionInput, Transform  # noqa: E402
 from src.sim.factories import create_start_car, create_world  # noqa: E402
 from src.utils.common import lerp, lerp_angle  # noqa: E402
 from src.utils.timing import FixedStepClock  # noqa: E402
@@ -51,8 +51,8 @@ def test_same_inputs_give_same_world_at_any_display_rate():
                 world.add_component(car, action)
                 world.step()
                 steps_done += 1
-        rect = world.component(car, Hitbox).rect
-        return (tuple(rect), world.component(car, Transform).angle)
+        transform = world.component(car, Transform)
+        return (transform.x, transform.y, transform.angle)
 
     assert drive(60) == drive(144) == drive(240)
 

@@ -22,6 +22,8 @@
 | `car.brake_deceleration` | 600.0 px/s² | Brake (and gas/reverse against the direction of motion): max speed to a stop in 0.5 s |
 | `car.drag` | 100.0 px/s² | Coasting: max speed to a stop in 3 s |
 | `car.max_turn_rate` | 240.0 °/s | Turn rate cap |
+| `car.steer_in_time` | 0.25 s | Steering wheel: center to full lock |
+| `car.steer_return_time` | 0.15 s | Steering wheel: full lock back to center (self-centering, also used when switching sides) |
 | `car.full_turn_speed` | 120.0 px/s | Speed where the max turn rate is reached. Below it, the turn rate scales down to 0 at a stop |
 
 All `car.*` driving values go into `SimConfig`, and `create_car` converts them to per-step units (`CarSpec`).

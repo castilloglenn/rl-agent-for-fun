@@ -10,9 +10,12 @@
 
 ## Movement and physics
 
-- The car's position is an integer pygame `Rect`. Float remainders build up in `x_float`/`y_float`, giving sub-pixel movement.
-- The hitbox is currently the axis-aligned bounding box of the rotated image, so it grows when the car is angled. It's replaced by the car's real 4 corners in roadmap step 3d: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
+- The car's position is its **float center** (`Transform.x`, `Transform.y`), in world coordinates.
+- The hitbox is the car's **4 real corners** (`car_corners` in `src/sim/geometry.py`), rotating with it. It never grows with the angle: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
+- **Border contact is exact:** a move goes as far as it can until a corner touches the border (`max_move_fraction`), then the car stops. A turn that would push a corner out is cancelled. Both become crashes in roadmap step 3f.
+- The field's physics boundary is `Field.rect` (left/top edges included, right/bottom at `rect.right`/`rect.bottom`). The drawn border line sits exactly on it.
 - `Motion.speed` is signed, in px per step along the heading: positive forward, negative reversing.
+- `Motion.steering` is the wheel position, -1 (full right) to +1 (full left). A/D move it gradually (`next_steering`), and the turn rate follows it.
 - Steering flips while the car actually rolls backward (based on the speed's sign, not the pressed keys).
 - Turn rate follows speed, and is 0 at a stop. Driving rules: [game design](game-design.md#controls-realistic-driving).
 

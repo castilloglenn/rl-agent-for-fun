@@ -16,7 +16,6 @@ from src.ecs import World
 from src.render import theme
 from src.sim.components import (
     ActionInput,
-    Hitbox,
     Motion,
     Ray,
     Renderable,
@@ -35,9 +34,9 @@ class CarInfo:
     label: str
     speed: float  # px/s, negative while reversing
     pedal: str
+    steering: float  # -1 full right .. +1 full left
     heading: float  # degrees
-    center: tuple[int, int]
-    hitbox_size: tuple[int, int]
+    center: tuple[float, float]
     action: ActionInput
     rays: list[Ray]
 
@@ -49,16 +48,14 @@ def car_infos(world: World) -> list[CarInfo]:
             label=renderable.label,
             speed=motion.speed * config.steps_per_second,
             pedal=motion.pedal,
+            steering=motion.steering,
             heading=transform.angle,
-            center=hitbox.rect.center,
-            hitbox_size=hitbox.rect.size,
+            center=(transform.x, transform.y),
             action=action,
             rays=sensors.rays,
         )
-        for _, (renderable, motion, transform, hitbox, action, sensors) in (
-            world.query(
-                Renderable, Motion, Transform, Hitbox, ActionInput, Sensors
-            )
+        for _, (renderable, motion, transform, action, sensors) in (
+            world.query(Renderable, Motion, Transform, ActionInput, Sensors)
         )
     ]
 
@@ -178,9 +175,9 @@ def draw_side_panel(
     if car:
         column.row("Speed", f"{car.speed:,.1f} px/s")
         column.row("Pedal", car.pedal)
+        column.row("Steering", _steering_text(car.steering))
         column.row("Heading", f"{car.heading:.0f}°")
-        column.row("Position", f"{car.center[0]}, {car.center[1]}")
-        column.row("Hitbox", f"{car.hitbox_size[0]} × {car.hitbox_size[1]}")
+        column.row("Position", f"{car.center[0]:.1f}, {car.center[1]:.1f}")
         _draw_inputs(column, car.action)
     else:
         column.note("No car")
@@ -209,6 +206,13 @@ def draw_side_panel(
     column.header("LEADERBOARD")
     for rank, info in enumerate(cars, start=1):
         column.row(f"{rank}  {info.label}", DASH)
+
+
+def _steering_text(steering: float) -> str:
+    if steering == 0:
+        return "Center"
+    side = "Left" if steering > 0 else "Right"
+    return f"{side} {abs(steering) * 100:.0f} %"
 
 
 def _draw_inputs(column: _Column, action: ActionInput) -> None:

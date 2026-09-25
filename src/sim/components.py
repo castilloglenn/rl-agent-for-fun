@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from pygame import Rect, Vector2
+from pygame import Vector2
 
 from src.utils.types import ColorValue
 
@@ -20,10 +20,11 @@ class ActionInput:
 
 @dataclass
 class Transform:
-    angle: float = 0
-    # Sub-pixel carry: the position itself is the integer Hitbox.rect.
-    x_float: float = 0.0
-    y_float: float = 0.0
+    """The car's center position (world coordinates) and heading."""
+
+    x: float = 0.0
+    y: float = 0.0
+    angle: float = 0.0
 
 
 class Pedal:
@@ -38,6 +39,7 @@ class Pedal:
 class Motion:
     speed: float = 0.0  # px per step along the heading; negative = reversing
     pedal: str = Pedal.IDLE  # what the car did this step, for HUD and logs
+    steering: float = 0.0  # wheel position: -1 full right .. +1 full left
 
 
 @dataclass(frozen=True)
@@ -54,18 +56,18 @@ class CarSpec:
     drag: float
     max_turn_rate: float
     full_turn_speed: float
+    steer_rate: float  # wheel travel per step, moving outward
+    steer_return_rate: float  # wheel travel per step, toward center
 
 
 @dataclass
 class Hitbox:
-    """Unrotated size, plus the axis-aligned bounds of the rotated car.
-
-    `rect` is also the car's position.
+    """The car's size. Its 4 real corners come from `car_corners`
+    (src/sim/geometry.py) with the Transform.
     """
 
     width: int
     height: int
-    rect: Rect
 
 
 @dataclass

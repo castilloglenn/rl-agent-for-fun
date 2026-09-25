@@ -1,6 +1,6 @@
 # 004: Polygon hitbox, after the refactor (roadmap step 3d)
 
-**Date:** 2026-09-25. **Status:** Accepted, scheduled for roadmap step 3d (moved up from the multi-car step).
+**Date:** 2026-09-25. **Status:** Implemented in roadmap step 3d (moved up from the multi-car step). SAT still to come with inner walls and car-vs-car collision.
 
 ## Context
 

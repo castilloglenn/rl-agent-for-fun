@@ -21,6 +21,8 @@ class SimConfig:
     drag: float
     max_turn_rate: float
     full_turn_speed: float
+    steer_in_time: float  # seconds, center to full lock
+    steer_return_time: float  # seconds, full lock to center
 
     @staticmethod
     def from_config(config: ConfigDict) -> "SimConfig":
@@ -38,6 +40,8 @@ class SimConfig:
             drag=car.drag,
             max_turn_rate=car.max_turn_rate,
             full_turn_speed=car.full_turn_speed,
+            steer_in_time=car.steer_in_time,
+            steer_return_time=car.steer_return_time,
         )
 
 
@@ -54,14 +58,6 @@ class Field:
 
     def __post_init__(self):
         self.rect = Rect(self.x, self.y, self.width, self.height)
-
-    @property
-    def quarter_width(self) -> float:
-        return self.x + self.width // 4
-
-    @property
-    def half_height(self) -> float:
-        return self.y + self.height // 2
 
     @staticmethod
     def from_config(config: ConfigDict) -> "Field":

@@ -54,5 +54,8 @@ def get_maze_car_config() -> ConfigDict:
     config.car.drag = 100.0  # coasting: max speed to stop in 3 s
     config.car.max_turn_rate = 240.0  # degrees/s
     config.car.full_turn_speed = 120.0  # speed where max turn rate is reached
+    # Steering wheel: seconds from center to full lock, and back to center.
+    config.car.steer_in_time = 0.25
+    config.car.steer_return_time = 0.15
 
     return config

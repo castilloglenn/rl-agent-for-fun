@@ -12,6 +12,7 @@ from src.sim.components import (
     Sensors,
     Transform,
 )
+from src.sim.geometry import car_corners
 from src.sim.resources import Field
 from src.utils.common import (
     get_triangle_coordinates_from_rect,
@@ -109,7 +110,13 @@ class Renderer:
 
     def _draw_field(self, world: World, alpha: float) -> None:
         field_rect = world.resource(Field).rect.move(self.offset)
-        pygame.draw.rect(self.display, theme.FIELD_BORDER, field_rect, 1)
+        # pygame draws a 1 px outline inside the rect's right and bottom
+        # edges. One extra pixel puts the line exactly on the physics
+        # boundary, where car corners stop.
+        border = pygame.Rect(
+            field_rect.x, field_rect.y, field_rect.w + 1, field_rect.h + 1
+        )
+        pygame.draw.rect(self.display, theme.FIELD_BORDER, border, 1)
         for _, (transform, hitbox, sensors, renderable, previous) in (
             world.query(Transform, Hitbox, Sensors, Renderable, PreviousPose)
         ):
@@ -142,13 +149,9 @@ class Renderer:
         alpha: float,
     ) -> None:
         # Interpolated pose between the previous and current step.
-        current_x, current_y = hitbox.rect.center
-        center_x = lerp(previous.center_x, current_x, alpha)
-        center_y = lerp(previous.center_y, current_y, alpha)
+        center_x = lerp(previous.center_x, transform.x, alpha)
+        center_y = lerp(previous.center_y, transform.y, alpha)
         angle = lerp_angle(previous.angle, transform.angle, alpha)
-        # Lines are drawn at the current step, shifted by the same amount.
-        shift_x = center_x - current_x
-        shift_y = center_y - current_y
 
         surface = self._car_surface(
             hitbox.width, hitbox.height, renderable.color
@@ -160,13 +163,18 @@ class Renderer:
         if not self.show_lines:
             return
         if self.config.show_bounds:
-            screen_rect = hitbox.rect.move(
-                self.offset[0] + round(shift_x), self.offset[1] + round(shift_y)
+            corners = car_corners(
+                screen_center[0],
+                screen_center[1],
+                angle,
+                hitbox.width,
+                hitbox.height,
             )
-            pygame.draw.rect(self.display, theme.HITBOX, screen_rect, width=1)
+            pygame.draw.polygon(self.display, theme.HITBOX, corners, width=1)
         if self.config.show_collision_distance:
-            dx = self.offset[0] + shift_x
-            dy = self.offset[1] + shift_y
+            # Rays are cast at the current step. Shift them with the car.
+            dx = self.offset[0] + center_x - transform.x
+            dy = self.offset[1] + center_y - transform.y
             for ray in sensors.rays:
                 pygame.draw.line(
                     surface=self.display,

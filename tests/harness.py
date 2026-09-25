@@ -7,7 +7,7 @@ that code was removed.
 
 from src.config import get_maze_car_config
 from src.ecs import World
-from src.sim.components import ActionInput, Hitbox, Motion, Sensors, Transform
+from src.sim.components import ActionInput, Motion, Sensors, Transform
 
 Action = tuple[bool, bool, bool, bool, bool]
 
@@ -35,22 +35,22 @@ def config_snapshot() -> dict:
                 "drag",
                 "max_turn_rate",
                 "full_turn_speed",
+                "steer_in_time",
+                "steer_return_time",
             )
         },
     }
 
 
 def _snapshot(world: World, car: int) -> dict:
-    rect = world.component(car, Hitbox).rect
     transform = world.component(car, Transform)
     motion = world.component(car, Motion)
     return {
-        "rect": [rect.x, rect.y, rect.width, rect.height],
+        "center": [transform.x, transform.y],
         "angle": transform.angle,
         "speed": motion.speed,
         "pedal": motion.pedal,
-        "x_float": transform.x_float,
-        "y_float": transform.y_float,
+        "steering": motion.steering,
         "rays": {
             ray.name: {
                 "start": [ray.start.x, ray.start.y],

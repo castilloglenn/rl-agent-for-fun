@@ -48,12 +48,12 @@ The HUD shows the remaining time.
 | Release all pedals | The car keeps rolling, with mild drag (100 px/s²): max speed rolls to a stop in 3 s |
 | SPACE (brake) | Strong deceleration (600 px/s²) on every frame it's held: max speed to a stop in 0.5 s. Tapping slows the car, holding stops it |
 | S / Down (reverse) | While moving forward it brakes first, then reverses once stopped: 100 px/s², up to 100 px/s |
-| A/D, Left/Right (steer) | Turn rate follows speed, up to 240°/s at 120 px/s and above, so a stopped car can't turn. Steering flips while rolling backward. Left and right together cancel |
+| A/D, Left/Right (steer) | Turns a **steering wheel**: 0.25 s from center to full lock, and it self-centers in 0.15 s when released. Switching sides passes through center. Turn rate = wheel position × up to 240°/s, scaled by speed up to 120 px/s, so a stopped car can't turn (the wheel still moves). Steering flips while rolling backward. Left and right together re-center |
 
 - Pedal priority: brake beats gas, and gas beats reverse.
 - **Calibrated for human play:** at max speed, the car crosses the field in about 2.9 s. One reaction time (about 0.25 s) covers 75 px (3 car lengths), and so does the braking distance, so an obstacle 150 px ahead is always avoidable. Turning radius: 72 px at max speed, 29 px at 120 px/s.
 - All values are in config (`car.*`, see [config](config.md)). **Implemented in step 3b.**
-- The HUD shows the current pedal state: Idle, Gas, Coasting, Braking, or Reverse.
+- The HUD shows the current pedal state (Idle, Gas, Coasting, Braking, Reverse) and the wheel position (for example "Left 60 %").
 
 The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
@@ -63,12 +63,13 @@ The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 ### Observation (what the agent sees)
 
-About 13 numbers, all normalized to a 0 to 1 or -1 to 1 range:
+About 14 numbers, all normalized to a 0 to 1 or -1 to 1 range:
 
 | Input | Count |
 |---|---|
 | 8 ray distances (to walls) | 8 |
 | Speed | 1 |
+| Steering wheel position | 1 |
 | Checkpoint: distance, plus sin and cos of its angle relative to the car's heading | 3 |
 | Time left in the round (fraction) | 1 |
 

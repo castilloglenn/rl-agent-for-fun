@@ -7,8 +7,9 @@ from src.sim.components import (
     Pedal,
     Transform,
 )
+from src.sim.geometry import car_corners, max_move_fraction
 from src.sim.resources import Field
-from src.utils.common import get_angular_movement_deltas, get_clamped_rect
+from src.utils.common import get_angular_movement_deltas
 
 
 def movement_system(world: World) -> None:
@@ -56,29 +57,21 @@ def _toward_zero(speed: float, amount: float) -> float:
 
 
 def _move(
-    x: float,
-    y: float,
+    dx: float,
+    dy: float,
     transform: Transform,
     motion: Motion,
     hitbox: Hitbox,
     field: Field,
 ) -> None:
-    transform.x_float += x - int(x)
-    transform.y_float += y - int(y)
-
-    x_adjusted = int(x) + int(transform.x_float)
-    y_adjusted = int(y) + int(transform.y_float)
-
-    is_clamped, hitbox.rect = get_clamped_rect(
-        rect=hitbox.rect,
-        constraint=field.rect,
-        new_x=x_adjusted,
-        new_y=y_adjusted,
+    """Moves as far as possible until a corner touches the border."""
+    corners = car_corners(
+        transform.x, transform.y, transform.angle, hitbox.width, hitbox.height
     )
-
-    transform.x_float -= int(transform.x_float)
-    transform.y_float -= int(transform.y_float)
+    fraction = max_move_fraction(corners, dx, dy, field.rect)
+    transform.x += dx * fraction
+    transform.y += dy * fraction
 
     # The border stops the car until crashes arrive (roadmap step 3f).
-    if is_clamped:
+    if fraction < 1.0:
         motion.speed = 0.0
