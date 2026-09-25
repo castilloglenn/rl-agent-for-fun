@@ -8,6 +8,9 @@ flags.DEFINE_string(
     "driver", "keyboard", "Who drives the demo: keyboard, random, heuristic."
 )
 flags.DEFINE_string("player", "You", "Your player name (recordings, HUD).")
+flags.DEFINE_string(
+    "reward", "default", "Reward profile: a name in rewards/, or a path."
+)
 
 
 # Every top-level maze_car key is one of these (tests/test_config.py checks).

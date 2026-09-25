@@ -12,11 +12,11 @@ The simulation is an ECS (Entity Component System), built to support walls, repl
 
 ```
 source venv/bin/activate
-make maze_car      # human-driven demo: WASD/arrows, Esc quits
-python app.py -demo maze_car --driver heuristic   # watch a baseline drive
-make run           # agent entry point (stub)
-make test          # python -m pytest
-make replay FILE=path/to/replay.jsonl   # watch a replay
+make help          # every command: one word, at most one parameter
+make maze_car      # drive with the keyboard
+make maze_car_heuristic
+make replay FILE=path/to/replay.jsonl
+make test
 ```
 
 Full setup, including why this project uses **pygame-ce** and not `pygame`: [docs/setup.md](docs/setup.md).

@@ -15,14 +15,28 @@ pip install -r requirements.txt
 
 ## Commands
 
-| Command | Runs | Status |
-|---|---|---|
-| `make maze_car` | `python app.py -demo maze_car` | Works. Human-driven demo: WASD/arrows drive, SPACE brakes, R restarts, H toggles lines, Esc quits. Watch a baseline instead: `python app.py -demo maze_car --driver heuristic` (or `random`). `--player <name>` sets your player name |
-| `make replay FILE=<path>` | `python app.py -replay <path>` | Works. Plays a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart, Esc quits |
-| `make run` | `python app.py` | Stub. `src/main.py` `Main` prints "Done." |
-| `make test` | `python -m pytest` | Works. Runs all tests |
+One word per command, at most one parameter. `make help` lists them (it's also the default target).
 
-Every `make` target runs `clear` first.
+| Command | Does |
+|---|---|
+| `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, R restarts, H toggles lines, Esc quits |
+| `make maze_car_heuristic` | Watch the heuristic baseline drive |
+| `make maze_car_random` | Watch the random baseline drive |
+| `make maze_car_driver DRIVER=name` | Any driver: `keyboard`, `random`, `heuristic` |
+| `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4h) |
+| `make maze_car_stage STAGE=name` | Another stage: a name in `stages/`, or a path |
+| `make maze_car_reward REWARD=name` | Another reward profile: a name in `rewards/`, or a path |
+| `make maze_car_seconds SECONDS=n` | Another round length |
+| `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
+| `make replay FILE=path` | Watch a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart |
+| `make test` | Run all tests |
+| `make test_file FILE=path` | Run one test file |
+| `make fixtures` | Regenerate the behavior fixtures (only for an intended behavior change) |
+| `make run` | Agent entry point (stub: `src/main.py` prints "Done.") |
+
+A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
+
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `--driver`, `--player`, `--reward`, plus any config key (below).
 
 ## Config overrides
 

@@ -13,13 +13,20 @@ class MazeCarDemo:
     """
 
     def __init__(
-        self, config: ConfigDict, driver: str = "keyboard", player: str = "You"
+        self,
+        config: ConfigDict,
+        driver: str = "keyboard",
+        player: str = "You",
+        reward: str = "default",
     ) -> None:
         config = config.copy_and_resolve_references()
         config.show_gui = True  # the demo is always drawn
         self.driver = make_driver(driver, player=player)
         self.env = MazeCarEnv(
-            config, driver=self.driver.label, random_seeds=True
+            config,
+            driver=self.driver.label,
+            random_seeds=True,
+            reward=reward,
         )
         self.run()
 

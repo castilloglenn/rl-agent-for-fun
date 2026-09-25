@@ -21,6 +21,7 @@ def run(_):
                     cl_args.maze_car,
                     driver=cl_args.driver,
                     player=cl_args.player,
+                    reward=cl_args.reward,
                 )
             case _:
                 pass
