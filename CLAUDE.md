@@ -14,7 +14,7 @@ The RL side is not built yet. Current work: a structure-only refactor into an EC
 source venv/bin/activate
 make maze_car      # human-driven demo: WASD/arrows, Esc quits
 make run           # agent entry point (stub)
-pytest             # behavior tests; `make test` is still a stub
+make test          # python -m pytest (behavior tests)
 ```
 
 Full setup, including why this project uses **pygame-ce** and not `pygame`: [docs/setup.md](docs/setup.md).

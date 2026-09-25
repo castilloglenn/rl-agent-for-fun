@@ -4,7 +4,7 @@ run:
 
 test:
 	clear
-	python app.py --tests
+	python -m pytest
 
 maze_car:
 	clear

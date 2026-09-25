@@ -19,7 +19,7 @@ pip install -r requirements.txt
 |---|---|---|
 | `make maze_car` | `python app.py -demo maze_car` | Works. Human-driven demo: WASD/arrows drive, Esc quits |
 | `make run` | `python app.py` | Stub. `src/main.py` `Main` prints "Done." |
-| `make test` | `python app.py --tests` | Stub. Prints a TODO |
+| `make test` | `python -m pytest` | Works. Runs the behavior tests |
 
 Every `make` target runs `clear` first.
 
@@ -33,7 +33,7 @@ python app.py -demo maze_car --maze_car.show_collision_distance=False
 
 ## Tests
 
-`pytest.ini` sets `-p no:warnings -rs -v -l`. Use `pytest` directly: `make test` is still a stub.
+`pytest.ini` sets `-p no:warnings -rs -v -l`. `app.py --tests` still only prints a TODO. Use `make test` or `pytest`.
 
 ```
 pytest                                                          # all
