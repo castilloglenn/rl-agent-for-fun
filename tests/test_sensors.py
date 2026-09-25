@@ -9,6 +9,7 @@ from src.sim.components import Sensors, Transform
 from src.sim.factories import create_car, create_world
 from src.sim.geometry import body_edge_distance, car_corners
 from src.sim.resources import Field
+from src.sim.stage import load_stage
 from src.utils.types import Colors
 
 WIDTH, HEIGHT = 24, 16
@@ -83,8 +84,7 @@ def test_rays_rotate_with_the_car():
 
 
 def test_touching_the_border_reads_zero():
-    field = get_maze_car_config().field
-    right = int(field.x) + int(field.width)
+    right = load_stage(get_maze_car_config().stage).width
     world, car = _car(right - WIDTH / 2, 300)
     assert _rays(world, car)["front"].distance == pytest.approx(0, abs=1e-9)
 

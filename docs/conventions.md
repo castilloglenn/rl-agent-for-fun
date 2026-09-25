@@ -14,7 +14,7 @@
 - The hitbox is the car's **4 real corners** (`car_corners` in `src/sim/geometry.py`), rotating with it. It never grows with the angle: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
 - **Border contact is exact:** a move goes as far as it can until a corner touches the border (`max_move_fraction`), and that contact is a **crash**. A turn that would push a corner out is also a crash (the turn doesn't happen). Crashes go through `eliminate()` (`src/sim/elimination.py`).
 - **After a round ends**, the world is frozen: car systems and the step counter stop, so stepping a finished round changes nothing.
-- The field's physics boundary is `Field.rect` (left/top edges included, right/bottom at `rect.right`/`rect.bottom`). The drawn border line sits exactly on it.
+- **Stage coordinates:** the field spans (0, 0) to the stage size. The physics boundary is `Field.rect` (left/top edges included, right/bottom at `rect.right`/`rect.bottom`), and the drawn border line sits exactly on it.
 - `Motion.speed` is signed, in px per step along the heading: positive forward, negative reversing.
 - `Motion.steering` is the wheel position, -1 (full right) to +1 (full left). A/D move it gradually (`next_steering`), and the turn rate follows it.
 - Steering flips while the car actually rolls backward (based on the speed's sign, not the pressed keys).
@@ -24,7 +24,7 @@
 
 - The physics uses a **fixed timestep**: `sim.steps_per_second` (120), independent of the display. Config speeds and accelerations (px/s, px/s²) are converted to per-step units by dividing by the step rate (and its square for accelerations).
 - Real elapsed time only decides **how many** steps the demo runs per frame (`FixedStepClock`), never **what** a step does. Never feed it into a system.
-- All randomness goes through the world's `Rng` resource (seeded by `game.seed` or `reset(seed)`). Never use the global `random` module inside a system.
+- All randomness comes from the world's seed (`Rng`, set by `game.seed` or `reset(seed)`), through **named streams** (`Rng.stream(name)`, spawn schedules). A new random feature gets its own stream name, so existing seeds keep their sequences. Never use the global `random` module inside a system.
 - Replay depends on all of this: see [decision 003](decisions/003-replay-over-multi-window.md).
 
 ## Code style

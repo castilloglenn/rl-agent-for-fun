@@ -11,13 +11,12 @@ flags.DEFINE_string("demo", "", "Run games with human inputs.")
 # See docs/decisions/010-decouple-before-file-formats.md.
 GAME_KEYS = (
     "sim",
-    "field",
+    "stage",
     "car",
     "sensors",
     "round",
     "game",
     "rewards",
-    "checkpoint",
 )
 PRESENTATION_KEYS = (
     "show_gui",
@@ -52,14 +51,9 @@ def get_maze_car_config() -> ConfigDict:
     config.window = ConfigDict()
     config.window.title = "Maze Car"
 
-    # World coordinates. The origin offset is a leftover from when the field
-    # was placed relative to a 900x600 window; it keeps the physics fixtures
-    # unchanged. The window size is derived from the field and panel layout.
-    config.field = ConfigDict()
-    config.field.x = 22.5
-    config.field.y = 97.5
-    config.field.width = 855.0
-    config.field.height = 480.0
+    # The playing area: a stage file in stages/, by name or path. It holds
+    # the size, spawns, and checkpoint rules. See docs/decisions/009.
+    config.stage = "box"
 
     # The simulation runs at a fixed rate, independent of the display.
     # See docs/decisions/008-fixed-timestep-clock.md.
@@ -82,11 +76,6 @@ def get_maze_car_config() -> ConfigDict:
     config.rewards = ConfigDict()
     config.rewards.distance_step = 10.0  # px driven forward per +1 point
     config.rewards.checkpoint = 100
-
-    config.checkpoint = ConfigDict()
-    config.checkpoint.radius = 15.0
-    config.checkpoint.min_car_distance = 100.0  # px from the car's center
-    config.checkpoint.border_margin = 40.0  # px from the field border
 
     # HUD warning colors (amber = caution, red = danger).
     config.hud = ConfigDict()

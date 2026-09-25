@@ -1,6 +1,6 @@
 # 009: Stage files, and spawn schedules decided by stage + seed
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap step 4b).
+**Date:** 2026-09-25. **Status:** Implemented in roadmap step 4b (`src/sim/stage.py`, `src/sim/spawning.py`, `stages/box.json`), with 8 candidates per slot.
 
 ## Context
 

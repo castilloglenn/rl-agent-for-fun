@@ -16,6 +16,7 @@ from src.sim.components import (
     Trigger,
 )
 from src.sim.geometry import car_corners
+from src.sim.stage import Stage, load_stage
 from src.sim.resources import EventLog, Field, RoundState, SimConfig
 from src.utils.common import (
     get_triangle_coordinates_from_rect,
@@ -47,9 +48,12 @@ class Renderer:
 
     FALLBACK_FPS = 60
 
-    def __init__(self, config: ConfigDict) -> None:
+    def __init__(self, config: ConfigDict, stage: Stage | None = None) -> None:
+        """stage: sizes the window. Defaults to loading `config.stage` (a
+        replay passes its embedded stage).
+        """
         self.config = config
-        field_rect = Field.from_config(config).rect
+        field_rect = Field.from_stage(stage or load_stage(config.stage)).rect
         self.layout = Layout.for_field(field_rect.width, field_rect.height)
         self.offset = (
             self.layout.field_view.x - field_rect.x,

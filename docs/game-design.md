@@ -40,6 +40,8 @@ The HUD shows the remaining time.
 
 **Implemented in step 3g**, as generic triggers (see Hazards below): a `Trigger` circle plus `ScoreReward` and `Respawn` effects. The demo picks a fresh seed each round, shown in the bottom bar; agents and tests use `game.seed`.
 
+**Since step 4b**, the rules live in the stage file, and spawns follow a **spawn schedule**: stage + seed decide the whole sequence, so every driver gets the same checkpoints ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)).
+
 - One on the field at a time. Collecting it spawns the next one.
 - Random position from a **seeded** random number generator, so replays reproduce it.
 - Radius 15 px. Spawns at least 100 px from the car and 40 px from the border.

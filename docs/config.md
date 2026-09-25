@@ -10,7 +10,7 @@
 | `show_bounds` | `True` | `Renderer`: hitbox lines exist (H toggles all debug lines at runtime) |
 | `show_collision_distance` | `True` | `Renderer`: ray lines exist (H toggles all debug lines at runtime) |
 | `window.title` | `"Maze Car"` | `Renderer`. The window size is derived from the field size plus the panel layout (`src/render/layout.py`), currently 1203×640 |
-| `field.x`, `field.y`, `field.width`, `field.height` | 22.5, 97.5, 855.0, 480.0 | `Field` resource, in world coordinates. The odd origin is a leftover from when the field sat inside a 900×600 window, kept so the physics fixtures stay unchanged |
+| `stage` | `"box"` | The playing area: a stage file in `stages/`, by name or path (size, walls, spawns, checkpoint rules). See [decision 009](decisions/009-stage-format-and-spawn-schedules.md) |
 | `sensors.ray_length` | 1800 | `SimConfig`: maximum ray distance. Longer than the field's diagonal, so today every ray reaches the border |
 | `sim.steps_per_second` | 120 | `SimConfig`: the fixed simulation rate. Per-step physics values and step-based durations come from it ([decision 008](decisions/008-fixed-timestep-clock.md)) |
 | `hud.reaction_time` | 0.25 s | HUD stopping distance: reaction part (speed × time), plus braking (speed² / 2 × brake) |
@@ -18,12 +18,9 @@
 | `hud.near_caution` | 40.0 px | Proximity: any ray this close turns amber (about 1.7 car lengths) |
 | `hud.near_danger` | 15.0 px | Proximity: any ray this close turns red |
 | `hud.time_caution`, `hud.time_danger` | 10.0, 5.0 s | TIME turns amber / red below these seconds left |
-| `game.seed` | 0 | Seed for checkpoint spawns (agents and tests). The demo picks a fresh one per round |
+| `game.seed` | 0 | Seed for the spawn schedules (agents and tests). The demo picks a fresh one per round |
 | `rewards.distance_step` | 10.0 px | Driven forward per +1 point |
 | `rewards.checkpoint` | 100 | Points per checkpoint |
-| `checkpoint.radius` | 15.0 px | Trigger circle |
-| `checkpoint.min_car_distance` | 100.0 px | Spawns at least this far from the car's center |
-| `checkpoint.border_margin` | 40.0 px | Spawns at least this far inside the field border |
 | `hud.checkpoint_near` | 80.0 px | Checkpoint distance turns green below this |
 | `round.seconds` | 60.0 | Round length. In steps: seconds × `sim.steps_per_second` (7,200) |
 | `game.rounds` | 1 | Rounds per game. The game is over when the last round ends |
@@ -53,16 +50,16 @@ Every top-level key belongs to exactly one group (`GAME_KEYS` and `PRESENTATION_
 
 | Group | Keys | Saved in replays and runs? |
 |---|---|---|
-| Game-defining | `sim`, `field`, `car`, `sensors`, `round`, `game`, `rewards`, `checkpoint` | Yes, via `game_config(config)` |
+| Game-defining | `sim`, `stage`, `car`, `sensors`, `round`, `game`, `rewards` | Yes, via `game_config(config)` |
 | Presentation | `show_gui`, `show_bounds`, `show_collision_distance`, `window`, `display`, `hud` | Never |
 
-Tuning a presentation value can't make a saved replay look "changed". The behavior fixtures record `game_config()` too, so changing any game-defining default fails them until they're regenerated.
+Tuning a presentation value can't make a saved replay look "changed". The behavior fixtures record `game_config()` and the stage's content too, so changing any game-defining default fails them until they're regenerated.
 
 ## How it flows
 
 1. `app.py` registers the config dicts as absl flags, so any key can be overridden from the command line (see [setup](setup.md#config-overrides)).
 2. `app.py` passes `FLAGS.maze_car` into `MazeCarDemo`. **This is the only place that reads `FLAGS`.**
-3. `MazeCarEnv(config)` hands the config to `create_world`, which turns it into the `SimConfig` and `Field` resources, and to `Renderer`.
+3. `MazeCarEnv(config)` hands the config to `create_world`, which loads the stage and turns both into resources (`SimConfig`, `GameRules`, `Stage`, `Field`, `SpawnSchedules`), and to `Renderer`.
 4. Systems read only resources, never the `ConfigDict` itself.
 
 Tests call `get_maze_car_config()` directly, with no flags.

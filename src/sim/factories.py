@@ -26,34 +26,61 @@ from src.sim.resources import (
     RoundState,
     SimClock,
     SimConfig,
+    SpawnSchedules,
 )
+from src.sim.spawning import SpawnSchedule
+from src.sim.stage import Stage, load_stage
 from src.sim.systems import SIMULATION_SYSTEMS
 from src.sim.systems.sensors import RAY_LAYOUT, cast_rays
-from src.sim.systems.triggers import random_spot
+from src.sim.systems.triggers import next_spawn
 from src.utils.types import Colors, ColorValue
 
 
 def create_game(
-    config: ConfigDict, label: str = "Car 1", seed: int | None = None
+    config: ConfigDict,
+    label: str = "Car 1",
+    seed: int | None = None,
+    stage: Stage | None = None,
 ) -> tuple[World, int]:
-    """The first-goal game: one car in the box map, plus a checkpoint.
-    Returns the world and the car.
+    """The first-goal game: one car at the stage's spawn, plus a
+    checkpoint. Returns the world and the car.
     """
-    world = create_world(config, seed)
+    world = create_world(config, seed, stage)
     car = create_start_car(world, label=label)
     create_checkpoint(world)
     return world, car
 
 
-def create_world(config: ConfigDict, seed: int | None = None) -> World:
-    """seed: for everything random (checkpoint spawns). Defaults to
-    `game.seed`.
+def create_world(
+    config: ConfigDict,
+    seed: int | None = None,
+    stage: Stage | None = None,
+) -> World:
+    """seed: for everything random (spawn schedules). Defaults to
+    `game.seed`. stage: defaults to loading `config.stage` (a replay passes
+    its embedded stage instead).
     """
+    stage = stage or load_stage(config.stage)
+    seed = config.game.seed if seed is None else seed
     world = World()
     world.add_resource(SimConfig.from_config(config))
     world.add_resource(GameRules.from_config(config))
-    world.add_resource(Rng(config.game.seed if seed is None else seed))
-    world.add_resource(Field.from_config(config))
+    world.add_resource(Rng(seed))
+    world.add_resource(stage)
+    world.add_resource(Field.from_stage(stage))
+    world.add_resource(
+        SpawnSchedules(
+            {
+                "checkpoints": SpawnSchedule(
+                    "checkpoints",
+                    seed,
+                    stage.checkpoints,
+                    stage.width,
+                    stage.height,
+                )
+            }
+        )
+    )
     world.add_resource(SimClock())
     round_steps = round(config.round.seconds * config.sim.steps_per_second)
     world.add_resource(
@@ -112,33 +139,32 @@ def create_start_car(
     color: ColorValue = Colors.SKY_BLUE,
     label: str = "Car 1",
 ) -> int:
-    """A car at the starting position: left quarter, mid height, facing
-    right.
-    """
-    field = world.resource(Field)
+    """A car at the stage's first spawn."""
+    spawn = world.resource(Stage).spawns[0]
     config = world.resource(SimConfig)
     return create_car(
         world,
-        x=field.x + field.width / 4,
-        y=field.y + field.height / 2,
+        x=spawn.x,
+        y=spawn.y,
         width=config.car_width,
         height=config.car_height,
         color=color,
         label=label,
+        angle=spawn.angle,
     )
 
 
 def create_checkpoint(world: World) -> int:
-    """A checkpoint at a seeded random spot, away from every car."""
-    rules = world.resource(GameRules)
-    cars = world.query(Transform, Hitbox)
-    avoid = (cars[0][1][0].x, cars[0][1][0].y) if cars else (-1e9, -1e9)
-    x, y = random_spot(world, avoid=avoid)
+    """A checkpoint at the first spot of the checkpoint schedule."""
+    x, y = next_spawn(world, "checkpoints")
     return world.create_entity(
         Transform(x=x, y=y),
-        Trigger(radius=rules.checkpoint_radius),
-        ScoreReward(points=rules.checkpoint_points, label="checkpoint"),
-        Respawn(),
+        Trigger(radius=world.resource(Stage).checkpoints.radius),
+        ScoreReward(
+            points=world.resource(GameRules).checkpoint_points,
+            label="checkpoint",
+        ),
+        Respawn(spawner="checkpoints"),
         Checkpoint(),
     )
 

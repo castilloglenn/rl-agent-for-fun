@@ -128,7 +128,11 @@ class ScoreReward:
 
 @dataclass
 class Respawn:
-    """Trigger effect: after firing, move to a new random spot."""
+    """Trigger effect: after firing, move to the next spot of a spawn
+    schedule (by spawner name).
+    """
+
+    spawner: str = "checkpoints"
 
 
 @dataclass

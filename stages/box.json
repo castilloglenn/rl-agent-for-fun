@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "box",
+  "size": [855, 480],
+  "walls": [],
+  "spawns": [{"x": 213.75, "y": 240, "angle": 0}],
+  "checkpoints": {
+    "mode": "random",
+    "radius": 15,
+    "border_margin": 40,
+    "min_car_distance": 100
+  }
+}

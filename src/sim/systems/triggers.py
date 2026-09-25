@@ -1,5 +1,3 @@
-import math
-
 from src.ecs import World
 from src.sim.components import (
     Eliminated,
@@ -13,7 +11,7 @@ from src.sim.components import (
 )
 from src.sim.elimination import round_active
 from src.sim.geometry import circle_touches_car
-from src.sim.resources import EventLog, Field, GameRules, Rng, SimClock
+from src.sim.resources import EventLog, SimClock, SpawnSchedules
 
 
 def trigger_system(world: World) -> None:
@@ -54,28 +52,16 @@ def _fire(world: World, trigger_id: int, car: int, score: Score) -> None:
             f"{name} reached a {reward.label} +{reward.points:g}",
             kind=reward.label,
         )
-    if world.try_component(trigger_id, Respawn):
+    respawn = world.try_component(trigger_id, Respawn)
+    if respawn:
         spot = world.component(trigger_id, Transform)
-        car_transform = world.component(car, Transform)
-        spot.x, spot.y = random_spot(
-            world, avoid=(car_transform.x, car_transform.y)
-        )
+        spot.x, spot.y = next_spawn(world, respawn.spawner)
 
 
-def random_spot(world: World, avoid: tuple[float, float]) -> tuple:
-    """A seeded random point inside the field, away from the border and
-    from `avoid` (a car's center).
-    """
-    rules = world.resource(GameRules)
-    bounds = world.resource(Field).rect
-    rng = world.resource(Rng).random
-    margin = rules.checkpoint_border_margin
-    point = (bounds.centerx, bounds.centery)
-    for _ in range(100):
-        point = (
-            rng.uniform(bounds.left + margin, bounds.right - margin),
-            rng.uniform(bounds.top + margin, bounds.bottom - margin),
-        )
-        if math.dist(point, avoid) >= rules.checkpoint_min_car_distance:
-            break
-    return point
+def next_spawn(world: World, spawner: str) -> tuple[float, float]:
+    """The next spot of a spawn schedule, kept away from the cars."""
+    cars = [
+        (transform.x, transform.y)
+        for _, (transform, _) in world.query(Transform, Hitbox)
+    ]
+    return world.resource(SpawnSchedules).get(spawner).next_spot(cars)

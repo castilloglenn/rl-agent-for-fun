@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from ml_collections import ConfigDict
 from pygame import Rect
 
+from src.sim.spawning import SpawnSchedule
+from src.sim.stage import Stage
+
 
 @dataclass(frozen=True)
 class SimConfig:
@@ -61,13 +64,9 @@ class Field:
         self.rect = Rect(self.x, self.y, self.width, self.height)
 
     @staticmethod
-    def from_config(config: ConfigDict) -> "Field":
-        return Field(
-            x=config.field.x,
-            y=config.field.y,
-            width=config.field.width,
-            height=config.field.height,
-        )
+    def from_stage(stage: "Stage") -> "Field":
+        """Stage coordinates: the field spans (0, 0) to the stage size."""
+        return Field(x=0.0, y=0.0, width=stage.width, height=stage.height)
 
 
 @dataclass
@@ -109,33 +108,40 @@ class EventLog:
         return [event for event in self.events if event.kind == kind]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Rng:
-    """The world's only source of randomness, seeded, so replays repeat."""
+    """The world's seed. Every random thing uses its own named stream from
+    it, so adding a new one never changes another's sequence.
+    """
 
     seed: int
-    random: random.Random = field(init=False)
 
-    def __post_init__(self):
-        self.random = random.Random(self.seed)
+    def stream(self, name: str) -> random.Random:
+        return random.Random(f"{self.seed}:{name}")
+
+
+@dataclass
+class SpawnSchedules:
+    """Spawn schedules by spawner name (checkpoints now, fuel later)."""
+
+    schedules: dict[str, SpawnSchedule] = field(default_factory=dict)
+
+    def get(self, name: str) -> SpawnSchedule:
+        return self.schedules[name]
 
 
 @dataclass(frozen=True)
 class GameRules:
+    """Scoring. Where things spawn comes from the stage."""
+
     distance_step: float  # px driven forward per point
     checkpoint_points: float
-    checkpoint_radius: float
-    checkpoint_min_car_distance: float
-    checkpoint_border_margin: float
 
     @staticmethod
     def from_config(config: ConfigDict) -> "GameRules":
         return GameRules(
             distance_step=config.rewards.distance_step,
             checkpoint_points=config.rewards.checkpoint,
-            checkpoint_radius=config.checkpoint.radius,
-            checkpoint_min_car_distance=config.checkpoint.min_car_distance,
-            checkpoint_border_margin=config.checkpoint.border_margin,
         )
 
 

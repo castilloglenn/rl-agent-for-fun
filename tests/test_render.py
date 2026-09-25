@@ -73,7 +73,7 @@ def test_interpolated_drawing_lands_between_steps():
     renderer = Renderer(config)
     world = create_world(config)
     car = create_start_car(world)
-    for _ in range(60):
+    for _ in range(150):  # fast enough to move > 2 px per step
         world.add_component(car, ActionInput(gas=True))
         world.step()
 

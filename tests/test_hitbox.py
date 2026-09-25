@@ -15,6 +15,7 @@ from src.sim.components import (
 from src.sim.factories import create_car, create_world
 from src.sim.geometry import car_corners, inside, max_move_fraction
 from src.sim.resources import Field
+from src.sim.stage import load_stage
 from src.utils.types import Colors
 
 
@@ -70,9 +71,9 @@ def _corners(world, car):
 
 @pytest.mark.parametrize("angle", [0, 30, 45, 60])
 def test_driving_into_the_border_crashes_on_exact_contact(angle):
-    field = get_maze_car_config().field
-    right = int(field.x) + int(field.width)
-    world, car = _world_with_car(right - 60, field.y + 240, angle=angle)
+    stage = load_stage(get_maze_car_config().stage)
+    right = stage.width
+    world, car = _world_with_car(right - 60, stage.height / 2, angle=angle)
     world.add_component(car, ActionInput(gas=True))
 
     for _ in range(600):
@@ -102,9 +103,9 @@ def test_turn_into_the_border_crashes():
 
 
 def test_crashed_car_stays_put():
-    field = get_maze_car_config().field
-    right = int(field.x) + int(field.width)
-    world, car = _world_with_car(right - 30, field.y + 240, speed=2.0)
+    stage = load_stage(get_maze_car_config().stage)
+    right = stage.width
+    world, car = _world_with_car(right - 30, stage.height / 2, speed=2.0)
     world.add_component(car, ActionInput(gas=True))
     for _ in range(60):
         world.step()
