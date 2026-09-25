@@ -24,12 +24,12 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3g | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
-| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
+| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: map files, inner walls (rectangles), map editor. Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
-| 8 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
+| 8 | Multiple cars and local multiplayer: game setup lobby (pick agents and human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns, observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
-| Later | Multiple rounds per game, weapons and skills | Idea |
+| Later | Multiple rounds per game, online multiplayer, weapons and skills | Idea |
 
 ## Step details
 
@@ -180,6 +180,7 @@ Control center window        Simulation window 1      Simulation window 2
 - **Simulation windows:** each runs its own `World` + `Renderer`, for live play or a replay. Any number can be open side by side.
 - **Training runs headless in background processes**, at full speed, with no window. The control center shows their live metrics and logs.
 - **Live play:** trained agents (loaded from `.pt`) drive at normal speed. It only runs agents, it doesn't train them, so it's cheap.
+- **Agent roster:** agents as cards in a grid: name, mini skill radar, evaluation score, specialty (for example "box specialist"), training summary. Sort and filter by score, skill, map, or date, with a table view toggle for comparing many. Clicking a card opens its profile page.
 - **Agent profile page:**
   - **Lineage:** initial training environment, then every later training phase (maps, episodes, which checkpoint it branched from).
   - **Skill radar chart:** one axis per skill from the evaluation suite, showing current levels.
@@ -214,9 +215,15 @@ A map is a JSON file in `maps/`:
   - Save and load files in `maps/`.
   - **Test drive:** switch to live play on the map being edited, then back.
 
-### 8. Multiple cars
+### 8. Multiple cars and local multiplayer
 
-- Every car takes its `ActionInput` from a controller: keyboard (you), a trained agent, or a replay.
+- Every car takes its `ActionInput` from a controller: keyboard, gamepad, a trained agent, or a replay.
+- **Game setup lobby:** pick the map and number of rounds, add agents from the roster, add human slots, then start (a simulation window opens). Setups can be saved as presets (for example "me vs top 3 agents").
+- **Local input devices** (on the same computer, including Bluetooth gamepads):
+  - Keyboard split for 2 players: WASD + Space, and arrows + Right Shift.
+  - Gamepads through pygame-ce's controller support: stick to steer, triggers for gas and brake. Analog input is converted to the 5 on/off actions with thresholds. Analog actions for agents could be a later experiment.
+  - "Press a button to join" assigns each device to a slot in the lobby.
+- **Online-ready design** (online itself comes later): see [decision 007](decisions/007-local-multiplayer-online-ready.md).
 - **Ghost mode:** several cars in one world that pass through each other, so you can drive among agents early.
 - Then car-vs-car collision in the `World`: SAT on the polygon hitboxes from step 3c ([decision 004](decisions/004-polygon-hitbox-deferred.md)).
 - Then competition: agents learning against each other (multi-agent RL).
