@@ -21,7 +21,8 @@ Replaces "one line per step" above:
 
 ```
 {"format": 1, "stage": {...full stage...}, "seed": 7, "config": {...game-defining only...},
- "slots": {"1": {"type": "agent", "id": "baseline", "checkpoint": "ep5000"}},
+ "reward": {...full reward profile...},
+ "slots": {"1": {"type": "human", "player": "zen", "device": "keyboard"}},
  "action_names": ["turn_left", "turn_right", "gas", "reverse", "brake"],
  "observation_version": 1, "steps_per_second": 120, "code": "a1b2c3d"}
 {"step": 0, "actions": {"1": [false, false, true, false, false]}}
@@ -34,7 +35,7 @@ Replaces "one line per step" above:
 - Actions are recorded **per simulation step**, but a line is written only when the action **changes**. A full 60 s round is a few KB.
 - The last line stores the final step, score, and reason. Playback re-simulates and **compares**: a mismatch flags the replay as out of date (the simulation changed since recording), instead of showing wrong driving.
 - Per-step extras (rays, reward) aren't stored. Replay re-simulates them exactly.
-- Slots, named actions, the driver record, and the code version come from [decision 010](010-decouple-before-file-formats.md).
+- Slots, named actions, the driver record, and the code version come from [decision 010](010-decouple-before-file-formats.md). The reward profile comes from [decision 011](011-reward-profiles.md), and the player field from [decision 012](012-agent-training-modes.md).
 
 ## Consequences
 

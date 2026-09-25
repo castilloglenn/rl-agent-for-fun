@@ -39,7 +39,7 @@ Update: the top speed was later calibrated down to 300 px/s for human play, so p
 
 ### Agent action repeat: 30 decisions/s
 
-Agents decide every **4 steps** and hold the action in between. A 60 s round is then 1,800 decisions instead of 7,200, which keeps learning manageable. Built in roadmap step 5.
+Agents decide every **4 steps** and hold the action in between. A 60 s round is then 1,800 decisions instead of 7,200, which keeps learning manageable. Built in roadmap step 5a.
 
 ## Consequences
 

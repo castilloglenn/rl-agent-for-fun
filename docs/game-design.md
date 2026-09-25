@@ -93,7 +93,7 @@ All values above are starting points, kept in config so experiments can change t
 
 ## Later phases
 
-- Map files and inner walls (rectangles first: [decision 006](decisions/006-rectangle-walls-first.md))
+- Inner walls in stage files, with a map editor (rectangles first: [decision 006](decisions/006-rectangle-walls-first.md))
 - Fuel system
 - Multiple rounds per game
 - Multiple cars and car-vs-car collision
@@ -126,7 +126,7 @@ Movement and steering read the effect components: `Slowed` scales the speed, and
 
 ### Groundwork during step 3
 
-Cheap, because step 3 needs these anyway:
+**Done** in steps 3f and 3g. Cheap, because step 3 needed these anyway:
 
 1. **Build checkpoints as a generic trigger + effect**, not a special case. Hazards and fuel then become new effect types, not new systems.
 2. **Handle crashes as a generic "eliminate car" event**, so explosions and later weapons reuse it.
