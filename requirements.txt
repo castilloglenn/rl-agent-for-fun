@@ -15,7 +15,7 @@ numpy
 packaging
 Pillow
 pluggy
-pygame
+pygame-ce
 pytest
 PyYAML
 requests
