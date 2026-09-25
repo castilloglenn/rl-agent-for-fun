@@ -1,6 +1,6 @@
 # Architecture (current, pre-refactor)
 
-This describes the code as it is today. It will be rewritten as the refactor lands (see [roadmap](roadmap.md)). The target layout is in [decision 002](decisions/002-sim-render-split.md).
+This describes the code as it is today. It will be rewritten as the refactor lands (see [roadmap](roadmap.md)). The target is an ECS (Entity Component System): see [decision 005](decisions/005-entity-component-system.md).
 
 ## Entry point
 
