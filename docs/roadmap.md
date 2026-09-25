@@ -7,7 +7,11 @@ Goal: see how an RL agent learns to drive Maze Car.
 | # | Step | Status |
 |---|---|---|
 | 1 | Behavior tests that pin down current car physics (the refactor safety net, later the determinism test) | Done |
-| 2 | Refactor into ECS: sim/render split, remove singletons and global `FLAGS` reads. **Structure only** | Next |
+| 2 | Refactor into ECS: sim/render split, remove singletons and global `FLAGS` reads. **Structure only** | In progress |
+| 2a | ECS core (`src/ecs/`): World, entities, components, resources, systems, with unit tests | Done |
+| 2b | Car components, systems (steering, movement, sensors), and factories in `src/sim/`. Behavior tests run against both old and new code | Next |
+| 2c | Render system, then switch the demo and env to the ECS | Planned |
+| 2d | Delete the old singletons, models, and sprites, and rewrite `architecture.md` | Planned |
 | 3 | Simulation: maze walls, rays and crashes against walls, observation, reward | Planned |
 | 4 | Replay: headless training, recording episodes that improve on the best, replay mode | Planned |
 | 5 | Agent: torch model and training loop | Planned |
