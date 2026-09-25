@@ -49,11 +49,11 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step(action)` returns `(observation, reward, terminated, truncated, info)`:
   - `terminated`: the car is out (a crash).
   - `truncated`: the round ran out of time.
-  - `reward`: from the env's **reward function** (`MazeCarEnv(config, reward="points_gained")`, registry in `src/envs/maze_car/rewards.py`). It gets the step's events (points, checkpoints, crash, time up), and never changes the game score. The default equals the game points gained.
+  - `reward`: from the env's **reward profile** (`MazeCarEnv(config, reward="default")`: a name in `rewards/`, a path, or a `RewardProfile`). The profile is a weighted sum of per-step terms (points, checkpoints, crash, time up, per step, distance, speed, steering change, closest wall), and never changes the game score. `rewards/default.json` equals the game points gained. It's 0 once the game is over. See [decision 011](decisions/011-reward-profiles.md).
 - `info` has `score`, `points` (game points this step), `checkpoints`, `step`, and `eliminated`.
 - `get_state()` returns the observation: 14 float32 values from `observe()` (`src/sim/observation.py`). The names are in `observation_names`, and the version is in `observation_version`. See [game design](game-design.md#observation-what-the-agent-sees).
 - An action is 5 bools, in `action_names` order: `(turn_left, turn_right, gas, reverse, brake)`.
-- Measured: about 54,000 `step` calls per second on one core, headless.
+- Measured: about 49,000 `step` calls per second on one core, headless (observation and reward included).
 
 **For the real-time demo:**
 - `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over.
