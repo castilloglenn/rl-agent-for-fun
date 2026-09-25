@@ -1,60 +1,34 @@
+from dataclasses import astuple
+
 import pygame
-from absl import flags
+from ml_collections import ConfigDict
 
-from src.envs.maze_car.env import ActionState, MazeCarEnv
-from src.utils.types import Colors
-
-FLAGS = flags.FLAGS
+from src.envs.maze_car.env import MazeCarEnv
+from src.sim.components import ActionInput
 
 
-class MazeCarDemo(MazeCarEnv):
-    def __init__(self) -> None:
-        super().__init__()
+class MazeCarDemo:
+    """Human-driven Maze Car: the keyboard is the controller."""
+
+    def __init__(self, config: ConfigDict) -> None:
+        config = config.copy_and_resolve_references()
+        config.show_gui = True  # the demo is always drawn
+        self.env = MazeCarEnv(config)
         self.run()
 
-    def run(self):
-        while self.running:
-            self.handle_events()
-            self.update()
-            self.draw_assets()
-            self.update_display()
+    def run(self) -> None:
+        while self.env.running:
+            self.env.game_step(astuple(read_keyboard()))
 
-    def handle_events(self, _=None):
-        self.action_state = ActionState()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                self.mouse_click_events(event)
-
-        self.key_events()
-
-    def mouse_click_events(self, event):
-        click_coordinates = event.pos
-        if event.button == 1:
-            print(f"left click at {click_coordinates}")
-
-    def key_events(self):
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE]:
-            self.running = False
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.action_state.turn_left = True
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.action_state.turn_right = True
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.action_state.move_forward = True
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.action_state.move_backward = True
-
-    def draw_assets(self):
-        # Background
-        self.state.display.fill(Colors.BLACK)
-        self.render_texts()
-        self.field.draw(self.state.display)
-
-        # Static objects
-
-        # Moving objects
-        self.car.draw(self.state.display)
+def read_keyboard() -> ActionInput:
+    # Pump first so the key state is current for this frame. Pumping
+    # leaves the events queued for the renderer to handle.
+    pygame.event.pump()
+    keys = pygame.key.get_pressed()
+    return ActionInput(
+        turn_left=keys[pygame.K_a] or keys[pygame.K_LEFT],
+        turn_right=keys[pygame.K_d] or keys[pygame.K_RIGHT],
+        move_forward=keys[pygame.K_w] or keys[pygame.K_UP],
+        move_backward=keys[pygame.K_s] or keys[pygame.K_DOWN],
+    )

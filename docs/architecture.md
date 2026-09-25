@@ -1,6 +1,6 @@
 # Architecture (current, pre-refactor)
 
-This describes the code as it is today. It will be rewritten as the refactor lands (see [roadmap](roadmap.md)). The target is an ECS (Entity Component System): see [decision 005](decisions/005-entity-component-system.md).
+**Outdated since step 2c.** The env, demo, and rendering now run on the ECS (`src/ecs/`, `src/sim/`, `src/render/`). The models, sprites, and singletons described below are dead code until step 2d deletes them, and this page gets rewritten then (see [roadmap](roadmap.md)). The target is an ECS (Entity Component System): see [decision 005](decisions/005-entity-component-system.md).
 
 ## Entry point
 

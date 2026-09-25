@@ -9,7 +9,7 @@ import json
 import pytest
 
 from tests.generate_behavior_fixtures import FIXTURE_DIR
-from tests.harness import RUNNERS, config_snapshot, setup_flags
+from tests.harness import RUNNERS, config_snapshot
 from tests.scenarios import SCENARIOS
 
 
@@ -20,7 +20,6 @@ def _load(name: str) -> dict:
 @pytest.mark.parametrize("runner", sorted(RUNNERS))
 @pytest.mark.parametrize("name", sorted(SCENARIOS))
 def test_scenario_matches_fixture(name, runner):
-    setup_flags()
     fixture = _load(name)
 
     assert config_snapshot() == fixture["config"], "config defaults changed"

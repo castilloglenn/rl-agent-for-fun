@@ -13,7 +13,7 @@ def run(_):
     elif game := cl_args.demo:
         match game:
             case "maze_car":
-                MazeCarDemo()
+                MazeCarDemo(cl_args.maze_car)
             case _:
                 pass
     else:
