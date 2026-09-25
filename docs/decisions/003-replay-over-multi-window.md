@@ -1,6 +1,6 @@
 # 003: Watch learning through recorded replays, not live windows
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap steps 4c and 4d). Format refined below.
+**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap steps 4d and 4e). Format refined below.
 
 ## Context
 

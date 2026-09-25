@@ -26,11 +26,12 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | **4** | **Stages, replays, and experiment runs** | Next |
 | 4a | **Groundwork (urgent, before any file format):** split config into game-defining vs presentation keys, separate the agent reward from the game score, code version stamp ([decision 010](decisions/010-decouple-before-file-formats.md)) | Done |
 | 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Done |
-| 4c | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record, code version | Next |
-| 4d | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Planned |
-| 4e | Baseline drivers: random and heuristic ("compass driver"), through the env API | Planned |
-| 4f | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward function and code version | Planned |
-| 4g | Record your own demo rounds (latest 50 kept) | Planned |
+| 4c | **Reward profiles:** agent rewards as weighted terms in `rewards/<name>.json`, separate from the game score ([decision 011](decisions/011-reward-profiles.md)) | Next |
+| 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record, code version | Planned |
+| 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Planned |
+| 4f | Baseline drivers: random and heuristic ("compass driver"), through the env API | Planned |
+| 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward function and code version | Planned |
+| 4h | Record your own demo rounds (latest 50 kept) | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: map files, inner walls (rectangles), map editor. Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
@@ -128,7 +129,7 @@ Goal: run many episodes headless, save each run's results, keep recordings of th
 
 #### 4a. Groundwork (urgent)
 
-Fixes to code that already exists, so the file formats in 4b to 4g start clean. Details: [decision 010](decisions/010-decouple-before-file-formats.md).
+Fixes to code that already exists, so the file formats in 4b to 4h start clean. Details: [decision 010](decisions/010-decouple-before-file-formats.md).
 
 - **Config split:** **game-defining** keys (driving, rules, rewards, round length, step rate, and later the stage) are saved in replays and runs. **Presentation** keys (`hud`, `display`, `window`, debug lines) are never saved, so tuning the HUD can't make an old replay look "changed". A `game_config()` helper returns only the game-defining part.
 - **Agent reward vs game score:** the **game score** stays the HUD and leaderboard value, with fixed rules. The **agent reward** becomes a small reward function of the step's events (points gained, crash, checkpoint, time). The default is "points gained", so nothing changes yet, but step 5 can experiment with rewards without touching the game.
@@ -146,7 +147,17 @@ Details: [decision 009](decisions/009-stage-format-and-spawn-schedules.md).
   - `scripted` mode: the stage lists exact spots (and later, timings for fuel).
   - Each spawner (checkpoints now, fuel later) has its own random stream derived from the seed, so adding one never changes another's sequence.
 
-#### 4c. Replay format
+#### 4c. Reward profiles
+
+Details: [decision 011](decisions/011-reward-profiles.md).
+
+- The agent reward is a **weighted sum of terms**, defined in a profile file: `rewards/<name>.json`, starting with `rewards/default.json` (points only, today's reward).
+- Terms are things measurable in one step: points, checkpoints, crashed, time up, per step, distance moved, speed, steering change, closest wall.
+- Unknown terms or a wrong format fail early with a clear error. New terms can be added later without breaking old profiles.
+- **The game score is never affected**, so agents trained with different profiles still compete on the same leaderboard.
+- The env takes a profile by name or path. Replays (4d) and runs (4g) record the profile used, and agent profiles (step 5) show "trained with".
+
+#### 4d. Replay format
 
 Details: [decision 003](decisions/003-replay-over-multi-window.md).
 
@@ -159,18 +170,18 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 - **Driver record:** `{"type": "human", "device": "keyboard"}` or `{"type": "agent", "id": ..., "checkpoint": ...}`, not just a label.
 - **Code version** in the header, so an out-of-date replay shows when the simulation changed.
 
-#### 4d. Replay mode
+#### 4e. Replay mode
 
 - `python app.py -replay <file>` opens a simulation window playing the recording.
 - Controls: pause, speed 0.5× / 1× / 2× / 4×, step one frame, restart. The HUD shows "REPLAY", the driver, and the seed.
 
-#### 4e. Baseline drivers
+#### 4f. Baseline drivers
 
 - **Random:** random actions, the floor.
 - **Heuristic ("compass driver"):** hand-written rules: steer toward the checkpoint using the compass inputs, brake when a travel-path ray is short.
 - Both use only the env API (observation in, action out), exactly like a trained agent will.
 
-#### 4f. Experiment runner
+#### 4g. Experiment runner
 
 - `python app.py -run <name> --driver heuristic --episodes 200`, headless at full speed.
 - Each run gets its own folder in `runs/`, which is **gitignored** (results are local data):
@@ -186,10 +197,10 @@ runs/<date>_<name>_seed<N>/
 ```
 
 - Runs can be listed, compared (learning curves on one chart), replayed, and reproduced with the same seed.
-- `config.json` records the **reward function** used, the **game-defining config**, and the **code version**.
+- `config.json` records the **reward profile** used (name and full content), the **game-defining config**, and the **code version**.
 - Expected sizes, as ESTIMATES: replays a few KB each, model files KB to a few MB.
 
-#### 4g. Record your own demo rounds
+#### 4h. Record your own demo rounds
 
 - Every round you play in the demo is saved as a replay, **on by default**, keeping the **latest 50**.
 - Replay your own rounds, and later compare them with agents on the same stage + seed.
@@ -212,7 +223,7 @@ runs/<date>_<name>_seed<N>/
 
 - **Branch:** resume an old checkpoint with a changed setting as a new run, then compare.
 - **Observation spec:** the observation becomes configurable per run (number of rays, compass vs sensor-only), recorded in the run config together with its version. See [decision 010](decisions/010-decouple-before-file-formats.md).
-- **Reward functions:** experiments swap the agent reward function (from 4a), never the game score.
+- **Reward profiles:** experiments swap the reward profile (from 4c), never the game score. The agent profile page shows which profile trained the agent.
 - **Action repeat:** the agent decides every 4 simulation steps (**30 decisions/s** at 120 steps/s) and holds its action in between. That keeps a 60 s round at 1,800 decisions instead of 7,200, which makes learning easier. See [decision 008](decisions/008-fixed-timestep-clock.md).
 
 #### Evaluation suite

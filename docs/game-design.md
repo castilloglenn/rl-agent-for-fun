@@ -29,6 +29,8 @@ The HUD shows the remaining time.
 
 **Implemented in step 3g.** The env returns each step's points as the reward, and the HUD shows score, distance points, checkpoint points, and the last step.
 
+These are the **game score** rules: the same for everyone, shown in the HUD and leaderboards. What an agent learns from is its **reward profile** (roadmap step 4c, [decision 011](decisions/011-reward-profiles.md)), which can weight things differently without changing the game score.
+
 | Event | Reward |
 |---|---|
 | Driving forward | **+1 per 10 px** driven. The distance accumulates across frames, so slow driving still earns |
