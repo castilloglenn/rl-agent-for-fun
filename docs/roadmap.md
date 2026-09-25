@@ -32,7 +32,9 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4f | Baseline drivers: random and heuristic ("compass driver"), through the env API | Planned |
 | 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward function and code version | Planned |
 | 4h | Record your own demo rounds (latest 50 kept) | Planned |
-| 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
+| **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
+| 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
+| 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: map files, inner walls (rectangles), map editor. Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
 | 8 | Multiple cars and local multiplayer: game setup lobby (pick agents and human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
@@ -168,7 +170,7 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 - JSON Lines, readable as text.
 - **Per-slot actions:** every action line is keyed by slot (`{"step": 1834, "actions": {"1": [...]}}`), and the header lists the slots and their drivers. Multi-car replays (step 8) then need no format change.
 - **Named actions:** the header stores `action_names`, and actions are read by name. Actions added later (weapons, skills) count as "not pressed" in old replays.
-- **Driver record:** `{"type": "human", "device": "keyboard"}` or `{"type": "agent", "id": ..., "checkpoint": ...}`, not just a label.
+- **Driver record:** `{"type": "human", "player": "zen", "device": "keyboard"}` or `{"type": "agent", "id": ..., "checkpoint": ...}`, not just a label. The **player** name groups a person's runs into an imitation dataset (5b).
 - **Code version** in the header, so an out-of-date replay shows when the simulation changed.
 
 #### 4e. Replay mode
@@ -181,6 +183,7 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 - **Random:** random actions, the floor.
 - **Heuristic ("compass driver"):** hand-written rules: steer toward the checkpoint using the compass inputs, brake when a travel-path ray is short.
 - Both use only the env API (observation in, action out), exactly like a trained agent will.
+- **One driver interface** for every driver: observation in, action out. Random, heuristic, RL agents (5a), and imitation agents (5b) all plug in the same way, so nothing downstream (runner, replays, evaluation, live play) needs special cases.
 
 #### 4g. Experiment runner
 
@@ -204,9 +207,15 @@ runs/<date>_<name>_seed<N>/
 #### 4h. Record your own demo rounds
 
 - Every round you play in the demo is saved as a replay, **on by default**, keeping the **latest 50**.
+- Recordings are stored **per player** (`recordings/<player>/`).
+- **Keep a run:** a key after the round (for example K) marks it kept. Kept runs are never removed by the latest-50 limit, and they're the natural dataset for an imitation agent (5b).
 - Replay your own rounds, and later compare them with agents on the same stage + seed.
 
-### 5. Agent and training
+### 5. Agents
+
+How agents are trained is flexible: imitation only, RL only, or both in either order. See [decision 012](decisions/012-agent-training-modes.md).
+
+#### 5a. RL agent and training
 
 - A torch neural network drives the car through the env, and learns by trial and error over many episodes.
 - **Output of training:** model weights (`.pt`), config, metrics, replays, all in the run folder.
@@ -225,6 +234,8 @@ runs/<date>_<name>_seed<N>/
 - **Branch:** resume an old checkpoint with a changed setting as a new run, then compare.
 - **Observation spec:** the observation becomes configurable per run (number of rays, compass vs sensor-only), recorded in the run config together with its version. See [decision 010](decisions/010-decouple-before-file-formats.md).
 - **Reward profiles:** experiments swap the reward profile (from 4c), never the game score. The agent profile page shows which profile trained the agent.
+- **Action set covers human inputs:** 12 canonical actions (steering left/none/right × pedal none/gas/reverse/brake) express every one of the 32 key combinations exactly, because the simulation resolves input priorities. Recorded runs can then be learned exactly in 5b.
+- **One network shape for both modes:** the policy network must accept imitation training and RL training alike, so a clone's weights can start an RL run. See [decision 012](decisions/012-agent-training-modes.md) (algorithm note).
 - **Action repeat:** the agent decides every 4 simulation steps (**30 decisions/s** at 120 steps/s) and holds its action in between. That keeps a 60 s round at 1,800 decisions instead of 7,200, which makes learning easier. See [decision 008](decisions/008-fixed-timestep-clock.md).
 
 #### Evaluation suite
@@ -267,6 +278,25 @@ runs/<run_id>/      per-episode detail (step 4)
 - Rough sizes (ESTIMATES, NOT MEASURED): 1,000 history events ≈ 200 KB. A checkpoint with optimizer state ≈ 60 KB (about 5,000 network parameters), so 50 milestones ≈ 3 MB per agent.
 - **Token-efficient review:** read `profile.json` first, then only the relevant history lines. Per-episode CSVs only when needed.
 - An `agent summary <id>` command prints a compact digest (lineage, skills, trend) for both humans and Claude.
+
+#### 5b. Imitation agents
+
+Learn to drive like a player from their recorded runs (**behavioral cloning**, a form of imitation learning).
+
+1. **Record:** play N rounds, and keep the good ones (4h).
+2. **Build a dataset:** re-simulate each kept replay (deterministic) and collect pairs of **observation → the player's action**. Replays don't store observations; re-simulation regenerates them exactly. A 60 s round gives 7,200 pairs.
+3. **Train:** supervised learning, predicting the player's action from the observation.
+4. **Test:** the clone is a driver like any other: watch it in replays and live play, and score it with the evaluation suite.
+
+**Training modes** (any mix, in any order, recorded in the agent's lineage):
+- **Imitation only:** a pure clone of the player.
+- **Imitation, then RL:** start from the clone, then keep improving with a reward profile ("start from how I drive, then get better than me"). This usually learns much faster than starting from random.
+- **RL, then imitation:** nudge an RL agent toward a player's style.
+- **Branch** at any checkpoint to try another mode, and compare.
+
+**Worth knowing:** clones copy mistakes too, and can drift into situations the player never recorded, because small errors compound. More varied runs help, and so does RL fine-tuning.
+
+**Agent profile page:** shows "cloned from: zen, 20 runs", followed by any RL phases and their reward profiles.
 
 ### 6. Control center GUI
 
