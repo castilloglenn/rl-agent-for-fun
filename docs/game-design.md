@@ -18,7 +18,8 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 | Rule | Value |
 |---|---|
 | Round length | 60 seconds = **5,400 steps** at 90 FPS. The timer counts simulation steps, never real time, to keep replays deterministic |
-| Rounds per game | 1 (configurable, rules between rounds decided when it goes above 1) |
+| Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1) |
+| Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
 | Round ends | When the timer hits 0, or when the car crashes |
 | Crash | Touching the border = game over for that car. Later, with several cars, the round continues until the timer ends or every car is out |
 

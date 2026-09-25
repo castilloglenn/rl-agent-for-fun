@@ -15,7 +15,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 2c | Render system, then switch the demo and env to the ECS. Removed the legacy test runner, since it needed the old env | Done |
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
 | **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
-| 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels. Field size decoupled from the window | Next |
+| 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels, game leaderboard slot. Field size decoupled from the window | Next |
 | 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Planned |
 | 3c | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3e | Planned |
 | 3d | 8 rays around the car, starting at the car's body edge | Planned |
@@ -23,12 +23,12 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3f | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
 | 3g | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
-| 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch. **Milestone: the first skilled agent** | Planned |
-| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console), plus separate simulation windows for live play and replays | Planned |
-| 7 | Maps: map files, inner walls (rectangles), map editor | Planned |
-| 8 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition | Planned |
+| 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
+| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
+| 7 | Maps: map files, inner walls (rectangles), map editor. Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
+| 8 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns, observation adds fuel level and the nearest K fuels | Planned |
-| 10 | Parallel environments for faster training | Planned |
+| 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
 | Later | Multiple rounds per game, weapons and skills | Idea |
 
 ## Step details
@@ -72,6 +72,7 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 - **Right panel:** detail grouped by topic. Each later sub-step fills in its own section (timer, rewards, checkpoint, agent view).
 - **Bottom strip:** event log, step counter, FPS.
 - **Readable labels:** `SPD`/`ACC`/`AGL`/`LSC`/`FSC` become "Speed (px/s)", "Throttle", "Heading", and a labeled radar diagram.
+- **Game leaderboard slot:** ranks cars in the current game by score. Built as a panel section now, and it fills in once there are several cars (step 8) or parallel games (step 10).
 - **Hotkey** (for example H) hides and shows the panels.
 - **Field size gets its own config**, decoupled from the window (today it's calculated from the window size). It stays 855×480, so the physics doesn't change. Behavior tests must still pass unchanged in this sub-step.
 
@@ -122,6 +123,47 @@ runs/<date>_<name>_seed<N>/
 
 - **Branch:** resume an old checkpoint with a changed setting as a new run, then compare.
 
+#### Evaluation suite
+
+Beyond training time, an agent's skill depends mostly on what it was trained on: training environments (the biggest factor), reward design, observation, algorithm, network size, and seed. Training on one map makes a **specialist**. Training on many varied or randomized maps makes a **generalist**.
+
+To compare agents fairly, every agent runs the same **fixed evaluation suite**: test scenarios that never change, with fixed seeds, averaged over several episodes. Each scenario measures one skill:
+
+| Skill | Measured by | Available from |
+|---|---|---|
+| Survival | Share of the round survived | Step 5 |
+| Checkpoint hunting | Checkpoints per minute | Step 5 |
+| Braking | Stopping before walls at high speed | Step 5 |
+| Wall control | Survival in narrow corridors | Step 7 (needs inner walls) |
+| Generalization | Score on maps it has never trained on | Step 7 (needs map files) |
+
+- The suite runs automatically at each saved checkpoint, so skill history builds up over training.
+- Changing a scenario creates a new suite version, and scores from different versions are never mixed.
+
+#### Agent history and storage
+
+Goal: keep as much history per agent as possible, while files stay small and cheap to review. **Layered storage:** every event is kept, each layer only as detailed as needed.
+
+```
+agents/<agent_id>/
+  profile.json      ~2 KB          current skills, lineage summary, totals. Read this first
+  history.jsonl     ~200 B/event   one line per event, append-only
+  checkpoints/      milestone weights only
+runs/<run_id>/      per-episode detail (step 4)
+```
+
+| Layer | Holds | Kept |
+|---|---|---|
+| `profile.json` | Current skill scores, lineage summary, total episodes and training time, observation layout version | Always, rewritten on each change |
+| `history.jsonl` | **Events, not episodes:** training phase started/ended, checkpoint saved, evaluation results, branch, settings change. Plus a summary every 100 episodes (mean/min/max reward, checkpoints, crash rate) | Forever |
+| Run folder `metrics.csv` | Every single episode | Forever. Plain numbers that compress well |
+| Checkpoints | Milestones only: best, latest, every Nth, and any branch point | A retention policy prunes the rest |
+| Replays | New bests and evaluation episodes only, gzipped | Forever |
+
+- Rough sizes (ESTIMATES, NOT MEASURED): 1,000 history events ≈ 200 KB. A checkpoint with optimizer state ≈ 60 KB (about 5,000 network parameters), so 50 milestones ≈ 3 MB per agent.
+- **Token-efficient review:** read `profile.json` first, then only the relevant history lines. Per-episode CSVs only when needed.
+- An `agent summary <id>` command prints a compact digest (lineage, skills, trend) for both humans and Claude.
+
 ### 6. Control center GUI
 
 Separate windows, **one process per window**:
@@ -138,6 +180,11 @@ Control center window        Simulation window 1      Simulation window 2
 - **Simulation windows:** each runs its own `World` + `Renderer`, for live play or a replay. Any number can be open side by side.
 - **Training runs headless in background processes**, at full speed, with no window. The control center shows their live metrics and logs.
 - **Live play:** trained agents (loaded from `.pt`) drive at normal speed. It only runs agents, it doesn't train them, so it's cheap.
+- **Agent profile page:**
+  - **Lineage:** initial training environment, then every later training phase (maps, episodes, which checkpoint it branched from).
+  - **Skill radar chart:** one axis per skill from the evaluation suite, showing current levels.
+  - **Skill history:** scores at each checkpoint, so you see skills grow, and sometimes drop. Further training on new environments can make an agent forget old skills ("catastrophic forgetting"), and this view reveals it.
+- **Agent leaderboard:** agents ranked by **evaluation suite score**, the fair comparison (same scenarios, same seeds), plus all-time high scores per map. Training scores aren't used for ranking, because random seeds and maps make some episodes easier than others.
 - **IPC:** commands go from the control center to the other processes, and metrics and logs come back. Candidates: `multiprocessing` queues, or a local socket.
 - **Why separate processes:** standard pygame gives one window per process. pygame-ce's multi-window API is NOT VERIFIED. Separate processes also mean a crashed or closed simulation window doesn't stop the control center or training.
 - UI library candidate: `pygame_gui`. NOT YET CHECKED FOR PYGAME-CE COMPATIBILITY.
@@ -173,6 +220,26 @@ A map is a JSON file in `maps/`:
 - **Ghost mode:** several cars in one world that pass through each other, so you can drive among agents early.
 - Then car-vs-car collision in the `World`: SAT on the polygon hitboxes from step 3c ([decision 004](decisions/004-polygon-hitbox-deferred.md)).
 - Then competition: agents learning against each other (multi-agent RL).
+- The game leaderboard (slot from step 3a) ranks the cars live.
+
+### 10. Parallel environments
+
+One network (one set of weights) drives N copies of the environment at once, one per process. The agent doesn't learn N times over: it **collects N times more experience per second** and learns from all of it together.
+
+1. All envs send observations, and the network decides all actions **in one batched pass**.
+2. Each env steps its own car, in its own process.
+3. Results from every env go into one shared pool.
+4. The network updates its weights from the pooled experience.
+5. Every env uses the updated weights on its next step.
+
+- **Synchronous** (all envs step in lockstep): the choice here, since determinism matters for replays.
+- **Speed-up** as an ESTIMATE: about 5 to 8 times on the 10-core M5, not the full core count, because the learning update doesn't parallelize and inter-process messaging has overhead.
+- Mixed situations across envs (different seeds and checkpoint spawns) also make learning more stable.
+
+**Watching parallel training** (a toggle, since it adds a little overhead):
+- **Live grid:** a window with one small view per env. Workers send lightweight snapshots (car position and angle, checkpoint, score) every few steps, and the GUI process draws them. Workers never render. Cars look sped up, since training runs faster than real time.
+- **Spectate one:** click a tile to enlarge that env's game, with its full info panel.
+- The game leaderboard ranks the parallel games by score.
 
 ## Open questions
 
