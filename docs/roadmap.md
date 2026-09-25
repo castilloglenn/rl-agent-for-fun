@@ -24,8 +24,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Done |
 | 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Done |
 | **4** | **Stages, replays, and experiment runs** | Next |
-| 4a | **Groundwork (urgent, before any file format):** split config into game-defining vs presentation keys, separate the agent reward from the game score, code version stamp ([decision 010](decisions/010-decouple-before-file-formats.md)) | Next |
-| 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Planned |
+| 4a | **Groundwork (urgent, before any file format):** split config into game-defining vs presentation keys, separate the agent reward from the game score, code version stamp ([decision 010](decisions/010-decouple-before-file-formats.md)) | Done |
+| 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Next |
 | 4c | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record, code version | Planned |
 | 4d | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Planned |
 | 4e | Baseline drivers: random and heuristic ("compass driver"), through the env API | Planned |

@@ -5,6 +5,38 @@ flags.DEFINE_boolean("tests", False, "Run unit tests.")
 flags.DEFINE_string("demo", "", "Run games with human inputs.")
 
 
+# Every top-level maze_car key is one of these (tests/test_config.py checks).
+# Game-defining keys change what happens in a game, so replays and runs save
+# them. Presentation keys only change how it looks, and are never saved.
+# See docs/decisions/010-decouple-before-file-formats.md.
+GAME_KEYS = (
+    "sim",
+    "field",
+    "car",
+    "sensors",
+    "round",
+    "game",
+    "rewards",
+    "checkpoint",
+)
+PRESENTATION_KEYS = (
+    "show_gui",
+    "show_bounds",
+    "show_collision_distance",
+    "window",
+    "display",
+    "hud",
+)
+
+
+def game_config(config: ConfigDict) -> dict:
+    """Only the game-defining part of a maze_car config, as plain data
+    (JSON-ready). This is what replays and runs record.
+    """
+    data = config.to_dict()
+    return {key: data[key] for key in GAME_KEYS}
+
+
 def get_agent_config() -> ConfigDict:
     config = ConfigDict()
 

@@ -5,7 +5,7 @@ recorded from the pre-ECS code, and the ECS matched them exactly before
 that code was removed.
 """
 
-from src.config import get_maze_car_config
+from src.config import game_config, get_maze_car_config
 from src.ecs import World
 from src.sim.components import (
     ActionInput,
@@ -20,33 +20,8 @@ Action = tuple[bool, bool, bool, bool, bool]
 
 
 def config_snapshot() -> dict:
-    config = get_maze_car_config()
-    return {
-        "field": [
-            config.field.x,
-            config.field.y,
-            config.field.width,
-            config.field.height,
-        ],
-        "ray_length": config.sensors.ray_length,
-        "steps_per_second": config.sim.steps_per_second,
-        "car": [config.car.width, config.car.height],
-        "driving": {
-            key: config.car[key]
-            for key in (
-                "max_speed",
-                "max_reverse_speed",
-                "acceleration",
-                "reverse_acceleration",
-                "brake_deceleration",
-                "drag",
-                "max_turn_rate",
-                "full_turn_speed",
-                "steer_in_time",
-                "steer_return_time",
-            )
-        },
-    }
+    """The game-defining config: fixtures fail if any of it changes."""
+    return game_config(get_maze_car_config())
 
 
 def _snapshot(world: World, car: int) -> dict:

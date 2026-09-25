@@ -5,6 +5,7 @@ import numpy as np
 from ml_collections import ConfigDict
 
 from src.envs.base import Environment
+from src.envs.maze_car.rewards import REWARD_FUNCTIONS, StepEvents
 from src.render.renderer import Command, Renderer
 from src.sim.components import ActionInput, Eliminated
 from src.sim.components import Score as CarScore
@@ -36,13 +37,18 @@ class MazeCarEnv(Environment):
         config: ConfigDict,
         driver: str = "Agent",
         random_seeds: bool = False,
+        reward: str = "points_gained",
     ) -> None:
         """random_seeds: pick a fresh seed on every reset (the demo), rather
         than `game.seed` (agents and tests, for repeatable rounds).
+        reward: the agent reward function, by name (REWARD_FUNCTIONS). It
+        never changes the game score.
         """
         self.config = config
         self.driver = driver  # shown in the HUD
         self.random_seeds = random_seeds
+        self.reward_name = reward
+        self.reward_function = REWARD_FUNCTIONS[reward]
         self.renderer: Renderer | None = (
             Renderer(config) if config.show_gui else None
         )
@@ -66,13 +72,39 @@ class MazeCarEnv(Environment):
         action: 5 bools, in `action_names` order.
         Returns (observation, reward, terminated, truncated, info):
         terminated when the car is out (a crash), truncated when the round
-        ran out of time.
+        ran out of time. The reward comes from the reward function. The
+        game points gained are in info["points"].
         """
-        reward, _, _ = self.game_step(action)
-        out = self.world.try_component(self.car, Eliminated) is not None
+        score = self.world.component(self.car, CarScore)
+        checkpoints_before = score.checkpoints
+        was_out, was_over = self._is_out(), self._round_over()
+
+        points, _, _ = self.game_step(action)
+
+        out = self._is_out()
         state = self.world.resource(RoundState)
         truncated = state.over and state.reason == "time" and not out
-        return self.get_state(), reward, out, truncated, self.info()
+        events = StepEvents(
+            points=points,
+            checkpoints=score.checkpoints - checkpoints_before,
+            crashed=out and not was_out,
+            time_up=truncated and not was_over,
+        )
+        info = self.info()
+        info["points"] = points
+        return (
+            self.get_state(),
+            self.reward_function(events),
+            out,
+            truncated,
+            info,
+        )
+
+    def _is_out(self) -> bool:
+        return self.world.try_component(self.car, Eliminated) is not None
+
+    def _round_over(self) -> bool:
+        return self.world.resource(RoundState).over
 
     def get_state(self) -> np.ndarray:
         """The observation: 14 floats, in `observation_names` order."""

@@ -47,6 +47,17 @@ All `car.*` driving values go into `SimConfig`, and `create_car` converts them t
 
 `get_agent_config()` is empty.
 
+## Game-defining vs presentation
+
+Every top-level key belongs to exactly one group (`GAME_KEYS` and `PRESENTATION_KEYS` in `src/config.py`). `tests/test_config.py` fails if a new key isn't classified.
+
+| Group | Keys | Saved in replays and runs? |
+|---|---|---|
+| Game-defining | `sim`, `field`, `car`, `sensors`, `round`, `game`, `rewards`, `checkpoint` | Yes, via `game_config(config)` |
+| Presentation | `show_gui`, `show_bounds`, `show_collision_distance`, `window`, `display`, `hud` | Never |
+
+Tuning a presentation value can't make a saved replay look "changed". The behavior fixtures record `game_config()` too, so changing any game-defining default fails them until they're regenerated.
+
 ## How it flows
 
 1. `app.py` registers the config dicts as absl flags, so any key can be overridden from the command line (see [setup](setup.md#config-overrides)).

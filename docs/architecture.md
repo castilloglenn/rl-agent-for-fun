@@ -47,7 +47,8 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step(action)` returns `(observation, reward, terminated, truncated, info)`:
   - `terminated`: the car is out (a crash).
   - `truncated`: the round ran out of time.
-  - `reward`: the car's points this step. `info` has `score`, `checkpoints`, `step`, and `eliminated`.
+  - `reward`: from the env's **reward function** (`MazeCarEnv(config, reward="points_gained")`, registry in `src/envs/maze_car/rewards.py`). It gets the step's events (points, checkpoints, crash, time up), and never changes the game score. The default equals the game points gained.
+- `info` has `score`, `points` (game points this step), `checkpoints`, `step`, and `eliminated`.
 - `get_state()` returns the observation: 14 float32 values from `observe()` (`src/sim/observation.py`). The names are in `observation_names`, and the version is in `observation_version`. See [game design](game-design.md#observation-what-the-agent-sees).
 - An action is 5 bools, in `action_names` order: `(turn_left, turn_right, gas, reverse, brake)`.
 - Measured: about 54,000 `step` calls per second on one core, headless.
@@ -56,6 +57,10 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over.
 - `game_step(action)`: `step_world`, plus one drawn frame if `config.show_gui` is on (`step` uses it, so an agent can be watched).
 - `render(alpha)`: handles window events (R runs `reset()`) and draws one frame, interpolated by `alpha`. Returns the real seconds since the previous frame.
+
+## Versions
+
+`code_version()` (`src/utils/version.py`) returns the git commit, plus `-dirty` with uncommitted changes (`unknown` without git). Replays and runs record it, so an out-of-date replay shows when the simulation changed.
 
 ## Controllers
 

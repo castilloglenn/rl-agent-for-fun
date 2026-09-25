@@ -1,6 +1,6 @@
 # 010: Decouple before the first file formats exist
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap steps 4a, 4c, 4f, 5, 8).
+**Date:** 2026-09-25. **Status:** Accepted. Items 1 to 3 implemented in roadmap step 4a. The rest are planned for steps 4c, 4f, 5, and 8.
 
 ## Context
 
