@@ -1,6 +1,6 @@
 # 003: Watch learning through recorded replays, not live windows
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap steps 4d and 4e). Format refined below.
+**Date:** 2026-09-25. **Status:** Format, recorder, and replayer implemented in roadmap step 4d (`src/replay/`). Replay mode in the window follows in 4e.
 
 ## Context
 

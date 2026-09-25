@@ -36,6 +36,15 @@ def game_config(config: ConfigDict) -> dict:
     return {key: data[key] for key in GAME_KEYS}
 
 
+def config_with_game(game: dict) -> ConfigDict:
+    """The default config, with a saved game-defining part applied on top
+    (for example from a replay). Presentation keys keep their defaults.
+    """
+    config = get_maze_car_config()
+    config.update(game)
+    return config
+
+
 def get_agent_config() -> ConfigDict:
     config = ConfigDict()
 

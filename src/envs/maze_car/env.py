@@ -1,4 +1,5 @@
 import random
+from dataclasses import astuple
 from typing import Optional
 
 import numpy as np
@@ -21,6 +22,7 @@ from src.sim.observation import (
     observe,
 )
 from src.sim.resources import RoundState, SimClock, SimConfig
+from src.sim.stage import Stage
 from src.sim.systems.sensors import RAY_LAYOUT
 from src.utils.types import GameOver, Reward, Score
 
@@ -45,22 +47,30 @@ class MazeCarEnv(Environment):
         driver: str = "Agent",
         random_seeds: bool = False,
         reward: str | RewardProfile = "default",
+        stage: Stage | None = None,
+        recorder=None,
     ) -> None:
         """random_seeds: pick a fresh seed on every reset (the demo), rather
         than `game.seed` (agents and tests, for repeatable rounds).
         reward: the agent's reward profile, by name (rewards/<name>.json),
         path, or object. It never changes the game score.
+        stage: play this stage instead of loading `config.stage` (a replay
+        passes its embedded stage).
+        recorder: records every game as a replay, through its on_reset,
+        on_step, and on_finish hooks (src/replay/recorder.py).
         """
         self.config = config
         self.driver = driver  # shown in the HUD
         self.random_seeds = random_seeds
+        self.stage = stage
+        self.recorder = recorder
         self.reward_profile = (
             reward
             if isinstance(reward, RewardProfile)
             else load_reward_profile(reward)
         )
         self.renderer: Renderer | None = (
-            Renderer(config) if config.show_gui else None
+            Renderer(config, stage) if config.show_gui else None
         )
         self.reset()
 
@@ -69,12 +79,14 @@ class MazeCarEnv(Environment):
         if seed is None and self.random_seeds:
             seed = random.SystemRandom().randrange(1_000_000)
         self.world, self.car = create_game(
-            self.config, label=self.driver, seed=seed
+            self.config, label=self.driver, seed=seed, stage=self.stage
         )
         self.running: bool = True
         self.last_reward = 0.0
         self.round_reward = 0.0  # agent reward summed over this game
         self.last_observation = self.get_state()
+        if self.recorder:
+            self.recorder.on_reset(self)
         return self.last_observation, self.info()
 
     def step(
@@ -158,6 +170,9 @@ class MazeCarEnv(Environment):
         was_out = self._is_out()
 
         action_input = ActionInput(*action) if action else ActionInput()
+        if self.recorder:
+            step = self.world.resource(SimClock).step
+            self.recorder.on_step(step, {"1": astuple(action_input)})
         self.world.add_component(self.car, action_input)
         self.world.step()
 
@@ -176,7 +191,16 @@ class MazeCarEnv(Environment):
         )
         self.last_reward = self.reward_profile(events)
         self.round_reward += self.last_reward
+        if self.recorder and self.is_game_over:
+            self.recorder.on_finish(self)
         return (points, self.is_game_over, self.score)
+
+    def finish_recording(self, reason: str = "stopped") -> None:
+        """Ends the current recording early (for example when the player
+        quits mid-game). Its replay then verifies up to this step.
+        """
+        if self.recorder and not self.recorder.finished:
+            self.recorder.on_finish(self, reason)
 
     def reward_status(self) -> RewardStatus:
         return RewardStatus(

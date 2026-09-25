@@ -27,8 +27,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4a | **Groundwork (urgent, before any file format):** split config into game-defining vs presentation keys, separate the agent reward from the game score, code version stamp ([decision 010](decisions/010-decouple-before-file-formats.md)) | Done |
 | 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Done |
 | 4c | **Reward profiles:** agent rewards as weighted terms in `rewards/<name>.json`, separate from the game score ([decision 011](decisions/011-reward-profiles.md)) | Done |
-| 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record (with player), reward profile, code version | Next |
-| 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Planned |
+| 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record (with player), reward profile, code version | Done |
+| 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Next |
 | 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Planned |
 | 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward profile, game-defining config, and code version | Planned |
 | 4h | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |

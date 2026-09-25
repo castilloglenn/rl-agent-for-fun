@@ -8,9 +8,11 @@ src/ecs/               World: entities, components, resources, systems
 src/sim/               Maze Car rules: components, resources, systems, factories
 src/envs/maze_car/     MazeCarEnv wraps a World; MazeCarDemo drives it by keyboard
 src/render/            Renderer: pygame window, reads the World, never writes it
+src/replay/            Replay files: format, recorder (env hooks), replayer
+stages/, rewards/      Data files: stages and reward profiles
 ```
 
-Dependencies point one way: `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render` or `envs`.
+Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks.
 
 ## ECS core (`src/ecs/world.py`)
 
@@ -59,6 +61,20 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over. It also scores the step with the reward profile (`last_reward`, `round_reward`), so the HUD shows the agent reward while a human drives.
 - `game_step(action)`: `step_world`, plus one drawn frame if `config.show_gui` is on (`step` uses it, so an agent can be watched).
 - `render(alpha)`: handles window events (R runs `reset()`) and draws one frame, interpolated by `alpha`. Returns the real seconds since the previous frame.
+
+## Replays (`src/replay/`)
+
+Details: [decision 003](decisions/003-replay-over-multi-window.md).
+
+| File | Contents |
+|---|---|
+| `format.py` | `Replay` (header, action changes, end), `write_replay` / `read_replay` (`.jsonl`, or `.jsonl.gz` gzipped), and `to_current_actions` (reads actions by name) |
+| `recorder.py` | `ReplayRecorder(drivers)`: plug into `MazeCarEnv(..., recorder=...)`. The env calls `on_reset` (header), `on_step` (stores only action changes), and `on_finish` (end line). Driver records: `human_driver(player)`, `agent_driver(id, checkpoint)` |
+| `replayer.py` | `Replayer(replay)`: rebuilds the game from the file alone (embedded stage, seed, game-defining config via `config_with_game`, reward profile), re-simulates, and `verify()`s the end line (step, reason, score, reward). Code and observation version differences are reported as notes |
+
+- `env.finish_recording()` ends a recording early (for example when the player quits). The replay then verifies up to that step.
+- Actions are coerced to plain bools, so agents may pass numpy booleans.
+- A full 60 s round is a few KB (about 1.4 KB, or 0.7 KB gzipped, for a short sample round).
 
 ## Versions
 
