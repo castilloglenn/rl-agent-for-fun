@@ -22,10 +22,10 @@ The current code is loosely MVC-inspired, but its sprites both simulate and draw
 
 | Component | Fields (from) |
 |---|---|
-| `Transform` | x, y, angle, x_float, y_float (`CarState`) |
-| `Motion` | speed_multiplier, acceleration_rate (`CarState`) |
+| `Transform` | angle, x_float, y_float (`CarState`) |
+| `Motion` | speed (was `speed_multiplier`), acceleration_rate (`CarState`) |
 | `CarSpec` | base, forward, backward, turn speeds, acceleration unit (`CarState` derived fields) |
-| `Hitbox` | current `Rect` (`CarState.rect`) |
+| `Hitbox` | unrotated width/height, and `rect` (`CarState.rect`). **`rect` is also the car's position**: kept as the single source of truth so behavior matches exactly |
 | `Sensors` | list of rays: relative angle, offset, start, end, distance (`CollisionDistanceState`) |
 | `ActionInput` | turn_left, turn_right, move_forward, move_backward (`ActionState`) |
 | `Renderable` | color, size (read only by rendering) |
@@ -61,7 +61,7 @@ app.py            demo / train / replay modes
 
 ## Risk to watch in the refactor
 
-The hitbox size today comes from `pygame.transform.rotate` (the bounding box of the rotated image). A pure-math version could round differently and change behavior. The step 1 behavior tests will catch that. The fallback is to keep using `pygame.transform.rotate` inside the sim, since it needs no window.
+The hitbox size today comes from `pygame.transform.rotate` (the bounding box of the rotated image). A pure-math version could round differently and change behavior. **Resolved in step 2b:** `src/sim/geometry.py` `rotated_bounds` rotates a blank surface of the car's size, which needs no window and matches exactly. The polygon hitbox ([decision 004](004-polygon-hitbox-deferred.md)) will replace it.
 
 ## Consequences
 

@@ -48,12 +48,12 @@ These pin down the current car physics exactly (roadmap step 1). They're the saf
 |---|---|
 | `tests/scenarios.py` | Scripted action sequences. Implementation-neutral |
 | `tests/fixtures/behavior/*.json` | Expected car state after every step (rect, angle, speed, acceleration, float carry, 4 rays), one line per step |
-| `tests/harness.py` | `run_scenario`: runs actions through the current code. **The only file to rewrite after the refactor** |
-| `tests/test_behavior.py` | Compares against the fixtures exactly, and checks determinism |
+| `tests/harness.py` | Two runners over the same scenarios: `run_legacy` (pre-ECS code) and `run_ecs` (`src/sim/`). Both must match the fixtures |
+| `tests/test_behavior.py` | Compares every runner against the fixtures exactly, and checks determinism |
 
-`harness.py` runs pygame headless (`SDL_VIDEODRIVER=dummy`), defines and parses the absl flags, and resets the singletons before each run.
+`run_legacy` runs pygame headless (`SDL_VIDEODRIVER=dummy`), defines and parses the absl flags, and resets the singletons before each run. `run_ecs` needs none of that. The legacy runner is removed in step 2d.
 
-Regenerate the fixtures **only** for an intended behavior change:
+Regenerate the fixtures **only** for an intended behavior change. The generator uses `run_legacy` until step 2d:
 
 ```
 python -m tests.generate_behavior_fixtures

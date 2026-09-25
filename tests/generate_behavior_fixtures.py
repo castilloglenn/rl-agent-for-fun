@@ -7,7 +7,7 @@ Only run this when a behavior change is intended:
 import json
 from pathlib import Path
 
-from tests.harness import config_snapshot, run_scenario, setup_flags
+from tests.harness import config_snapshot, run_legacy, setup_flags
 from tests.scenarios import SCENARIOS
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "behavior"
@@ -20,7 +20,7 @@ def main() -> None:
         fixture = {
             "config": config_snapshot(),
             "actions": [list(action) for action in actions],
-            "snapshots": run_scenario(actions),
+            "snapshots": run_legacy(actions),
         }
         path = FIXTURE_DIR / f"{name}.json"
         path.write_text(_dumps(fixture))

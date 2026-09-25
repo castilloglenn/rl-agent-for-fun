@@ -1,8 +1,7 @@
-"""Runs behavior scenarios against the current (pre-ECS) implementation.
+"""Runs behavior scenarios against the pre-ECS (legacy) and ECS code.
 
-The scenarios and fixtures are implementation-neutral. After the ECS
-refactor, only `run_scenario` should need rewriting; the fixtures must
-still match.
+The scenarios and fixtures are implementation-neutral: both runners must
+produce identical snapshots. The legacy runner goes away in step 2d.
 """
 
 import os
@@ -45,7 +44,7 @@ def _reset_singletons() -> None:
     FieldSingleton._instance = None
 
 
-def _snapshot(env) -> dict:
+def _legacy_snapshot(env) -> dict:
     car = env.car.state
     rays = {
         "front": env.car.front_collision.state,
@@ -71,7 +70,10 @@ def _snapshot(env) -> dict:
     }
 
 
-def run_scenario(actions: list[tuple[bool, bool, bool, bool]]) -> list[dict]:
+Action = tuple[bool, bool, bool, bool]
+
+
+def run_legacy(actions: list[Action]) -> list[dict]:
     """Returns the car snapshot after reset, then after every step."""
     from src.envs.maze_car.env import MazeCarEnv
     from src.envs.maze_car.models.action_state import ActionState
@@ -82,9 +84,52 @@ def run_scenario(actions: list[tuple[bool, bool, bool, bool]]) -> list[dict]:
 
     # Same path as MazeCarDemo.run, minus drawing and clock ticks,
     # which don't affect the physics.
-    snapshots = [_snapshot(env)]
+    snapshots = [_legacy_snapshot(env)]
     for action in actions:
         env.action_state = ActionState(*action)
         env.update()
-        snapshots.append(_snapshot(env))
+        snapshots.append(_legacy_snapshot(env))
     return snapshots
+
+
+def _ecs_snapshot(world, car: int) -> dict:
+    from src.sim.components import Hitbox, Motion, Sensors, Transform
+
+    rect = world.component(car, Hitbox).rect
+    transform = world.component(car, Transform)
+    motion = world.component(car, Motion)
+    return {
+        "rect": [rect.x, rect.y, rect.width, rect.height],
+        "angle": transform.angle,
+        "speed": motion.speed,
+        "acceleration": motion.acceleration_rate,
+        "x_float": transform.x_float,
+        "y_float": transform.y_float,
+        "rays": {
+            ray.name: {
+                "start": [ray.start.x, ray.start.y],
+                "end": [ray.end.x, ray.end.y],
+                "distance": ray.distance,
+            }
+            for ray in world.component(car, Sensors).rays
+        },
+    }
+
+
+def run_ecs(actions: list[Action]) -> list[dict]:
+    """Same as run_legacy, through the ECS. Needs no global FLAGS."""
+    from src.sim.components import ActionInput
+    from src.sim.factories import create_start_car, create_world
+
+    world = create_world(get_maze_car_config())
+    car = create_start_car(world)
+
+    snapshots = [_ecs_snapshot(world, car)]
+    for action in actions:
+        world.add_component(car, ActionInput(*action))
+        world.step()
+        snapshots.append(_ecs_snapshot(world, car))
+    return snapshots
+
+
+RUNNERS = {"legacy": run_legacy, "ecs": run_ecs}

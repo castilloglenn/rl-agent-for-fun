@@ -9,7 +9,7 @@ import json
 import pytest
 
 from tests.generate_behavior_fixtures import FIXTURE_DIR
-from tests.harness import config_snapshot, run_scenario, setup_flags
+from tests.harness import RUNNERS, config_snapshot, setup_flags
 from tests.scenarios import SCENARIOS
 
 
@@ -17,8 +17,9 @@ def _load(name: str) -> dict:
     return json.loads((FIXTURE_DIR / f"{name}.json").read_text())
 
 
+@pytest.mark.parametrize("runner", sorted(RUNNERS))
 @pytest.mark.parametrize("name", sorted(SCENARIOS))
-def test_scenario_matches_fixture(name):
+def test_scenario_matches_fixture(name, runner):
     setup_flags()
     fixture = _load(name)
 
@@ -27,7 +28,7 @@ def test_scenario_matches_fixture(name):
         "scenario changed, regenerate its fixture"
     )
 
-    snapshots = run_scenario(SCENARIOS[name])
+    snapshots = RUNNERS[runner](SCENARIOS[name])
     assert len(snapshots) == len(fixture["snapshots"])
     for step, (actual, expected) in enumerate(
         zip(snapshots, fixture["snapshots"])
@@ -35,6 +36,7 @@ def test_scenario_matches_fixture(name):
         assert actual == expected, f"first mismatch at step {step}"
 
 
-def test_runs_are_deterministic():
+@pytest.mark.parametrize("runner", sorted(RUNNERS))
+def test_runs_are_deterministic(runner):
     actions = SCENARIOS["mixed"]
-    assert run_scenario(actions) == run_scenario(actions)
+    assert RUNNERS[runner](actions) == RUNNERS[runner](actions)
