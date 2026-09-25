@@ -14,6 +14,7 @@ from src.sim.components import (
     Score,
     ScoreReward,
     Sensors,
+    SpawnedAt,
     Transform,
     Trigger,
 )
@@ -168,6 +169,7 @@ def create_checkpoint(world: World) -> int:
             label="checkpoint",
         ),
         Respawn(spawner="checkpoints"),
+        SpawnedAt(step=world.resource(SimClock).step),
         Checkpoint(),
     )
 

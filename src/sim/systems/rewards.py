@@ -15,6 +15,7 @@ def reward_system(world: World) -> None:
     distance_step = world.resource(Rules).scoring.distance_step
     for _, (score,) in world.query(Score):
         score.last_step = 0.0
+        score.checkpoint_ages = []
     for _, (motion, score) in world.query(
         Motion, Score, exclude=(Eliminated,)
     ):

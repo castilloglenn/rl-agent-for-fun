@@ -41,7 +41,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
-| Later | Hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills | Idea |
+| Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills | Idea |
 
 ## Step details
 
@@ -157,6 +157,7 @@ Details: [decision 011](decisions/011-reward-profiles.md).
 - Unknown terms or a wrong format fail early with a clear error. New terms can be added later without breaking old profiles.
 - **The game score is never affected**, so agents trained with different profiles still compete on the same leaderboard.
 - The env takes a profile by name or path. Replays (4d) and runs (4h) record the profile used, and agent profiles (step 5) show "trained with".
+- **Time bonus** (added after 4c): the `checkpoint_speed` term pays more the faster a checkpoint is reached (and `distance_points` counts driving only, so `time_bonus` doesn't also add the game's flat +100), and terms can take parameters (`{"weight": 100, "window": 10}`). Try it with `make maze_car_reward REWARD=time_bonus`. It only changes the agent reward: a time-attack game mode, where the game score itself rewards speed, is listed under Later.
 - Profiles have a `name` and an optional `description`. The window shows the profile name in the top bar, and the agent reward (last step, this game) in the side panel, also while a human drives.
 
 #### 4d. Replay format

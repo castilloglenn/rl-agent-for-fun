@@ -6,6 +6,7 @@ from src.sim.components import (
     Respawn,
     Score,
     ScoreReward,
+    SpawnedAt,
     Transform,
     Trigger,
 )
@@ -45,6 +46,9 @@ def _fire(world: World, trigger_id: int, car: int, score: Score) -> None:
         score.checkpoint_points += reward.points
         score.checkpoints += 1
         score.last_step += reward.points
+        spawned = world.try_component(trigger_id, SpawnedAt)
+        if spawned:
+            score.checkpoint_ages.append(_steps_done(world) - spawned.step)
         renderable = world.try_component(car, Renderable)
         name = renderable.label if renderable else f"Car {car}"
         world.resource(EventLog).add(
@@ -56,6 +60,16 @@ def _fire(world: World, trigger_id: int, car: int, score: Score) -> None:
     if respawn:
         spot = world.component(trigger_id, Transform)
         spot.x, spot.y = next_spawn(world, respawn.spawner)
+        spawned = world.try_component(trigger_id, SpawnedAt)
+        if spawned:
+            spawned.step = _steps_done(world)
+
+
+def _steps_done(world: World) -> int:
+    """Steps completed once the current step ends (the clock counts it
+    later in the step).
+    """
+    return world.resource(SimClock).step + 1
 
 
 def next_spawn(world: World, spawner: str) -> tuple[float, float]:

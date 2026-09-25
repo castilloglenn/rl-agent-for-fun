@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "time_bonus",
+  "description": "Points for driving, and checkpoints worth up to +100 the faster they're reached (0 after 10 s).",
+  "terms": {
+    "distance_points": 1.0,
+    "checkpoint_speed": {"weight": 100, "window": 10}
+  }
+}

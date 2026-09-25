@@ -107,6 +107,9 @@ class Score:
     checkpoints: int = 0
     last_step: float = 0.0  # points earned in the latest step
     distance_carry: float = 0.0  # px driven toward the next distance point
+    # Steps each checkpoint reached in the latest step had been on the
+    # field (for time-based reward terms). Reset every step.
+    checkpoint_ages: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -124,6 +127,16 @@ class ScoreReward:
 
     points: float
     label: str  # e.g. "checkpoint", for the event log
+
+
+@dataclass
+class SpawnedAt:
+    """How many steps were completed when a trigger (re)appeared, so its
+    age can be measured: reached during the Nth step after appearing
+    before step 0 means N steps on the field.
+    """
+
+    step: int = 0
 
 
 @dataclass

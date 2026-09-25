@@ -25,8 +25,10 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
 
   | Term | Value per step |
   |---|---|
-  | `points` | Game points gained |
+  | `points` | Game points gained: distance **and** checkpoints |
+  | `distance_points` | Game points from driving only, without checkpoints. Pair it with `checkpoint_speed` when a checkpoint's worth should come only from how fast it's reached |
   | `checkpoints` | Checkpoints reached |
+  | `checkpoint_speed` | Per checkpoint reached: `max(0, 1 - seconds on the field / window)`, so 1 for an instant pickup down to 0 at `window` (default 10 s). Added after 4c |
   | `crash` | 1 on the step the car goes out |
   | `time_up` | 1 on the step the round ends on time |
   | `per_step` | 1 every step (a time cost or bonus) |
@@ -35,7 +37,9 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
   | `steering_change` | How much the steering wheel moved |
   | `closest_wall` | Shortest ray distance, as a fraction of the field diagonal |
 
-- Unknown term names or a wrong `format` fail early with a clear error. New terms can be added later, and old profiles keep working.
+- **Terms with parameters:** a term is either a weight (`"points": 1.0`) or a weight plus parameters (`"checkpoint_speed": {"weight": 100, "window": 10}`). Each term declares its parameters and their defaults. Parameters are positive numbers. Plain weights keep working, so the format version stays 1.
+- Unknown term names, unknown parameters, non-number weights, or a wrong `format` fail early with a clear error. New terms can be added later, and old profiles keep working.
+- Shipped profiles: `default` (points only) and `time_bonus` (`distance_points`, plus `checkpoint_speed` weight 100, window 10 s: a checkpoint is worth up to +100 when reached instantly, 0 after 10 s). `time_bonus` first used `points`, which already includes the game's +100 per checkpoint, so slow pickups still paid +100. Fixed by the `distance_points` term.
 - The env takes a profile by name or path. The profile's **full content** is recorded in replays and run configs, so an edited or deleted profile file doesn't lose the record.
 
 ### Examples (ideas for experiments, not shipped)

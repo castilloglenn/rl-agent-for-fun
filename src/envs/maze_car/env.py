@@ -175,6 +175,7 @@ class MazeCarEnv(Environment):
         score = self.world.component(self.car, CarScore)
         motion = self.world.component(self.car, Motion)
         checkpoints_before = score.checkpoints
+        distance_points_before = score.distance_points
         steering_before = motion.steering
         was_out = self._is_out()
 
@@ -197,6 +198,10 @@ class MazeCarEnv(Environment):
             speed=motion.speed * sim.steps_per_second / sim.max_speed,
             steering_change=abs(motion.steering - steering_before),
             closest_wall=float(min(self.last_observation[:RAY_COUNT])),
+            checkpoint_seconds=tuple(
+                age / sim.steps_per_second for age in score.checkpoint_ages
+            ),
+            distance_points=score.distance_points - distance_points_before,
         )
         self.last_reward = self.reward_profile(events)
         self.round_reward += self.last_reward

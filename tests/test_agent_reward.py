@@ -8,6 +8,7 @@ import pytest
 
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
+from src.sim.components import Score
 from src.sim.rules import load_rules
 from src.envs.maze_car.rewards import (
     PROFILES_DIR,
@@ -78,6 +79,7 @@ def test_load_by_path():
     "term, events, expected",
     [
         ("points", _events(points=7), 7),
+        ("distance_points", _events(points=107, distance_points=7), 7),
         ("checkpoints", _events(checkpoints=1), 1),
         ("crash", _events(crashed=True), 1),
         ("time_up", _events(time_up=True), 1),
@@ -222,3 +224,139 @@ def test_step_returns_the_same_reward_the_hud_shows():
         total += reward
         assert reward == env.reward_status().last
     assert total == pytest.approx(env.reward_status().total)
+
+
+# Parameterized terms and the checkpoint time bonus
+
+
+def test_terms_can_be_a_weight_or_a_weight_with_parameters():
+    profile = RewardProfile.from_dict(
+        {
+            "format": 1,
+            "name": "fast",
+            "terms": {
+                "points": 1.0,
+                "checkpoint_speed": {"weight": 100, "window": 4},
+            },
+        }
+    )
+    assert dict(profile.terms) == {"points": 1.0, "checkpoint_speed": 100.0}
+    assert dict(profile.params["checkpoint_speed"]) == {"window": 4.0}
+    assert RewardProfile.from_dict(profile.to_dict()) == profile
+    assert profile.to_dict()["terms"]["checkpoint_speed"] == {
+        "weight": 100.0,
+        "window": 4.0,
+    }
+
+
+@pytest.mark.parametrize(
+    "spec, message",
+    [
+        ({"weight": 1, "speed_limit": 3}, "unknown parameter"),
+        ({"window": 10}, "weight of"),
+        ({"weight": "1", "window": 10}, "weight of"),
+        ({"weight": 1, "window": 0}, "must be positive"),
+        ({"weight": 1, "window": -5}, "must be positive"),
+    ],
+)
+def test_invalid_term_parameters(spec, message):
+    data = {"format": 1, "name": "x", "terms": {"checkpoint_speed": spec}}
+    with pytest.raises(RewardProfileError, match=message):
+        RewardProfile.from_dict(data)
+
+
+def test_parameters_on_a_term_without_any():
+    spec = {"weight": 1, "k": 2}
+    data = {"format": 1, "name": "x", "terms": {"points": spec}}
+    with pytest.raises(RewardProfileError, match="known: none"):
+        RewardProfile.from_dict(data)
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [((1.0,), 0.9), ((5.0,), 0.5), ((10.0,), 0.0), ((12.0,), 0.0), ((), 0.0)],
+)
+def test_checkpoint_speed_pays_more_for_faster_pickups(seconds, expected):
+    events = _events(checkpoint_seconds=seconds, checkpoints=len(seconds))
+    assert TERMS["checkpoint_speed"](events) == pytest.approx(expected)
+
+
+def test_checkpoint_speed_window_is_tunable():
+    events = _events(checkpoint_seconds=(1.0,), checkpoints=1)
+    assert TERMS["checkpoint_speed"](events, {"window": 4}) == pytest.approx(
+        0.75
+    )
+
+
+def _collect_one_checkpoint(env, distance_ahead):
+    """Drives straight at a checkpoint placed ahead, and returns the reward
+    of the step that reached it and how many steps that took.
+    """
+    from src.sim.components import Checkpoint, Transform
+
+    env.reset(seed=1)
+    car = env.world.component(env.car, Transform)
+    spot = env.world.query(Transform, Checkpoint)[0][1][0]
+    spot.x, spot.y = car.x + distance_ahead, car.y
+    for steps in range(1, 600):
+        _, reward, *_ = env.step(GAS)
+        if env.world.component(env.car, Score).checkpoints:
+            return reward, steps
+    raise AssertionError("never reached the checkpoint")
+
+
+def test_faster_checkpoints_earn_a_bigger_bonus_and_the_score_stays_put():
+    speedy = _profile(checkpoint_speed=100.0)  # default window: 10 s
+    near_reward, near_steps = _collect_one_checkpoint(_env(reward=speedy), 60)
+    far_reward, far_steps = _collect_one_checkpoint(_env(reward=speedy), 300)
+
+    assert near_steps < far_steps
+    assert near_reward > far_reward > 0
+    assert near_reward == pytest.approx(100 * (1 - near_steps / 120 / 10))
+
+    plain = _env()
+    _collect_one_checkpoint(plain, 60)
+    game = _env(reward=speedy)
+    _collect_one_checkpoint(game, 60)
+    assert game.score == plain.score  # the game score is untouched
+
+
+def test_age_restarts_when_the_checkpoint_respawns():
+    from src.sim.components import Checkpoint, SpawnedAt
+
+    env = _env(reward=_profile(checkpoint_speed=100.0))
+    _, steps = _collect_one_checkpoint(env, 60)
+    checkpoint = env.world.query(Checkpoint)[0][0]
+    assert env.world.component(checkpoint, SpawnedAt).step == steps
+
+
+def test_every_profile_file_loads_and_round_trips():
+    for path in PROFILES_DIR.glob("*.json"):
+        profile = load_reward_profile(str(path))
+        assert profile.to_dict() == json.loads(path.read_text()), path.name
+
+
+def test_time_bonus_profile_pays_nothing_for_a_slow_checkpoint():
+    """The checkpoint's worth comes only from the speed bonus: the game's
+    own +100 isn't part of this profile (regression: it used to be).
+    """
+    from src.sim.components import Checkpoint, Transform
+
+    rewards = []
+    for wait_steps in (0, 12 * 120):
+        env = _env(reward="time_bonus")
+        env.reset(seed=1)
+        car = env.world.component(env.car, Transform)
+        spot = env.world.query(Transform, Checkpoint)[0][1][0]
+        spot.x, spot.y = car.x + 60, car.y
+        for _ in range(wait_steps):
+            env.step(NONE)
+        score = env.world.component(env.car, Score)
+        while not score.checkpoints:
+            _, reward, *_ = env.step(GAS)
+        rewards.append(reward)
+        assert score.last_step == 100  # the game still pays its +100
+
+    fast, slow = rewards
+    assert fast > 90
+    assert slow == pytest.approx(0, abs=1e-9)
