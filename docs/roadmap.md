@@ -76,7 +76,7 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Top bar:** what you glance at most: round, time, score, status, who's driving.
+- **Top bar:** what you glance at most: round, time, score, status, who's driving. Since step 4b also the round's stage (name and size), checkpoint mode, and seed, so custom stages and seeds are always visible.
 - **Right panel:** detail grouped by topic. Each later sub-step fills in its own section (timer, rewards, checkpoint, agent view).
 - **Bottom strip:** event log, step counter, FPS.
 - **Readable labels:** `SPD`/`ACC`/`AGL`/`LSC`/`FSC` become "Speed (px/s)", "Pedal", "Heading", and named sensor distances.

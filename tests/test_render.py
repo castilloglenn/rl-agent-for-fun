@@ -130,3 +130,15 @@ def test_rays_turn_red_when_the_wall_ahead_is_too_close():
     colors = _field_colors(renderer)
     assert theme.BAD in colors  # front ray: closer than the 150 px stop
     assert theme.WARN in colors  # front diagonals: within 2x stop
+
+
+def test_top_bar_shows_the_stage_and_seed():
+    from src.render.panels import round_details
+    from src.sim.factories import create_game
+
+    world, _ = create_game(get_maze_car_config(), seed=42)
+    assert round_details(world) == [
+        ("STAGE", "box 855×480"),
+        ("CHECKPOINTS", "random"),
+        ("SEED", "42"),
+    ]

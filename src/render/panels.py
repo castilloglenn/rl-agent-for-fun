@@ -35,6 +35,7 @@ from src.sim.resources import (
     SimClock,
     SimConfig,
 )
+from src.sim.stage import Stage
 from src.utils.ui import draw_text
 
 DASH = "—"
@@ -166,18 +167,31 @@ def draw_top_bar(
             status, color = "STOPPED", theme.WARN
         draw_text(surface, status, (x, y + 2), theme.TEXT_SIZE, color, True)
 
-    driver = car.label if car else DASH
     y += 26
-    label_rect = draw_text(
-        surface,
-        "DRIVER",
-        (rect.x + PADDING, y + 1),
-        theme.HEADER_SIZE,
-        theme.TEXT_DIM,
-    )
-    draw_text(
-        surface, driver, (label_rect.right + 8, y), theme.TEXT_SIZE, theme.TEXT
-    )
+    x = rect.x + PADDING
+    details = [("DRIVER", car.label if car else DASH), *round_details(world)]
+    for label, value in details:
+        label_rect = draw_text(
+            surface, label, (x, y + 1), theme.HEADER_SIZE, theme.TEXT_DIM
+        )
+        value_rect = draw_text(
+            surface,
+            value,
+            (label_rect.right + 8, y),
+            theme.TEXT_SIZE,
+            theme.TEXT,
+        )
+        x = value_rect.right + 24
+
+
+def round_details(world: World) -> list[tuple[str, str]]:
+    """Which stage and seed this round runs on, for the top bar."""
+    stage = world.resource(Stage)
+    return [
+        ("STAGE", f"{stage.name} {stage.width:g}×{stage.height:g}"),
+        ("CHECKPOINTS", stage.checkpoints.mode),
+        ("SEED", str(world.resource(Rng).seed)),
+    ]
 
 
 # Side panel
@@ -434,7 +448,6 @@ def draw_bottom_bar(
         (f"FPS {fps:.0f}/{frame_rate}{sync}", warnings.label_color(fps_level)),
         (f"SIM {sim_rate}/s", theme.TEXT_DIM),
         (f"Step {step:,}", theme.TEXT_DIM),
-        (f"Seed {world.resource(Rng).seed}", theme.TEXT_DIM),
     )
     x = rect.right - PADDING
     for text, color in parts:
