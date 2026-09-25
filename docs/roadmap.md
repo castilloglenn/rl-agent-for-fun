@@ -23,14 +23,21 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Done |
 | 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Done |
 | 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Done |
-| 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Next |
+| **4** | **Stages, replays, and experiment runs** | Next |
+| 4a | **Groundwork (urgent, before any file format):** split config into game-defining vs presentation keys, separate the agent reward from the game score, code version stamp ([decision 010](decisions/010-decouple-before-file-formats.md)) | Next |
+| 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Planned |
+| 4c | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record, code version | Planned |
+| 4d | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Planned |
+| 4e | Baseline drivers: random and heuristic ("compass driver"), through the env API | Planned |
+| 4f | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward function and code version | Planned |
+| 4g | Record your own demo rounds (latest 50 kept) | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: map files, inner walls (rectangles), map editor. Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
 | 8 | Multiple cars and local multiplayer: game setup lobby (pick agents and human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns, observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
-| Later | Multiple rounds per game, online multiplayer, weapons and skills | Idea |
+| Later | Multiple rounds per game (with per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills | Idea |
 
 ## Step details
 
@@ -115,23 +122,77 @@ Why before crashes: with the old growing box, "touching the border = game over" 
 - **Exact contact:** moves go as far as possible until a corner touches the border, instead of stopping up to a step short. Turns into the border are cancelled.
 - The start position became exactly a quarter of the field's width, mid height, dropping the old truncation quirk.
 
-### 4. Replay and experiment runs
+### 4. Stages, replays, and experiment runs
 
-Replays: see [decision 003](decisions/003-replay-over-multi-window.md).
+Goal: run many episodes headless, save each run's results, keep recordings of the best episodes, and play any recording back. No neural network yet: two baseline drivers exercise the pipeline, and become the benchmark trained agents must beat.
 
-Each training run gets its own folder:
+#### 4a. Groundwork (urgent)
+
+Fixes to code that already exists, so the file formats in 4b to 4g start clean. Details: [decision 010](decisions/010-decouple-before-file-formats.md).
+
+- **Config split:** **game-defining** keys (driving, rules, rewards, round length, step rate, and later the stage) are saved in replays and runs. **Presentation** keys (`hud`, `display`, `window`, debug lines) are never saved, so tuning the HUD can't make an old replay look "changed". A `game_config()` helper returns only the game-defining part.
+- **Agent reward vs game score:** the **game score** stays the HUD and leaderboard value, with fixed rules. The **agent reward** becomes a small reward function of the step's events (points gained, crash, checkpoint, time). The default is "points gained", so nothing changes yet, but step 5 can experiment with rewards without touching the game.
+- **Code version stamp:** a helper returns the git commit, plus "dirty" when there are uncommitted changes. Replays and runs record it.
+
+#### 4b. Stage format
+
+Details: [decision 009](decisions/009-stage-format-and-spawn-schedules.md).
+
+- A **stage file** defines the whole playing area: size, walls (empty for now), car spawns, and spawn schedules. The box stage becomes `stages/box.json`.
+- **Origin at (0, 0)**, dropping the leftover (22.5, 97.5) offset. Physics distances don't change, positions shift, so fixtures are regenerated once.
+- A `format` version lets future stages add fields (segment walls, zones, themes) without breaking old ones. The size isn't fixed: bigger stages get a camera in step 7.
+- **Spawn schedules:** stage + seed decide every spawn, independent of the driving, so every driver plays the exact same round.
+  - `random` mode: the seed generates the sequence up front, with backup candidates per slot for when a spot is too close to a car.
+  - `scripted` mode: the stage lists exact spots (and later, timings for fuel).
+  - Each spawner (checkpoints now, fuel later) has its own random stream derived from the seed, so adding one never changes another's sequence.
+
+#### 4c. Replay format
+
+Details: [decision 003](decisions/003-replay-over-multi-window.md).
+
+- **Inputs, not positions:** a header (format version, stage **embedded in full**, seed, config, observation version, driver) plus the actions, re-simulated on playback.
+- **Per simulation step**, storing only changes ("from step 1,834: gas + left"). A full 60 s round is a few KB.
+- **Self-verifying:** the file stores the final score and step. A mismatch on playback means the simulation changed since recording, and the replay is flagged instead of silently showing wrong driving.
+- JSON Lines, readable as text.
+- **Per-slot actions:** every action line is keyed by slot (`{"step": 1834, "actions": {"1": [...]}}`), and the header lists the slots and their drivers. Multi-car replays (step 8) then need no format change.
+- **Named actions:** the header stores `action_names`, and actions are read by name. Actions added later (weapons, skills) count as "not pressed" in old replays.
+- **Driver record:** `{"type": "human", "device": "keyboard"}` or `{"type": "agent", "id": ..., "checkpoint": ...}`, not just a label.
+- **Code version** in the header, so an out-of-date replay shows when the simulation changed.
+
+#### 4d. Replay mode
+
+- `python app.py -replay <file>` opens a simulation window playing the recording.
+- Controls: pause, speed 0.5× / 1× / 2× / 4×, step one frame, restart. The HUD shows "REPLAY", the driver, and the seed.
+
+#### 4e. Baseline drivers
+
+- **Random:** random actions, the floor.
+- **Heuristic ("compass driver"):** hand-written rules: steer toward the checkpoint using the compass inputs, brake when a travel-path ray is short.
+- Both use only the env API (observation in, action out), exactly like a trained agent will.
+
+#### 4f. Experiment runner
+
+- `python app.py -run <name> --driver heuristic --episodes 200`, headless at full speed.
+- Each run gets its own folder in `runs/`, which is **gitignored** (results are local data):
 
 ```
 runs/<date>_<name>_seed<N>/
-  config.json     all settings: reward, sensors, network, learning rate, seed
-  metrics.csv     per episode: reward, distance, checkpoints, crashes, steps survived
-  checkpoints/    e.g. ep1000.pt, ep5000.pt, best.pt
-  replays/        recordings of each new best episode (JSON Lines)
+  config.json     all settings: stage, rewards, driver, seeds, versions
+  metrics.csv     one row per episode: seed, steps, score, distance points,
+                  checkpoints, how it ended
+  replays/        recordings of each new best episode
+  checkpoints/    model files, from step 5 (ep1000.pt, best.pt, ...)
   notes.md        your observations
 ```
 
 - Runs can be listed, compared (learning curves on one chart), replayed, and reproduced with the same seed.
-- Expected sizes, as ESTIMATES: model files KB to a few MB, replays a few KB each.
+- `config.json` records the **reward function** used, the **game-defining config**, and the **code version**.
+- Expected sizes, as ESTIMATES: replays a few KB each, model files KB to a few MB.
+
+#### 4g. Record your own demo rounds
+
+- Every round you play in the demo is saved as a replay, **on by default**, keeping the **latest 50**.
+- Replay your own rounds, and later compare them with agents on the same stage + seed.
 
 ### 5. Agent and training
 
@@ -150,6 +211,8 @@ runs/<date>_<name>_seed<N>/
   | Replay buffer (DQN only, optional) | The agent's past experience. Can be tens to hundreds of MB |
 
 - **Branch:** resume an old checkpoint with a changed setting as a new run, then compare.
+- **Observation spec:** the observation becomes configurable per run (number of rays, compass vs sensor-only), recorded in the run config together with its version. See [decision 010](decisions/010-decouple-before-file-formats.md).
+- **Reward functions:** experiments swap the agent reward function (from 4a), never the game score.
 - **Action repeat:** the agent decides every 4 simulation steps (**30 decisions/s** at 120 steps/s) and holds its action in between. That keeps a 60 s round at 1,800 decisions instead of 7,200, which makes learning easier. See [decision 008](decisions/008-fixed-timestep-clock.md).
 
 #### Evaluation suite
@@ -234,7 +297,9 @@ A map is a JSON file in `maps/`:
 }
 ```
 
+- Maps are **stage files** (format from step 4b). This step adds inner walls to them.
 - Walls are **axis-aligned rectangles** `[x, y, width, height]` for now: see [decision 006](decisions/006-rectangle-walls-first.md).
+- **Camera** for stages bigger than the window: zoom-to-fit or following the car.
 - `load_map(world, path)` turns walls and spawns into entities. Checkpoints keep spawning randomly, and must avoid walls.
 - Each run's `config.json` records the map name plus a content hash, so experiments and replays point at the exact layout.
 - **Map editor**, a simulation window mode:
@@ -257,6 +322,7 @@ A map is a JSON file in `maps/`:
 - Then car-vs-car collision in the `World`: SAT on the polygon hitboxes from step 3d ([decision 004](decisions/004-polygon-hitbox-deferred.md)).
 - Then competition: agents learning against each other (multi-agent RL).
 - The game leaderboard (slot from step 3a) ranks the cars live.
+- **HUD for several cars:** today the panels show only the first car. Add a way to pick which car the panels follow.
 
 ### 10. Parallel environments
 
