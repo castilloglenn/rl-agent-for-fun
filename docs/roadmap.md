@@ -1,6 +1,8 @@
 # Roadmap
 
-Goal: train real RL agents in Maze Car, watch how they learn, run experiments on them, and play alongside them.
+Goal: train real RL agents in a 2D car game, watch how they learn, run experiments on them, and play alongside them. Game rules: [game design](game-design.md).
+
+**First goal (steps 3 to 6):** system basics. One car in the box map, a skilled agent that survives the whole round while driving and collecting checkpoints, agent management, then the control center.
 
 ## Step order
 
@@ -12,33 +14,32 @@ Goal: train real RL agents in Maze Car, watch how they learn, run experiments on
 | 2b | Car components, systems (steering, movement, sensors), and factories in `src/sim/`. Behavior tests run against both old and new code | Done |
 | 2c | Render system, then switch the demo and env to the ECS. Removed the legacy test runner, since it needed the old env | Done |
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
-| 3 | Simulation: map files (`maps/`) with rectangle walls, rays and crashes against walls, observation, reward. **Blocked on the game goal** (see open questions) | Next |
+| **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
+| 3a | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Next |
+| 3b | 8 rays around the car, starting at the car's body | Planned |
+| 3c | Round timer (60 s = 5,400 steps) and crash = game over | Planned |
+| 3d | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
+| 3e | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
-| 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch | Planned |
-| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console), plus separate simulation windows for live play, replays, and the map editor | Planned |
-| 7 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then polygon hitbox and car-vs-car collision, then angled (line segment) walls, then competition | Planned |
-| 8 | Parallel environments for faster training | Planned |
+| 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch. **Milestone: the first skilled agent** | Planned |
+| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console), plus separate simulation windows for live play and replays | Planned |
+| 7 | Maps: map files, inner walls (rectangles), map editor | Planned |
+| 8 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then polygon hitbox and car-vs-car collision, then angled (line segment) walls, then competition | Planned |
+| 9 | Fuel system: limited capacity, fuel spawns, observation adds fuel level and the nearest K fuels | Planned |
+| 10 | Parallel environments for faster training | Planned |
+| Later | Multiple rounds per game, weapons and skills | Idea |
 
 ## Step details
 
-### 3. Simulation and map files
+### 3. First game rules in the box map
 
-A map is a JSON file in `maps/`:
+The rules and values are in [game design](game-design.md#first-goal-roadmap-step-3). Build notes:
 
-```json
-{
-  "name": "s_curve",
-  "size": [855, 480],
-  "walls": [[100, 0, 20, 300], [300, 180, 20, 300]],
-  "spawns": [{"x": 50, "y": 240, "angle": 0}],
-  "goal": {"x": 800, "y": 240, "radius": 20}
-}
-```
-
-- Walls are **axis-aligned rectangles** `[x, y, width, height]` for now: see [decision 006](decisions/006-rectangle-walls-first.md).
-- `load_map(world, path)` turns walls, spawns, and goals into entities.
-- The `goal` shape depends on the game goal (exit, checkpoints, laps), which is still open.
-- Each run's `config.json` records the map name plus a content hash, so experiments and replays point at the exact layout.
+- Each sub-step changes behavior on purpose. Regenerate the fixtures (`python -m tests.generate_behavior_fixtures`) and add scenarios for the new behavior, for example tapping vs holding the brake, coasting to a stop, and a crash.
+- The round timer and checkpoint random number generator are world resources, seeded per round. Timer and randomness stay deterministic ([conventions](conventions.md#determinism-must-keep)).
+- New config keys (all values tunable): reward distance, checkpoint radius and margins, drag, brake strength, `round.seconds`, `game.rounds`.
+- The HUD shows the remaining time, score, and 8 ray distances.
+- Observation layout: [game design](game-design.md#observation-what-the-agent-sees). Normalize every input, and keep the layout in one place so the agent and replays agree on it.
 
 ### 4. Replay and experiment runs
 
@@ -49,7 +50,7 @@ Each training run gets its own folder:
 ```
 runs/<date>_<name>_seed<N>/
   config.json     all settings: reward, sensors, network, learning rate, seed
-  metrics.csv     per episode: reward, distance, crashes, steps survived
+  metrics.csv     per episode: reward, distance, checkpoints, crashes, steps survived
   checkpoints/    e.g. ep1000.pt, ep5000.pt, best.pt
   replays/        recordings of each new best episode (JSON Lines)
   notes.md        your observations
@@ -92,19 +93,36 @@ Control center window        Simulation window 1      Simulation window 2
 - **Simulation windows:** each runs its own `World` + `Renderer`, for live play or a replay. Any number can be open side by side.
 - **Training runs headless in background processes**, at full speed, with no window. The control center shows their live metrics and logs.
 - **Live play:** trained agents (loaded from `.pt`) drive at normal speed. It only runs agents, it doesn't train them, so it's cheap.
-- **Map editor:** a simulation window mode.
-  - Click and drag to draw walls, with snap-to-grid.
-  - Place spawn points (with direction) and goals.
-  - Select, move, delete, undo.
-  - Save and load files in `maps/`.
-  - **Test drive:** switch to live play on the map being edited, then back.
 - **IPC:** commands go from the control center to the other processes, and metrics and logs come back. Candidates: `multiprocessing` queues, or a local socket.
 - **Why separate processes:** standard pygame gives one window per process. pygame-ce's multi-window API is NOT VERIFIED. Separate processes also mean a crashed or closed simulation window doesn't stop the control center or training.
 - UI library candidate: `pygame_gui`. NOT YET CHECKED FOR PYGAME-CE COMPATIBILITY.
 - The control center layout and console could land earlier, to help watch steps 3 to 5.
 - Cost: the IPC layer is extra work, compared to a single window.
 
-### 7. Multiple cars
+### 7. Maps
+
+A map is a JSON file in `maps/`:
+
+```json
+{
+  "name": "s_curve",
+  "size": [855, 480],
+  "walls": [[100, 0, 20, 300], [300, 180, 20, 300]],
+  "spawns": [{"x": 50, "y": 240, "angle": 0}]
+}
+```
+
+- Walls are **axis-aligned rectangles** `[x, y, width, height]` for now: see [decision 006](decisions/006-rectangle-walls-first.md).
+- `load_map(world, path)` turns walls and spawns into entities. Checkpoints keep spawning randomly, and must avoid walls.
+- Each run's `config.json` records the map name plus a content hash, so experiments and replays point at the exact layout.
+- **Map editor**, a simulation window mode:
+  - Click and drag to draw walls, with snap-to-grid.
+  - Place spawn points (with direction).
+  - Select, move, delete, undo.
+  - Save and load files in `maps/`.
+  - **Test drive:** switch to live play on the map being edited, then back.
+
+### 8. Multiple cars
 
 - Every car takes its `ActionInput` from a controller: keyboard (you), a trained agent, or a replay.
 - **Ghost mode:** several cars in one world that pass through each other, so you can drive among agents early.
@@ -113,8 +131,7 @@ Control center window        Simulation window 1      Simulation window 2
 
 ## Open questions
 
-- **Game goal**, which decides the step 3 reward and maze design. Options: navigation (reach the exit of an unseen maze), racing (lap time), competition (beat other agents), or an open sandbox.
-- **Experiments to run** (ideas so far): reward design, number of rays, network size, algorithm (DQN vs PPO), generalization to unseen mazes, and spotting reward loopholes (like spinning in place to avoid crashes).
+- **Experiments to run** (ideas so far): reward design, number of rays, network size, algorithm (DQN vs PPO), generalization to unseen maps, spotting reward loopholes (like circling forever for distance points), and **compass vs sensor-only agents** (rays that also detect checkpoints and fuel, with no compass: more realistic, slower to learn).
 
 ## Refactor scope (step 2, done)
 
