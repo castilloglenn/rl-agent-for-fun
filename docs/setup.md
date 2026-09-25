@@ -17,7 +17,7 @@ pip install -r requirements.txt
 
 | Command | Runs | Status |
 |---|---|---|
-| `make maze_car` | `python app.py -demo maze_car` | Works. Human-driven demo: WASD/arrows drive, SPACE brakes, R restarts, H toggles lines, Esc quits |
+| `make maze_car` | `python app.py -demo maze_car` | Works. Human-driven demo: WASD/arrows drive, SPACE brakes, R restarts, H toggles lines, Esc quits. Watch a baseline instead: `python app.py -demo maze_car --driver heuristic` (or `random`). `--player <name>` sets your player name |
 | `make replay FILE=<path>` | `python app.py -replay <path>` | Works. Plays a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart, Esc quits |
 | `make run` | `python app.py` | Stub. `src/main.py` `Main` prints "Done." |
 | `make test` | `python -m pytest` | Works. Runs all tests |

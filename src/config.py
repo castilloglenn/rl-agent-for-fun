@@ -4,6 +4,10 @@ from ml_collections import ConfigDict
 flags.DEFINE_boolean("tests", False, "Run unit tests.")
 flags.DEFINE_string("demo", "", "Run games with human inputs.")
 flags.DEFINE_string("replay", "", "Play a replay file in the window.")
+flags.DEFINE_string(
+    "driver", "keyboard", "Who drives the demo: keyboard, random, heuristic."
+)
+flags.DEFINE_string("player", "You", "Your player name (recordings, HUD).")
 
 
 # Every top-level maze_car key is one of these (tests/test_config.py checks).

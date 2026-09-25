@@ -9,6 +9,7 @@ src/sim/               Maze Car rules: components, resources, systems, factories
 src/envs/maze_car/     MazeCarEnv wraps a World; MazeCarDemo drives it by keyboard
 src/render/            Renderer: pygame window, reads the World, never writes it
 src/replay/            Replay files: format, recorder (env hooks), replayer
+src/drivers/           Who drives: keyboard, baselines, later agents (one interface)
 stages/, rewards/      Data files: stages and reward profiles
 ```
 
@@ -62,6 +63,26 @@ Geometry and physics rules: [conventions](conventions.md).
 - `game_step(action)`: `step_world`, plus one drawn frame if `config.show_gui` is on (`step` uses it, so an agent can be watched).
 - `render(alpha)`: handles window events (R runs `reset()`) and draws one frame, interpolated by `alpha`. Returns the real seconds since the previous frame.
 
+## Drivers (`src/drivers/`)
+
+Everything that decides a car's actions implements **`Driver`** (`base.py`): `reset(seed)`, `act(observation) -> 5 bools`, `record()` (its driver record for replays), and `label` (for the HUD). The demo, runner, replays, and evaluation treat every driver the same.
+
+| File | Contents |
+|---|---|
+| `actions.py` | The **12 canonical actions** (steering left/none/right × pedal none/gas/reverse/brake) and `canonical_index()`. Every one of the 32 key combinations behaves exactly like one of them ([decision 012](decisions/012-agent-training-modes.md)) |
+| `keyboard.py` | `KeyboardDriver(player)`: you. Its record is `{"type": "human", "player", "device"}` |
+| `random_driver.py` | `RandomDriver`: a random canonical action every 4 steps (30/s, like agents), seeded. The floor |
+| `heuristic.py` | `CompassDriver`: rules on the observation only (steer to the checkpoint, turn away from close walls, brake within stopping range, slow down near an off-center checkpoint so it doesn't orbit it). The bar agents must beat |
+| `episode.py` | `run_episode(env, driver, seed)`: plays one game headless, returns an `EpisodeResult` (score, checkpoints, reward, how it ended) |
+| `registry.py` | `make_driver(name)`: `keyboard`, `random`, `heuristic` |
+
+Baseline results on 30 unseen seeds (box stage, 60 s rounds):
+
+| Driver | Mean score | Checkpoints per round | Survived |
+|---|---|---|---|
+| random | 13.7 | 0.0 | 100 % (it barely moves) |
+| heuristic | 2,502 | 16.2 | 97 % |
+
 ## Replays (`src/replay/`)
 
 Details: [decision 003](decisions/003-replay-over-multi-window.md).
@@ -84,7 +105,7 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 
 ## Controllers
 
-A controller decides the car's `ActionInput` before each step. The only one today is the keyboard: `read_keyboard()` in `demo.py`. It pumps events, then reads the key state. The agent and the replayer (roadmap steps 4 and 5) will be further controllers.
+A controller decides the car's `ActionInput` before each step. Live, that's a **driver** (above): the demo runs any driver (`--driver keyboard|random|heuristic`), pumping events once per frame and asking the driver once per simulation step. Replays feed recorded actions instead (`Replayer`).
 
 ## Rendering (`src/render/`)
 

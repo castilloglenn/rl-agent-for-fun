@@ -29,8 +29,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4c | **Reward profiles:** agent rewards as weighted terms in `rewards/<name>.json`, separate from the game score ([decision 011](decisions/011-reward-profiles.md)) | Done |
 | 4d | Replay format, recorder, and self-verifying replayer (simulation only). Per-slot actions, named actions, driver record (with player), reward profile, code version | Done |
 | 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Done |
-| 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Next |
-| 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward profile, game-defining config, and code version | Planned |
+| 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Done |
+| 4g | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the reward profile, game-defining config, and code version | Next |
 | 4h | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
@@ -183,6 +183,7 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 - **Heuristic ("compass driver"):** hand-written rules: steer toward the checkpoint using the compass inputs, brake when a travel-path ray is short.
 - Both use only the env API (observation in, action out), exactly like a trained agent will.
 - **One driver interface** for every driver: observation in, action out. Random, heuristic, RL agents (5a), and imitation agents (5b) all plug in the same way, so nothing downstream (runner, replays, evaluation, live play) needs special cases.
+- **Built** (`src/drivers/`), with the keyboard as a driver too, so `app.py -demo maze_car --driver heuristic` shows a baseline live. On 30 unseen seeds: random scores 13.7 (no checkpoints), the heuristic 2,502 (16.2 checkpoints per round, 97 % survival). Slowing down near an off-center checkpoint took it from 0.9 to 16 checkpoints per round: at full speed it orbited them.
 
 #### 4g. Experiment runner
 

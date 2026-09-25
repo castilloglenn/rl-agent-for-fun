@@ -13,6 +13,7 @@ The simulation is an ECS (Entity Component System), built to support walls, repl
 ```
 source venv/bin/activate
 make maze_car      # human-driven demo: WASD/arrows, Esc quits
+python app.py -demo maze_car --driver heuristic   # watch a baseline drive
 make run           # agent entry point (stub)
 make test          # python -m pytest
 make replay FILE=path/to/replay.jsonl   # watch a replay

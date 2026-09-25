@@ -1,44 +1,45 @@
-from dataclasses import astuple
-
 import pygame
 from ml_collections import ConfigDict
 
+from src.drivers.registry import make_driver
 from src.envs.maze_car.env import MazeCarEnv
-from src.sim.components import ActionInput
+from src.sim.resources import Rng
 from src.utils.timing import FixedStepClock
 
 
 class MazeCarDemo:
-    """Human-driven Maze Car: the keyboard is the controller."""
+    """Maze Car in a window, driven live by any driver: the keyboard
+    (you) by default, or a baseline such as the heuristic.
+    """
 
-    def __init__(self, config: ConfigDict) -> None:
+    def __init__(
+        self, config: ConfigDict, driver: str = "keyboard", player: str = "You"
+    ) -> None:
         config = config.copy_and_resolve_references()
         config.show_gui = True  # the demo is always drawn
+        self.driver = make_driver(driver, player=player)
         self.env = MazeCarEnv(
-            config, driver="You (keyboard)", random_seeds=True
+            config, driver=self.driver.label, random_seeds=True
         )
         self.run()
 
     def run(self) -> None:
         """Fixed-rate simulation steps, drawn at the display's rate."""
         clock = FixedStepClock(self.env.config.sim.steps_per_second)
+        world = self.env.world
+        self.driver.reset(self._seed())
         elapsed = self.env.render()
         while self.env.running:
-            action = astuple(read_keyboard())
+            if self.env.world is not world:  # R started a new game
+                world = self.env.world
+                self.driver.reset(self._seed())
+            # Pump first so the key state is current for this frame.
+            # Pumping leaves the events queued for the renderer.
+            pygame.event.pump()
             for _ in range(clock.advance(elapsed)):
+                action = self.driver.act(self.env.last_observation)
                 self.env.step_world(action)
             elapsed = self.env.render(clock.alpha)
 
-
-def read_keyboard() -> ActionInput:
-    # Pump first so the key state is current for this frame. Pumping
-    # leaves the events queued for the renderer to handle.
-    pygame.event.pump()
-    keys = pygame.key.get_pressed()
-    return ActionInput(
-        turn_left=keys[pygame.K_a] or keys[pygame.K_LEFT],
-        turn_right=keys[pygame.K_d] or keys[pygame.K_RIGHT],
-        gas=keys[pygame.K_w] or keys[pygame.K_UP],
-        reverse=keys[pygame.K_s] or keys[pygame.K_DOWN],
-        brake=keys[pygame.K_SPACE],
-    )
+    def _seed(self) -> int:
+        return self.env.world.resource(Rng).seed

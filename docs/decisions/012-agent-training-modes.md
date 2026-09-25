@@ -1,6 +1,6 @@
 # 012: Agents can learn by imitation, by RL, or both, in any order
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap steps 4d, 4f, 4h, 5a, 5b).
+**Date:** 2026-09-25. **Status:** Accepted. Implemented so far: the player in driver records (4d), the driver interface and the 12 canonical actions in code (4f, `src/drivers/`), with a test that all 32 key combinations behave like their canonical action. Planned: 4h, 5a, 5b. Baseline drivers use the record `{"type": "baseline", "id": ...}`.
 
 ## Context
 

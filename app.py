@@ -17,7 +17,11 @@ def run(_):
     elif game := cl_args.demo:
         match game:
             case "maze_car":
-                MazeCarDemo(cl_args.maze_car)
+                MazeCarDemo(
+                    cl_args.maze_car,
+                    driver=cl_args.driver,
+                    player=cl_args.player,
+                )
             case _:
                 pass
     else:
