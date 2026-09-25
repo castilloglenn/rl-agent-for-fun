@@ -13,12 +13,9 @@ class ActionInput:
 
     turn_left: bool = False
     turn_right: bool = False
-    move_forward: bool = False
-    move_backward: bool = False
-
-    @property
-    def is_moving(self) -> bool:
-        return self.move_forward or self.move_backward
+    gas: bool = False
+    reverse: bool = False
+    brake: bool = False
 
 
 @dataclass
@@ -29,21 +26,34 @@ class Transform:
     y_float: float = 0.0
 
 
+class Pedal:
+    IDLE = "Idle"
+    GAS = "Gas"
+    COASTING = "Coasting"
+    BRAKING = "Braking"
+    REVERSE = "Reverse"
+
+
 @dataclass
 class Motion:
-    speed: float = 0.0
-    acceleration_rate: float = 0.0
+    speed: float = 0.0  # px per step along the heading; negative = reversing
+    pedal: str = Pedal.IDLE  # what the car did this step, for HUD and logs
 
 
 @dataclass(frozen=True)
 class CarSpec:
-    """Per-frame values derived from base_speed and the FPS."""
+    """Driving limits, converted to per-step units (px/step, px/step²,
+    degrees/step) from the px/s config values.
+    """
 
-    base_speed: float
-    forward_speed: float
-    backward_speed: float
-    turn_speed: float
-    acceleration_unit: float
+    max_speed: float
+    max_reverse_speed: float
+    acceleration: float
+    reverse_acceleration: float
+    brake_deceleration: float
+    drag: float
+    max_turn_rate: float
+    full_turn_speed: float
 
 
 @dataclass
@@ -56,6 +66,17 @@ class Hitbox:
     width: int
     height: int
     rect: Rect
+
+
+@dataclass
+class PreviousPose:
+    """Pose at the start of the current step, so the renderer can draw
+    the car between steps (interpolation). Never used by the physics.
+    """
+
+    center_x: float
+    center_y: float
+    angle: float
 
 
 @dataclass

@@ -1,10 +1,12 @@
 """HUD panels around the field: top bar, side panel, bottom bar.
 
+Retro style: only lines and text, with colors and bold for distinction.
+Graphics belong inside the field.
+
 Sections for features that don't exist yet (round, score, checkpoints,
 rewards, agent) show a dash. Their roadmap steps fill them in.
 """
 
-import math
 from dataclasses import dataclass
 
 import pygame
@@ -21,7 +23,7 @@ from src.sim.components import (
     Sensors,
     Transform,
 )
-from src.sim.resources import Field, SimClock, SimConfig
+from src.sim.resources import SimClock, SimConfig
 from src.utils.ui import draw_text
 
 DASH = "—"
@@ -31,8 +33,8 @@ PADDING = 14
 @dataclass
 class CarInfo:
     label: str
-    speed: float  # px/s
-    throttle: float  # 0..1
+    speed: float  # px/s, negative while reversing
+    pedal: str
     heading: float  # degrees
     center: tuple[int, int]
     hitbox_size: tuple[int, int]
@@ -45,8 +47,8 @@ def car_infos(world: World) -> list[CarInfo]:
     return [
         CarInfo(
             label=renderable.label,
-            speed=motion.speed * config.fps,
-            throttle=motion.acceleration_rate / config.acceleration_max,
+            speed=motion.speed * config.steps_per_second,
+            pedal=motion.pedal,
             heading=transform.angle,
             center=hitbox.rect.center,
             hitbox_size=hitbox.rect.size,
@@ -62,8 +64,7 @@ def car_infos(world: World) -> list[CarInfo]:
 
 
 def _box(surface: Surface, rect: Rect) -> None:
-    pygame.draw.rect(surface, theme.PANEL, rect, border_radius=6)
-    pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1, border_radius=6)
+    pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
 
 
 # Top bar
@@ -88,15 +89,13 @@ def draw_top_bar(surface: Surface, rect: Rect, car: CarInfo | None) -> None:
         x = value_rect.right + 28
 
     if car is not None:
-        moving = car.speed > 0
-        status, color = ("DRIVING", theme.GOOD) if moving else (
-            "STOPPED",
-            theme.TEXT_DIM,
-        )
-        pygame.draw.circle(surface, color, (x + 5, y + 11), 5)
-        draw_text(
-            surface, status, (x + 16, y + 2), theme.TEXT_SIZE, color, True
-        )
+        if car.speed > 0:
+            status, color = "DRIVING", theme.GOOD
+        elif car.speed < 0:
+            status, color = "REVERSING", theme.GOOD
+        else:
+            status, color = "STOPPED", theme.TEXT_DIM
+        draw_text(surface, status, (x, y + 2), theme.TEXT_SIZE, color, True)
 
     driver = car.label if car else DASH
     y += 26
@@ -178,7 +177,7 @@ def draw_side_panel(
     column.header("CAR")
     if car:
         column.row("Speed", f"{car.speed:,.1f} px/s")
-        column.row("Throttle", f"{car.throttle * 100:.0f} %")
+        column.row("Pedal", car.pedal)
         column.row("Heading", f"{car.heading:.0f}°")
         column.row("Position", f"{car.center[0]}, {car.center[1]}")
         column.row("Hitbox", f"{car.hitbox_size[0]} × {car.hitbox_size[1]}")
@@ -189,7 +188,8 @@ def draw_side_panel(
 
     column.header("SENSORS")
     if car:
-        _draw_sensors(column, car.rays, world.resource(Field))
+        for ray in car.rays:
+            column.row(ray.name.title(), f"{ray.distance:,.1f} px")
     column.gap()
 
     column.header("OBJECTIVE")
@@ -212,84 +212,46 @@ def draw_side_panel(
 
 
 def _draw_inputs(column: _Column, action: ActionInput) -> None:
+    """Keys as text: pressed keys are bright and bold, others dim."""
     draw_text(
         column.surface,
         "Inputs",
-        (column.left, column.y + 4),
+        (column.left, column.y),
         theme.TEXT_SIZE,
         theme.TEXT_DIM,
     )
     keys = (
-        ("W", action.move_forward),
+        ("W", action.gas),
         ("A", action.turn_left),
-        ("S", action.move_backward),
+        ("S", action.reverse),
         ("D", action.turn_right),
+        ("SPACE", action.brake),
     )
-    size = 24
-    x = column.right - len(keys) * (size + 4) + 4
-    for letter, pressed in keys:
-        key = Rect(x, column.y, size, size)
-        if pressed:
-            pygame.draw.rect(column.surface, theme.ACCENT, key, border_radius=4)
-        pygame.draw.rect(
-            column.surface,
-            theme.ACCENT if pressed else theme.PANEL_BORDER,
-            key,
-            1,
-            border_radius=4,
-        )
-        draw_text(
+    x = column.right
+    for letter, pressed in reversed(keys):
+        rect = draw_text(
             column.surface,
             letter,
-            key.center,
+            (x, column.y),
             theme.TEXT_SIZE,
-            theme.TEXT if pressed else theme.TEXT_DIM,
-            bold=True,
-            anchor="center",
+            theme.ACCENT if pressed else theme.TEXT_DIM,
+            bold=pressed,
+            anchor="topright",
         )
-        x += size + 4
-    column.y += size + 6
-
-
-def _draw_sensors(column: _Column, rays: list[Ray], field: Field) -> None:
-    """Radar with the car pointing up, plus each ray's distance."""
-    radius = 46
-    center = (column.left + radius, column.y + radius + 2)
-    # Scaled to the field's shorter side, so typical distances stay
-    # readable. Longer rays are capped at the radar edge.
-    max_range = min(field.width, field.height)
-
-    pygame.draw.circle(column.surface, theme.PANEL_BORDER, center, radius, 1)
-    for ray in rays:
-        # Relative angle, counterclockwise from the heading (screen up).
-        angle = math.radians(ray.angle)
-        length = radius * min(ray.distance / max_range, 1.0)
-        end = (
-            center[0] - math.sin(angle) * length,
-            center[1] - math.cos(angle) * length,
-        )
-        pygame.draw.line(column.surface, theme.RAY, center, end)
-        pygame.draw.circle(column.surface, theme.ACCENT, end, 3)
-    pygame.draw.rect(
-        column.surface,
-        theme.ACCENT,
-        Rect(center[0] - 4, center[1] - 6, 8, 12),
-        border_radius=2,
-    )
-
-    values = _Column(column.surface, column.rect)
-    values.left = center[0] + radius + 18
-    values.y = column.y
-    for ray in rays:
-        values.row(ray.name.title(), f"{ray.distance:,.1f} px")
-    column.y += max(2 * radius + 6, values.y - column.y)
+        x = rect.left - 10
+    column.y += theme.LINE_HEIGHT
 
 
 # Bottom bar
 
 
 def draw_bottom_bar(
-    surface: Surface, rect: Rect, world: World, fps: float, target_fps: int
+    surface: Surface,
+    rect: Rect,
+    world: World,
+    fps: float,
+    frame_rate: int,
+    vsync: bool,
 ) -> None:
     _box(surface, rect)
     y = rect.centery
@@ -302,7 +264,12 @@ def draw_bottom_bar(
         anchor="midleft",
     )
     step = world.resource(SimClock).step
-    status = f"Step {step:,}    FPS {fps:.0f}/{target_fps}    H: hide panels"
+    sim_rate = world.resource(SimConfig).steps_per_second
+    sync = " vsync" if vsync else ""
+    status = (
+        f"Step {step:,}   SIM {sim_rate}/s   "
+        f"FPS {fps:.0f}/{frame_rate}{sync}   H: toggle lines"
+    )
     draw_text(
         surface,
         status,

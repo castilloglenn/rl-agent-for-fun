@@ -5,6 +5,7 @@ from ml_collections import ConfigDict
 
 from src.envs.maze_car.env import MazeCarEnv
 from src.sim.components import ActionInput
+from src.utils.timing import FixedStepClock
 
 
 class MazeCarDemo:
@@ -17,8 +18,14 @@ class MazeCarDemo:
         self.run()
 
     def run(self) -> None:
+        """Fixed-rate simulation steps, drawn at the display's rate."""
+        clock = FixedStepClock(self.env.config.sim.steps_per_second)
+        elapsed = self.env.render()
         while self.env.running:
-            self.env.game_step(astuple(read_keyboard()))
+            action = astuple(read_keyboard())
+            for _ in range(clock.advance(elapsed)):
+                self.env.step_world(action)
+            elapsed = self.env.render(clock.alpha)
 
 
 def read_keyboard() -> ActionInput:
@@ -29,6 +36,7 @@ def read_keyboard() -> ActionInput:
     return ActionInput(
         turn_left=keys[pygame.K_a] or keys[pygame.K_LEFT],
         turn_right=keys[pygame.K_d] or keys[pygame.K_RIGHT],
-        move_forward=keys[pygame.K_w] or keys[pygame.K_UP],
-        move_backward=keys[pygame.K_s] or keys[pygame.K_DOWN],
+        gas=keys[pygame.K_w] or keys[pygame.K_UP],
+        reverse=keys[pygame.K_s] or keys[pygame.K_DOWN],
+        brake=keys[pygame.K_SPACE],
     )

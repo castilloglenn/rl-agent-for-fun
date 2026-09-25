@@ -17,7 +17,7 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 
 | Rule | Value |
 |---|---|
-| Round length | 60 seconds = **5,400 steps** at 90 FPS. The timer counts simulation steps, never real time, to keep replays deterministic |
+| Round length | 60 seconds = **7,200 steps** at 120 steps/s ([decision 008](decisions/008-fixed-timestep-clock.md)). The timer counts simulation steps, never real time, to keep replays deterministic |
 | Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1) |
 | Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
 | Round ends | When the timer hits 0, or when the car crashes |
@@ -44,13 +44,18 @@ The HUD shows the remaining time.
 
 | Input | Effect |
 |---|---|
-| W / Up (gas) | Accelerate |
-| Release gas | The car keeps rolling, with mild drag: full speed rolls to a stop in about 3 seconds |
-| SPACE (brake) | Strong deceleration on every frame it's held. Tapping slows the car, holding stops it |
-| S / Down (reverse) | While moving forward it brakes first, then reverses once stopped |
-| A/D, Left/Right (steer) | Turn rate follows speed, so a stopped car can't turn |
+| W / Up (gas) | Accelerate at 200 px/s², up to 300 px/s (0 to max in 1.5 s). While rolling backward, it brakes first |
+| Release all pedals | The car keeps rolling, with mild drag (100 px/s²): max speed rolls to a stop in 3 s |
+| SPACE (brake) | Strong deceleration (600 px/s²) on every frame it's held: max speed to a stop in 0.5 s. Tapping slows the car, holding stops it |
+| S / Down (reverse) | While moving forward it brakes first, then reverses once stopped: 100 px/s², up to 100 px/s |
+| A/D, Left/Right (steer) | Turn rate follows speed, up to 240°/s at 120 px/s and above, so a stopped car can't turn. Steering flips while rolling backward. Left and right together cancel |
 
-The agent's action becomes 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
+- Pedal priority: brake beats gas, and gas beats reverse.
+- **Calibrated for human play:** at max speed, the car crosses the field in about 2.9 s. One reaction time (about 0.25 s) covers 75 px (3 car lengths), and so does the braking distance, so an obstacle 150 px ahead is always avoidable. Turning radius: 72 px at max speed, 29 px at 120 px/s.
+- All values are in config (`car.*`, see [config](config.md)). **Implemented in step 3b.**
+- The HUD shows the current pedal state: Idle, Gas, Coasting, Braking, or Reverse.
+
+The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 ### Sensors
 
@@ -99,9 +104,9 @@ Hazards, checkpoints, fuel, and later skills are all the same pattern: **when a 
 | Piece | Kind | Example |
 |---|---|---|
 | Hazard, checkpoint, or fuel on the map | Entity with a `Trigger` component (shape) plus an effect | Oil slick zone with effect "slow down 50%" |
-| Effect on a car | Component on the car, with a duration **in steps** | `Slowed(factor=0.5, steps_left=180)`, `Stunned(steps_left=270)` |
+| Effect on a car | Component on the car, with a duration **in steps** | `Slowed(factor=0.5, steps_left=240)`, `Stunned(steps_left=360)` |
 | Detection | One trigger system: car overlaps zone, then apply the effect | Same system for every trigger type |
-| Durations | A status system counts down and removes expired effects | "2 seconds" = 180 steps, so it stays deterministic |
+| Durations | A status system counts down and removes expired effects | "2 seconds" = 240 steps, so it stays deterministic |
 | Explosion | The same "car eliminated" path as a wall crash | No separate game-over logic |
 
 Movement and steering read the effect components: `Slowed` scales the speed, and `Stunned` ignores the car's input.

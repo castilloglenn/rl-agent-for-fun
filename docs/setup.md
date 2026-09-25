@@ -47,11 +47,13 @@ These pin down the current car physics exactly (roadmap step 1). They're the saf
 | File | Role |
 |---|---|
 | `tests/scenarios.py` | Scripted action sequences. Implementation-neutral |
-| `tests/fixtures/behavior/*.json` | Expected car state after every step (rect, angle, speed, acceleration, float carry, 4 rays), one line per step |
+| `tests/fixtures/behavior/*.json` | Expected car state after every step (rect, angle, speed, pedal, float carry, rays), one line per step |
 | `tests/harness.py` | Two runners over the same scenarios: `run_world` (the simulation directly) and `run_env` (through `MazeCarEnv.game_step`, headless). Both must match the fixtures |
 | `tests/test_behavior.py` | Compares every runner against the fixtures exactly, and checks determinism |
 
-The fixtures were recorded from the pre-ECS code, and the ECS matched them exactly (step 2b) before the legacy runner was removed (step 2c).
+The fixtures were first recorded from the pre-ECS code, which the ECS matched exactly (step 2b). They were regenerated for the realistic controls (step 3b), and will be again for each intended behavior change.
+
+`tests/test_controls.py` checks the driving design targets directly (for example "coasting from max speed stops in about 3 s"), so a wrong physics value fails with a clear message rather than just a fixture mismatch.
 
 Regenerate the fixtures **only** for an intended behavior change. The generator uses `run_world`:
 

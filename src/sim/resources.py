@@ -8,22 +8,36 @@ from pygame import Rect
 
 @dataclass(frozen=True)
 class SimConfig:
-    fps: int
-    acceleration_unit: float  # raw config value, not per frame
-    acceleration_max: float
+    steps_per_second: int
     car_width: int
     car_height: int
     ray_length: int
+    # Car driving limits, in px/s, px/s², and degrees/s.
+    max_speed: float
+    max_reverse_speed: float
+    acceleration: float
+    reverse_acceleration: float
+    brake_deceleration: float
+    drag: float
+    max_turn_rate: float
+    full_turn_speed: float
 
     @staticmethod
     def from_config(config: ConfigDict) -> "SimConfig":
+        car = config.car
         return SimConfig(
-            fps=config.display.fps,
-            acceleration_unit=config.car.acceleration_unit,
-            acceleration_max=config.car.acceleration_max,
-            car_width=config.car.width,
-            car_height=config.car.height,
+            steps_per_second=config.sim.steps_per_second,
+            car_width=car.width,
+            car_height=car.height,
             ray_length=config.sensors.ray_length,
+            max_speed=car.max_speed,
+            max_reverse_speed=car.max_reverse_speed,
+            acceleration=car.acceleration,
+            reverse_acceleration=car.reverse_acceleration,
+            brake_deceleration=car.brake_deceleration,
+            drag=car.drag,
+            max_turn_rate=car.max_turn_rate,
+            full_turn_speed=car.full_turn_speed,
         )
 
 

@@ -7,6 +7,7 @@ from src.sim.components import (
     CarSpec,
     Hitbox,
     Motion,
+    PreviousPose,
     Ray,
     Renderable,
     Sensors,
@@ -35,7 +36,6 @@ def create_car(
     width: int,
     height: int,
     color: ColorValue,
-    base_speed: float = 300.0,
     label: str = "Car",
 ) -> int:
     config = world.resource(SimConfig)
@@ -80,9 +80,10 @@ def create_car(
         ActionInput(),
         transform,
         Motion(),
-        _car_spec(base_speed, config),
+        _car_spec(config),
         hitbox,
         sensors,
+        PreviousPose(*rect.center, transform.angle),
         Renderable(color=color, label=label),
     )
 
@@ -106,13 +107,16 @@ def create_start_car(
     )
 
 
-def _car_spec(base_speed: float, config: SimConfig) -> CarSpec:
-    single_frame = 1 / config.fps
-    forward_speed = base_speed * single_frame
+def _car_spec(config: SimConfig) -> CarSpec:
+    """Converts px/s and px/s² to per-step units."""
+    fps = config.steps_per_second
     return CarSpec(
-        base_speed=base_speed,
-        forward_speed=forward_speed,
-        backward_speed=forward_speed * 0.25,
-        turn_speed=forward_speed * 0.75,
-        acceleration_unit=config.acceleration_unit * single_frame,
+        max_speed=config.max_speed / fps,
+        max_reverse_speed=config.max_reverse_speed / fps,
+        acceleration=config.acceleration / fps**2,
+        reverse_acceleration=config.reverse_acceleration / fps**2,
+        brake_deceleration=config.brake_deceleration / fps**2,
+        drag=config.drag / fps**2,
+        max_turn_rate=config.max_turn_rate / fps,
+        full_turn_speed=config.full_turn_speed / fps,
     )

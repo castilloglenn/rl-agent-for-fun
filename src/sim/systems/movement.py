@@ -1,44 +1,58 @@
-import pygame
-
 from src.ecs import World
-from src.sim.components import ActionInput, CarSpec, Hitbox, Motion, Transform
-from src.sim.resources import Field, SimConfig
+from src.sim.components import (
+    ActionInput,
+    CarSpec,
+    Hitbox,
+    Motion,
+    Pedal,
+    Transform,
+)
+from src.sim.resources import Field
 from src.utils.common import get_angular_movement_deltas, get_clamped_rect
 
 
 def movement_system(world: World) -> None:
-    config = world.resource(SimConfig)
     field = world.resource(Field)
     for _, (action, transform, motion, spec, hitbox) in world.query(
         ActionInput, Transform, Motion, CarSpec, Hitbox
     ):
-        if action.move_forward:
-            _forward(transform, motion, spec, hitbox, field, config)
-        elif action.move_backward:
-            _backward(transform, motion, spec, hitbox, field, config)
-
-        if not action.is_moving:
-            _set_speed(motion, 0, 0.0, config)
+        motion.speed, motion.pedal = next_speed(motion.speed, action, spec)
+        delta_x, delta_y = get_angular_movement_deltas(
+            angle=transform.angle, speed=motion.speed
+        )
+        _move(delta_x, delta_y, transform, motion, hitbox, field)
 
 
-def _forward(transform, motion, spec, hitbox, field, config) -> None:
-    # The boost is largest at low acceleration, so the car starts quickly.
-    acc_rel = motion.acceleration_rate / config.acceleration_max
-    boost = spec.acceleration_unit / max(acc_rel, 0.01)
-    rate = motion.acceleration_rate + boost
-    _set_speed(motion, spec.forward_speed * rate, rate, config)
-    delta_x, delta_y = get_angular_movement_deltas(
-        angle=transform.angle, speed=motion.speed
-    )
-    _move(delta_x, delta_y, transform, motion, hitbox, field, config)
+def next_speed(
+    speed: float, action: ActionInput, spec: CarSpec
+) -> tuple[float, str]:
+    """Applies one step of pedal input to the signed speed.
+
+    Brake beats gas, and gas beats reverse. Gas while rolling backward and
+    reverse while rolling forward both brake first, like a real car.
+    """
+    if action.brake:
+        return _toward_zero(speed, spec.brake_deceleration), Pedal.BRAKING
+    if action.gas:
+        if speed < 0:
+            return _toward_zero(speed, spec.brake_deceleration), Pedal.BRAKING
+        return min(speed + spec.acceleration, spec.max_speed), Pedal.GAS
+    if action.reverse:
+        if speed > 0:
+            return _toward_zero(speed, spec.brake_deceleration), Pedal.BRAKING
+        return (
+            max(speed - spec.reverse_acceleration, -spec.max_reverse_speed),
+            Pedal.REVERSE,
+        )
+    if speed == 0:
+        return 0.0, Pedal.IDLE
+    return _toward_zero(speed, spec.drag), Pedal.COASTING
 
 
-def _backward(transform, motion, spec, hitbox, field, config) -> None:
-    _set_speed(motion, spec.backward_speed, 0.0, config)
-    delta_x, delta_y = get_angular_movement_deltas(
-        angle=transform.angle, speed=motion.speed
-    )
-    _move(-delta_x, -delta_y, transform, motion, hitbox, field, config)
+def _toward_zero(speed: float, amount: float) -> float:
+    if speed > 0:
+        return max(speed - amount, 0.0)
+    return min(speed + amount, 0.0)
 
 
 def _move(
@@ -48,7 +62,6 @@ def _move(
     motion: Motion,
     hitbox: Hitbox,
     field: Field,
-    config: SimConfig,
 ) -> None:
     transform.x_float += x - int(x)
     transform.y_float += y - int(y)
@@ -66,14 +79,6 @@ def _move(
     transform.x_float -= int(transform.x_float)
     transform.y_float -= int(transform.y_float)
 
+    # The border stops the car until crashes arrive (roadmap step 3f).
     if is_clamped:
-        _set_speed(motion, 0, 0.0, config)
-
-
-def _set_speed(
-    motion: Motion, speed: float, acceleration_rate: float, config: SimConfig
-) -> None:
-    motion.acceleration_rate = pygame.math.clamp(
-        acceleration_rate, 0.0, config.acceleration_max
-    )
-    motion.speed = speed
+        motion.speed = 0.0

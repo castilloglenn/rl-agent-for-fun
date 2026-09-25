@@ -23,11 +23,11 @@ The current code is loosely MVC-inspired, but its sprites both simulate and draw
 | Component | Fields (from) |
 |---|---|
 | `Transform` | angle, x_float, y_float (`CarState`) |
-| `Motion` | speed (was `speed_multiplier`), acceleration_rate (`CarState`) |
-| `CarSpec` | base, forward, backward, turn speeds, acceleration unit (`CarState` derived fields) |
+| `Motion` | speed (was `speed_multiplier`), acceleration_rate (`CarState`). Since step 3b: signed speed and pedal state |
+| `CarSpec` | base, forward, backward, turn speeds, acceleration unit (`CarState` derived fields). Since step 3b: per-step driving limits from config |
 | `Hitbox` | unrotated width/height, and `rect` (`CarState.rect`). **`rect` is also the car's position**: kept as the single source of truth so behavior matches exactly |
 | `Sensors` | list of rays: relative angle, offset, start, end, distance (`CollisionDistanceState`) |
-| `ActionInput` | turn_left, turn_right, move_forward, move_backward (`ActionState`) |
+| `ActionInput` | turn_left, turn_right, move_forward, move_backward (`ActionState`). Since step 3b: turn_left, turn_right, gas, reverse, brake |
 | `Renderable` | color, size (read only by rendering) |
 
 ### System order per step

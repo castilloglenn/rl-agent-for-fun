@@ -51,3 +51,13 @@ def get_clamped_rect(
     if new_rect.center != future_rect.center:
         return True, rect
     return False, new_rect
+
+
+def lerp(a: float, b: float, t: float) -> float:
+    return a + (b - a) * t
+
+
+def lerp_angle(a: float, b: float, t: float) -> float:
+    """Interpolates degrees along the shortest way, e.g. 350 -> 10."""
+    difference = (b - a + 180) % 360 - 180
+    return (a + difference * t) % 360

@@ -16,12 +16,13 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
 | **3** | **First game rules in the box map** ([game design](game-design.md#first-goal-roadmap-step-3)). Intended behavior changes, so fixtures get regenerated | Next |
 | 3a | Simulation window UI: bigger window, top bar, right info panel, bottom event strip, readable labels, game leaderboard slot. Field size decoupled from the window | Done |
-| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Next |
-| 3c | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3e | Planned |
-| 3d | 8 rays around the car, starting at the car's body edge | Planned |
-| 3e | Round timer (60 s = 5,400 steps) and crash = game over | Planned |
-| 3f | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
-| 3g | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
+| 3b | Realistic controls: momentum and drag, SPACE brake, S brakes then reverses, speed-based turning | Done |
+| 3c | Fixed-timestep clock: simulation at a fixed 120 steps/s, drawing at the auto-detected display rate with vsync, interpolated car drawing ([decision 008](decisions/008-fixed-timestep-clock.md)) | Done |
+| 3d | Polygon hitbox (the car's real 4 corners) and float center position. The car still stops at the border until 3f | Next |
+| 3e | 8 rays around the car, starting at the car's body edge | Planned |
+| 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Planned |
+| 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Planned |
+| 3h | Env API for agents: observation (`get_state`: rays, speed, checkpoint compass, time left), reward, game over, 5-bool action | Planned |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
@@ -52,8 +53,8 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 ├──────────────────────────────────────────────┤  Heading, Position, │
 │                                              │  Inputs [W]A S D ␣  │
 │                                              ├─────────────────────┤
-│                 FIELD                        │ SENSORS: radar of   │
-│           (same size as today)               │  8 rays + distances │
+│                 FIELD                        │ SENSORS: distance   │
+│           (same size as today)               │  per ray (8 rays)   │
 │                                              ├─────────────────────┤
 │                                              │ OBJECTIVE: checkpoint│
 │                                              │  distance, direction│
@@ -71,19 +72,30 @@ The rules and values are in [game design](game-design.md#first-goal-roadmap-step
 - **Top bar:** what you glance at most: round, time, score, status, who's driving.
 - **Right panel:** detail grouped by topic. Each later sub-step fills in its own section (timer, rewards, checkpoint, agent view).
 - **Bottom strip:** event log, step counter, FPS.
-- **Readable labels:** `SPD`/`ACC`/`AGL`/`LSC`/`FSC` become "Speed (px/s)", "Throttle", "Heading", and a labeled radar diagram.
+- **Readable labels:** `SPD`/`ACC`/`AGL`/`LSC`/`FSC` become "Speed (px/s)", "Pedal", "Heading", and named sensor distances.
+- **Retro style** (changed after 3a): panels use only lines and text, with colors and bold for distinction. The sensor radar and filled boxes were removed. Graphics belong inside the field.
 - **Game leaderboard slot:** ranks cars in the current game by score. Built as a panel section now, and it fills in once there are several cars (step 8) or parallel games (step 10).
-- **Hotkey** (for example H) hides and shows the panels.
+- **H** shows and hides the debug lines in the field: rays, hitbox, and future distance or boundary lines. The panels always stay visible.
 - **Field size gets its own config**, decoupled from the window (today it's calculated from the window size). It stays 855×480, so the physics doesn't change. Behavior tests must still pass unchanged in this sub-step.
 
-### 3c. Polygon hitbox
+### 3c. Fixed-timestep clock
+
+Details and reasons: [decision 008](decisions/008-fixed-timestep-clock.md).
+
+- The simulation always runs at **120 steps/s**, identical on every machine and headless.
+- Drawing runs at the **auto-detected display refresh rate** (vsync where available), or a configured override.
+- Each drawn frame runs 0, 1, or 2 simulation steps, based on real time elapsed. Real time only decides how many steps run, never what a step does.
+- Cars are drawn **interpolated** between their previous and current step positions, for smooth motion at any display rate.
+- Changing from 90 to 120 steps/s changes the per-step physics, so fixtures get regenerated. The driving feel in seconds stays the same.
+
+### 3d. Polygon hitbox
 
 Why before crashes: with the old growing box, "touching the border = game over" would end the round while a diagonal car is visibly still pixels away. That's unfair to a human driver, and it teaches agents the wrong safety margins.
 
 - The hitbox is the car's **4 real corners**, rotating with it. See [decision 004](decisions/004-polygon-hitbox-deferred.md).
 - **Position becomes a float center point**, replacing the integer `Rect` plus the `x_float`/`y_float` carry.
 - **Border check in the box map:** the car touches the border exactly when one of its corners leaves the field. The field is a convex rectangle, so this is exact.
-- The rays in 3d start at the body edge of this polygon.
+- The rays in 3e start at the body edge of this polygon.
 - SAT (Separating Axis Theorem) is added later, for inner walls (step 7) and car-vs-car collision (step 8), using this polygon.
 - `rotated_bounds` (`src/sim/geometry.py`) is no longer used by the physics.
 
@@ -122,6 +134,7 @@ runs/<date>_<name>_seed<N>/
   | Replay buffer (DQN only, optional) | The agent's past experience. Can be tens to hundreds of MB |
 
 - **Branch:** resume an old checkpoint with a changed setting as a new run, then compare.
+- **Action repeat:** the agent decides every 4 simulation steps (**30 decisions/s** at 120 steps/s) and holds its action in between. That keeps a 60 s round at 1,800 decisions instead of 7,200, which makes learning easier. See [decision 008](decisions/008-fixed-timestep-clock.md).
 
 #### Evaluation suite
 
@@ -225,7 +238,7 @@ A map is a JSON file in `maps/`:
   - "Press a button to join" assigns each device to a slot in the lobby.
 - **Online-ready design** (online itself comes later): see [decision 007](decisions/007-local-multiplayer-online-ready.md).
 - **Ghost mode:** several cars in one world that pass through each other, so you can drive among agents early.
-- Then car-vs-car collision in the `World`: SAT on the polygon hitboxes from step 3c ([decision 004](decisions/004-polygon-hitbox-deferred.md)).
+- Then car-vs-car collision in the `World`: SAT on the polygon hitboxes from step 3d ([decision 004](decisions/004-polygon-hitbox-deferred.md)).
 - Then competition: agents learning against each other (multi-agent RL).
 - The game leaderboard (slot from step 3a) ranks the cars live.
 

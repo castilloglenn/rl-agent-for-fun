@@ -9,7 +9,7 @@ from src.config import get_maze_car_config
 from src.ecs import World
 from src.sim.components import ActionInput, Hitbox, Motion, Sensors, Transform
 
-Action = tuple[bool, bool, bool, bool]
+Action = tuple[bool, bool, bool, bool, bool]
 
 
 def config_snapshot() -> dict:
@@ -22,10 +22,21 @@ def config_snapshot() -> dict:
             config.field.height,
         ],
         "ray_length": config.sensors.ray_length,
-        "fps": config.display.fps,
+        "steps_per_second": config.sim.steps_per_second,
         "car": [config.car.width, config.car.height],
-        "acceleration_unit": config.car.acceleration_unit,
-        "acceleration_max": config.car.acceleration_max,
+        "driving": {
+            key: config.car[key]
+            for key in (
+                "max_speed",
+                "max_reverse_speed",
+                "acceleration",
+                "reverse_acceleration",
+                "brake_deceleration",
+                "drag",
+                "max_turn_rate",
+                "full_turn_speed",
+            )
+        },
     }
 
 
@@ -37,7 +48,7 @@ def _snapshot(world: World, car: int) -> dict:
         "rect": [rect.x, rect.y, rect.width, rect.height],
         "angle": transform.angle,
         "speed": motion.speed,
-        "acceleration": motion.acceleration_rate,
+        "pedal": motion.pedal,
         "x_float": transform.x_float,
         "y_float": transform.y_float,
         "rays": {

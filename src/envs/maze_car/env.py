@@ -33,21 +33,36 @@ class MazeCarEnv(Environment):
     def game_step(
         self, action: Optional[tuple] = None
     ) -> tuple[Reward, GameOver, Score]:
-        """action: (turn_left, turn_right, move_forward, move_backward)."""
+        """One simulation step, then one frame if the GUI is on.
+
+        action: (turn_left, turn_right, gas, reverse, brake).
+        """
+        result = self.step_world(action)
+        if self.renderer:
+            self.render()
+        return result
+
+    def step_world(
+        self, action: Optional[tuple] = None
+    ) -> tuple[Reward, GameOver, Score]:
+        """One simulation step, without drawing."""
         action_input = ActionInput(*action) if action else ActionInput()
         self.world.add_component(self.car, action_input)
         self.world.step()
-
-        if self.renderer:
-            if self.renderer.poll_events():
-                self.running = False
-            self.renderer.draw(self.world)
-            self.renderer.present()
 
         reward: int | float = self._calculate_reward()
         game_over: bool = False
 
         return (reward, game_over, self.score)
+
+    def render(self, alpha: float = 1.0) -> float:
+        """Handles window events and draws one frame. Returns the real
+        seconds since the previous frame.
+        """
+        if self.renderer.poll_events():
+            self.running = False
+        self.renderer.draw(self.world, alpha)
+        return self.renderer.present()
 
     def _calculate_reward(self) -> int | float:
         return 0

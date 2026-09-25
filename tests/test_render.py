@@ -39,20 +39,51 @@ def test_field_drawn_inside_field_view():
     assert screen_field.topleft == renderer.layout.field_view.topleft
 
 
-def test_renderer_draws_with_and_without_panels():
+def test_renderer_draws_with_and_without_lines():
     config = get_maze_car_config()
     renderer = Renderer(config)
     world = create_world(config)
     car = create_start_car(world, label="Tester")
-    world.add_component(car, ActionInput(move_forward=True, turn_left=True))
+    world.add_component(car, ActionInput(gas=True, turn_left=True))
     world.step()
 
     renderer.draw(world)
-    with_panels = pygame.image.tobytes(renderer.display, "RGB")
+    with_lines = pygame.image.tobytes(renderer.display, "RGB")
 
-    renderer.show_panels = False
+    renderer.show_lines = False
     renderer.draw(world)
-    without_panels = pygame.image.tobytes(renderer.display, "RGB")
+    without_lines = pygame.image.tobytes(renderer.display, "RGB")
 
     assert renderer.display.get_size() == renderer.layout.window.size
-    assert with_panels != without_panels
+    assert with_lines != without_lines
+
+    # Only the field view changes: the panels look the same either way.
+    field_view = renderer.layout.field_view
+    panel_area = renderer.layout.panel
+    assert _crop(with_lines, renderer, panel_area) == _crop(
+        without_lines, renderer, panel_area
+    )
+    assert _crop(with_lines, renderer, field_view) != _crop(
+        without_lines, renderer, field_view
+    )
+
+
+def test_interpolated_drawing_lands_between_steps():
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    car = create_start_car(world)
+    for _ in range(60):
+        world.add_component(car, ActionInput(gas=True))
+        world.step()
+
+    frames = []
+    for alpha in (0.0, 0.5, 1.0):
+        renderer.draw(world, alpha)
+        frames.append(pygame.image.tobytes(renderer.display, "RGB"))
+    assert len(set(frames)) == 3  # the car is drawn in three places
+
+
+def _crop(image: bytes, renderer, rect) -> bytes:
+    surface = pygame.image.frombytes(image, renderer.display.get_size(), "RGB")
+    return pygame.image.tobytes(surface.subsurface(rect), "RGB")

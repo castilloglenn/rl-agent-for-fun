@@ -3,7 +3,6 @@
 from src.utils.types import ColorValue
 
 BACKGROUND: ColorValue = (10, 10, 12)
-PANEL: ColorValue = (22, 23, 28)
 PANEL_BORDER: ColorValue = (44, 46, 54)
 FIELD_BORDER: ColorValue = (255, 255, 255)
 
