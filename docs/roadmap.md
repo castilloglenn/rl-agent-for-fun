@@ -12,14 +12,33 @@ Goal: train real RL agents in Maze Car, watch how they learn, run experiments on
 | 2b | Car components, systems (steering, movement, sensors), and factories in `src/sim/`. Behavior tests run against both old and new code | Done |
 | 2c | Render system, then switch the demo and env to the ECS. Removed the legacy test runner, since it needed the old env | Done |
 | 2d | Delete the old singletons, models, and sprites (dead code since 2c), and rewrite `architecture.md` | Done |
-| 3 | Simulation: maze walls, rays and crashes against walls, observation, reward. **Blocked on the game goal** (see open questions) | Next |
+| 3 | Simulation: map files (`maps/`) with rectangle walls, rays and crashes against walls, observation, reward. **Blocked on the game goal** (see open questions) | Next |
 | 4 | Replay and experiment runs: headless episodes, recordings of new bests, replay mode, one folder per run | Planned |
 | 5 | Agent and training: torch model, training loop, full checkpoints, pause / resume / branch | Planned |
-| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console), plus separate simulation windows for live play and replays | Planned |
-| 7 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then polygon hitbox and car-vs-car collision, then competition | Planned |
+| 6 | Control center GUI: its own window (runs panel, learning curves, terminal-style console), plus separate simulation windows for live play, replays, and the map editor | Planned |
+| 7 | Multiple cars: ghost mode first (you join agents, no car-vs-car collision), then polygon hitbox and car-vs-car collision, then angled (line segment) walls, then competition | Planned |
 | 8 | Parallel environments for faster training | Planned |
 
 ## Step details
+
+### 3. Simulation and map files
+
+A map is a JSON file in `maps/`:
+
+```json
+{
+  "name": "s_curve",
+  "size": [855, 480],
+  "walls": [[100, 0, 20, 300], [300, 180, 20, 300]],
+  "spawns": [{"x": 50, "y": 240, "angle": 0}],
+  "goal": {"x": 800, "y": 240, "radius": 20}
+}
+```
+
+- Walls are **axis-aligned rectangles** `[x, y, width, height]` for now: see [decision 006](decisions/006-rectangle-walls-first.md).
+- `load_map(world, path)` turns walls, spawns, and goals into entities.
+- The `goal` shape depends on the game goal (exit, checkpoints, laps), which is still open.
+- Each run's `config.json` records the map name plus a content hash, so experiments and replays point at the exact layout.
 
 ### 4. Replay and experiment runs
 
@@ -73,6 +92,12 @@ Control center window        Simulation window 1      Simulation window 2
 - **Simulation windows:** each runs its own `World` + `Renderer`, for live play or a replay. Any number can be open side by side.
 - **Training runs headless in background processes**, at full speed, with no window. The control center shows their live metrics and logs.
 - **Live play:** trained agents (loaded from `.pt`) drive at normal speed. It only runs agents, it doesn't train them, so it's cheap.
+- **Map editor:** a simulation window mode.
+  - Click and drag to draw walls, with snap-to-grid.
+  - Place spawn points (with direction) and goals.
+  - Select, move, delete, undo.
+  - Save and load files in `maps/`.
+  - **Test drive:** switch to live play on the map being edited, then back.
 - **IPC:** commands go from the control center to the other processes, and metrics and logs come back. Candidates: `multiprocessing` queues, or a local socket.
 - **Why separate processes:** standard pygame gives one window per process. pygame-ce's multi-window API is NOT VERIFIED. Separate processes also mean a crashed or closed simulation window doesn't stop the control center or training.
 - UI library candidate: `pygame_gui`. NOT YET CHECKED FOR PYGAME-CE COMPATIBILITY.
