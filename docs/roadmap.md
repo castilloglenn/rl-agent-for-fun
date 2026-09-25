@@ -6,8 +6,8 @@ Goal: see how an RL agent learns to drive Maze Car.
 
 | # | Step | Status |
 |---|---|---|
-| 1 | Behavior tests that pin down current car physics (the refactor safety net, later the determinism test) | Next |
-| 2 | Refactor into ECS: sim/render split, remove singletons and global `FLAGS` reads. **Structure only** | Planned |
+| 1 | Behavior tests that pin down current car physics (the refactor safety net, later the determinism test) | Done |
+| 2 | Refactor into ECS: sim/render split, remove singletons and global `FLAGS` reads. **Structure only** | Next |
 | 3 | Simulation: maze walls, rays and crashes against walls, observation, reward | Planned |
 | 4 | Replay: headless training, recording episodes that improve on the best, replay mode | Planned |
 | 5 | Agent: torch model and training loop | Planned |

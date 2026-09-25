@@ -33,14 +33,31 @@ python app.py -demo maze_car --maze_car.show_collision_distance=False
 
 ## Tests
 
-`pytest.ini` sets `-p no:warnings -rs -v -l`. `tests/` has no tests yet.
+`pytest.ini` sets `-p no:warnings -rs -v -l`. Use `pytest` directly: `make test` is still a stub.
 
 ```
-pytest                                # all
-pytest tests/test_x.py::test_name     # single test
+pytest                                                          # all
+pytest "tests/test_behavior.py::test_scenario_matches_fixture[mixed]"   # single test
 ```
 
-Env classes read global `FLAGS.maze_car`, so a test must define and parse the flags before building them. See [architecture](architecture.md#config).
+### Behavior tests
+
+These pin down the current car physics exactly (roadmap step 1). They're the safety net for the ECS refactor.
+
+| File | Role |
+|---|---|
+| `tests/scenarios.py` | Scripted action sequences. Implementation-neutral |
+| `tests/fixtures/behavior/*.json` | Expected car state after every step (rect, angle, speed, acceleration, float carry, 4 rays), one line per step |
+| `tests/harness.py` | `run_scenario`: runs actions through the current code. **The only file to rewrite after the refactor** |
+| `tests/test_behavior.py` | Compares against the fixtures exactly, and checks determinism |
+
+`harness.py` runs pygame headless (`SDL_VIDEODRIVER=dummy`), defines and parses the absl flags, and resets the singletons before each run.
+
+Regenerate the fixtures **only** for an intended behavior change:
+
+```
+python -m tests.generate_behavior_fixtures
+```
 
 ## Lint
 
