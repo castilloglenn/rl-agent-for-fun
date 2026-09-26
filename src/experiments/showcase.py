@@ -10,8 +10,9 @@ deterministic, so each round is exactly what the evaluation saw. A title
 card with the checkpoint's suite scores comes first, and the next
 checkpoint starts when a round ends.
 
-SPACE pause, 1-4 speed, N one step while paused, R restart this
-checkpoint, Left/Right previous/next checkpoint, H lines, Esc quit.
+Enter start the round, SPACE/P pause, 1-4 speed, N one step while
+paused, R restart this checkpoint, Left/Right previous/next checkpoint,
+H lines, Esc quit.
 """
 
 import csv
@@ -41,10 +42,20 @@ from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.utils.timing import FixedStepClock
 
-CARD_SECONDS = 2.0  # the title card, and the pause after a round
+AFTER_SECONDS = 2.0  # the pause after a round, before the next card
 DEFAULT_SPEED = 2  # index in the viewer's speeds: 2x
 HIGHLIGHTS = 8
-HINTS = "SPACE pause  1-4 speed  <- -> checkpoint  R restart  H lines"
+SHORTCUTS = (
+    ("Enter", "start the round (after its card)"),
+    ("SPACE / P", "pause / resume"),
+    ("1-4", "speed: 0.5x, 1x, 2x, 4x"),
+    ("N", "one step while paused"),
+    ("<- ->", "previous / next checkpoint"),
+    ("R", "restart this checkpoint"),
+    ("H", "lines"),
+    ("?", "these shortcuts"),
+    ("Esc", "quit (asks first)"),
+)
 
 
 @dataclass(frozen=True)
@@ -204,8 +215,8 @@ class Showcase:
         self.env.driver = f"{self.folder.name}@{stop.checkpoint}"
         self.observation, _ = self.env.reset(seed=self.seed)
         self.driver.reset(self.seed)
-        self.card = CARD_SECONDS  # title card time left
-        self.after = CARD_SECONDS  # pause after the round ends
+        self.card = True  # the title card stays until Enter
+        self.after = AFTER_SECONDS  # pause after the round ends
         self.finished = False
 
     def next(self) -> None:
@@ -223,7 +234,9 @@ class Showcase:
             self._start(self.index - 1)
 
     def handle_key(self, key: int) -> None:
-        if key == pygame.K_RIGHT:
+        if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self.card = False  # start the round
+        elif key == pygame.K_RIGHT:
             self.next()
         elif key == pygame.K_LEFT:
             self.previous()
@@ -247,8 +260,7 @@ class Showcase:
             control.step_requests = 0
             self.clock.advance(0)
             return
-        if self.card > 0:
-            self.card -= elapsed
+        if self.card:
             self.clock.advance(0)
             return
         if self.env.is_game_over:
@@ -270,17 +282,18 @@ class Showcase:
 
     def mode(self) -> ModeInfo:
         speed = "PAUSED" if self.control.paused else f"{self.control.speed:g}×"
-        # Short, to fit next to the gauge: DRIVER shows the checkpoint.
-        label = f"{self.index + 1}/{len(self.stops)} {speed}"
+        label = f"SHOWCASE {self.index + 1}/{len(self.stops)} {speed}"
         if self.finished:
-            return ModeInfo("SHOWCASE", theme.ACCENT, HINTS, self._summary())
-        if self.card > 0:
+            return ModeInfo(
+                "SHOWCASE", theme.ACCENT, SHORTCUTS, self._summary()
+            )
+        if self.card:
             messages = self._title()
         elif self.env.is_game_over:
             messages = self._round_end()
         else:
             messages = ()
-        return ModeInfo(label, theme.ACCENT, HINTS, messages)
+        return ModeInfo(label, theme.ACCENT, SHORTCUTS, messages)
 
     def _title(self) -> tuple:
         stop = self.stops[self.index]
@@ -304,6 +317,7 @@ class Showcase:
         ]
         if stop.badges:
             lines.append((" · ".join(stop.badges), theme.GOOD))
+        lines.append(("Enter starts", theme.TEXT_DIM))
         return tuple(lines)
 
     def _round_end(self) -> tuple:
@@ -354,12 +368,13 @@ class Showcase:
     def run(self) -> None:
         elapsed = 0.0
         while True:
-            if Command.QUIT in self.renderer.poll_events():
+            commands = self.renderer.poll_events(game_over=self.finished)
+            if Command.QUIT in commands:
                 break
             for key in self.renderer.keys_pressed:
                 self.handle_key(key)
-            self.tick(elapsed)
-            playing = not (self.control.paused or self.card > 0)
+            self.tick(0.0 if self.renderer.modal_open else elapsed)
+            playing = not (self.control.paused or self.card)
             alpha = self.clock.alpha if playing else 1.0
             self.renderer.draw(
                 self.env.world, alpha, self.env.reward_status(), self.mode()

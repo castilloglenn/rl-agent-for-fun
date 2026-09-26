@@ -70,6 +70,9 @@ class Renderer:
         # Debug lines (rays, hitbox, and future distance or boundary
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
+        self.show_shortcuts = False  # "?" toggles the shortcuts box
+        self.confirm_quit = False  # Esc asks first, Enter confirms
+        self.keys_pressed: list[int] = []  # this frame's keys, for modes
 
         pygame.init()
         pygame.display.set_caption(config.window.title)
@@ -88,28 +91,58 @@ class Renderer:
         self.clock = pygame.time.Clock()
         self._car_surfaces: dict[tuple, Surface] = {}
 
-    def poll_events(self) -> set[str]:
-        """Handles window events. Returns the commands asked for."""
+    @property
+    def modal_open(self) -> bool:
+        """A box that pauses the game is open (shortcuts, quit prompt)."""
+        return self.show_shortcuts or self.confirm_quit
+
+    def poll_events(self, game_over: bool = False) -> set[str]:
+        """Handles window events. Returns the commands asked for.
+
+        Esc closes an open box first. Otherwise it asks before quitting
+        (Enter quits, Esc goes back), except when the game is over: then
+        it quits at once. Closing the window always quits.
+        """
         commands = set()
-        # Keys pressed this frame, for modes with their own controls.
+        # Keys pressed this frame, for modes with their own controls. Keys
+        # pressed while a box is open are for the box, not the mode.
         self.keys_pressed: list[int] = []
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 commands.add(Command.QUIT)
             elif event.type == pygame.KEYDOWN:
-                self.keys_pressed.append(event.key)
-                if event.key == pygame.K_ESCAPE:
-                    commands.add(Command.QUIT)
-                elif event.key == pygame.K_r:
-                    commands.add(Command.RESTART)
-                elif event.key == pygame.K_h:
-                    self.show_lines = not self.show_lines
+                self._key(event.key, game_over, commands)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     x = event.pos[0] - self.offset[0]
                     y = event.pos[1] - self.offset[1]
                     print(f"left click at world ({x}, {y})")
         return commands
+
+    def _key(self, key: int, game_over: bool, commands: set) -> None:
+        if key == pygame.K_ESCAPE:
+            if self.show_shortcuts:
+                self.show_shortcuts = False
+            elif self.confirm_quit:
+                self.confirm_quit = False
+            elif game_over:
+                commands.add(Command.QUIT)
+            else:
+                self.confirm_quit = True
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER) and self.confirm_quit:
+            commands.add(Command.QUIT)
+        elif self.confirm_quit:
+            return  # only Enter or Esc answer the prompt
+        elif key in (pygame.K_SLASH, pygame.K_QUESTION):
+            self.show_shortcuts = not self.show_shortcuts
+        elif key == pygame.K_h:
+            self.show_lines = not self.show_lines
+        elif self.show_shortcuts:
+            return
+        else:
+            self.keys_pressed.append(key)
+            if key == pygame.K_r:
+                commands.add(Command.RESTART)
 
     def draw(
         self,
@@ -132,28 +165,34 @@ class Renderer:
             world,
             cars[0] if cars else None,
             self.config.hud,
-            reward,
-            mode,
         )
-        panels.draw_side_panel(
+        panels.draw_game_panel(
+            self.display, self.layout.left_panel, world, cars, reward, mode
+        )
+        panels.draw_car_panel(
             self.display,
-            self.layout.panel,
+            self.layout.right_panel,
             world,
             cars,
             self.config.hud,
-            reward,
+            (self.clock.get_fps(), self.frame_rate, self.vsync),
         )
-        panels.draw_bottom_bar(
-            self.display,
-            self.layout.bottom_bar,
-            world,
-            self.clock.get_fps(),
-            self.frame_rate,
-            self.vsync,
-            self.config.hud,
-            **({"hints": mode.hints} if mode else {}),
-        )
-        self._draw_round_over(world, mode)
+        if self.confirm_quit:
+            self._draw_centered_lines(
+                [
+                    ("QUIT?", theme.BIG_SIZE, theme.WARN, True),
+                    (
+                        "Enter quits  ·  Esc goes back",
+                        theme.TEXT_SIZE,
+                        theme.TEXT,
+                        False,
+                    ),
+                ]
+            )
+        elif self.show_shortcuts:
+            self._draw_shortcuts(mode)
+        else:
+            self._draw_round_over(world, mode)
 
     def present(self) -> float:
         """Shows the frame. Returns the real seconds since the last one."""
@@ -251,19 +290,44 @@ class Renderer:
             (reason, theme.TEXT_SIZE, theme.TEXT, False),
             *eliminations,
             *messages,
-            ("Press R to restart", theme.TEXT_SIZE, theme.TEXT_DIM, False),
+            (
+                "R restarts  ·  Esc quits",
+                theme.TEXT_SIZE,
+                theme.TEXT_DIM,
+                False,
+            ),
         ]
+        self._draw_centered_lines(lines)
+
+    def _draw_shortcuts(self, mode: panels.ModeInfo | None) -> None:
+        """Every key of the current mode, in a box over the field."""
+        shortcuts = mode.shortcuts if mode else panels.LIVE_SHORTCUTS
+        width = max(len(key) for key, _ in shortcuts)
+        actions = max(len(action) for _, action in shortcuts)
+        lines = [("SHORTCUTS", theme.BIG_SIZE, theme.ACCENT, True)]
+        lines += [
+            (
+                f"{key:>{width}}  {action:<{actions}}",
+                theme.TEXT_SIZE,
+                theme.TEXT,
+                False,
+            )
+            for key, action in shortcuts
+        ]
+        lines.append(("? closes", theme.TEXT_SIZE, theme.TEXT_DIM, False))
         self._draw_centered_lines(lines)
 
     def _draw_centered_lines(self, lines: list[tuple]) -> None:
         center_x, center_y = self.layout.field_view.center
-        y = center_y - 13 * len(lines)
-        # A dark backdrop, so the text stays readable over rays and cars.
+        # Line centers 26 px apart, the block centered on the field.
+        y = center_y - 13 * (len(lines) - 1)
+        # A dark backdrop, so the text stays readable over rays and cars,
+        # with the same padding above and below the text.
         width = max(
             get_font(size, bold).size(text)[0]
             for text, size, _, bold in lines
         )
-        backdrop = pygame.Rect(0, 0, width + 32, 26 * len(lines) + 12)
+        backdrop = pygame.Rect(0, 0, width + 32, 26 * len(lines) + 16)
         backdrop.center = (center_x, center_y)
         shade = Surface(backdrop.size, pygame.SRCALPHA)
         shade.fill((*theme.BACKGROUND, 225))

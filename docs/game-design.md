@@ -17,6 +17,7 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 
 | Rule | Value |
 |---|---|
+| Round start | When you drive, the round (and its timer) starts with your first driving key, so you can get ready. Agents and baselines start at once |
 | Round length | 60 seconds = **7,200 steps** at 120 steps/s ([decision 008](decisions/008-fixed-timestep-clock.md)). The timer counts simulation steps, never real time, to keep replays deterministic |
 | Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1). Round length, rounds, and scoring live in rules files (`rules/standard.json`) since roadmap step 4g ([decision 013](decisions/013-game-rules-files.md)) |
 | Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
@@ -57,7 +58,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - **After a hit** the car **slides along the wall**: it loses the part of its motion into the wall and keeps the part along it (speed × that share), so it can steer away. A head-on hit stops it exactly where it touched. Pushing on into the wall is the same contact: no more impact damage, only scrape damage for the distance slid, and a head-on push stays stopped.
 - A turn into the wall is blocked, but keeps the speed.
 - `rules/classic.json` wrecks on any contact (`safe_speed` = `lethal_speed` = 0, no scraping), like the game before 5a4.
-- **In the window:** a HEALTH gauge at the top right (10 blocks: green above 60 %, amber from 30 %, red below; fuel joins it in step 9). A hit car blinks red for 0.5 s (it stays red while scraping), a wrecked car turns dark red, and the event line shows the hit (`Hit the wall at 180 px/s: -67 health`) and each scrape once it ends (`Scraped the wall for 120 px: -12 health`). Blink timings are display settings (`hud.hit_flash_seconds`, `hud.hit_blink_seconds`).
+- **In the window:** a HEALTH gauge at the top left (10 blocks: green above 60 %, amber from 30 %, red below; fuel joins it in step 9). A hit car blinks red for 0.5 s (it stays red while scraping), a wrecked car turns dark red, and the event line shows the hit (`Hit the wall at 180 px/s: -67 health`) and each scrape once it ends (`Scraped the wall for 120 px: -12 health`). Blink timings are display settings (`hud.hit_flash_seconds`, `hud.hit_blink_seconds`).
 
 ### Checkpoints
 

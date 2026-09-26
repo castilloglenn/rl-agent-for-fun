@@ -237,7 +237,7 @@ class MazeCarEnv(Environment):
         seconds since the previous frame. mode: an optional ModeInfo (for
         example the recording indicator).
         """
-        commands = self.renderer.poll_events()
+        commands = self.renderer.poll_events(game_over=self.is_game_over)
         if Command.QUIT in commands:
             self.running = False
         if Command.RESTART in commands:

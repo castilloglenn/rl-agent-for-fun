@@ -82,15 +82,18 @@ def _show(trained):
     return Showcase(folder, stops, get_maze_car_config())
 
 
-def test_a_title_card_first_then_the_round(trained):
+def test_the_title_card_stays_until_enter(trained):
     show = _show(trained)
-    assert show.mode().messages[0][0].startswith("pupil · initial · 1 of 3")
-    show.tick(1.0)
+    messages = show.mode().messages
+    assert messages[0][0].startswith("pupil · initial · 1 of 3")
+    assert messages[-1][0] == "Enter starts"
+    for _ in range(10):
+        show.tick(1.0)
     assert show.env.world.resource(SimClock).step == 0  # still on the card
-    show.tick(1.1)
+    show.handle_key(pygame.K_RETURN)
     show.tick(0.5)
     assert show.mode().messages == ()  # playing
-    assert show.mode().label.startswith("1/3 2")
+    assert show.mode().label.startswith("SHOWCASE 1/3 2")
 
 
 def _play_to_end(show):
@@ -105,7 +108,7 @@ def test_the_round_is_the_one_the_evaluation_played(trained):
     tmp_path, folder, stops, suite = trained
     show = _show(trained)
     show._start(2)
-    show.tick(2.1)
+    show.handle_key(pygame.K_RETURN)
     _play_to_end(show)
     scenario = next(s for s in suite.scenarios if s.kind == "round")
     env = evaluation._env(scenario, None)
@@ -116,11 +119,11 @@ def test_the_round_is_the_one_the_evaluation_played(trained):
 
 def test_it_moves_on_and_ends_with_a_summary(trained):
     show = _show(trained)
-    show.tick(2.1)
+    show.handle_key(pygame.K_RETURN)
     _play_to_end(show)
     assert "the next checkpoint follows" in show.mode().messages[1][0]
     show.tick(2.1)  # the pause after a round
-    assert show.index == 1
+    assert show.index == 1 and show.card  # the next card waits for Enter
     show.handle_key(pygame.K_RIGHT)
     show.handle_key(pygame.K_RIGHT)
     assert show.finished
@@ -133,7 +136,7 @@ def test_it_moves_on_and_ends_with_a_summary(trained):
 
 def test_restart_and_pause(trained):
     show = _show(trained)
-    show.tick(2.1)
+    show.handle_key(pygame.K_RETURN)
     show.tick(0.5)
     show.handle_key(pygame.K_SPACE)
     step = show.env.world.resource(SimClock).step
@@ -141,4 +144,13 @@ def test_restart_and_pause(trained):
     assert show.env.world.resource(SimClock).step == step
     show.handle_key(pygame.K_r)
     show.tick(0.1)
-    assert show.card > 0  # back to the title card
+    assert show.card  # back to the title card
+
+
+def test_navigating_shows_the_card_again(trained):
+    show = _show(trained)
+    show.handle_key(pygame.K_RETURN)
+    show.handle_key(pygame.K_RIGHT)
+    assert show.index == 1 and show.card
+    show.handle_key(pygame.K_LEFT)
+    assert show.index == 0 and show.card

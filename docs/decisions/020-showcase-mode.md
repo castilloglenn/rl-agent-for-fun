@@ -11,8 +11,8 @@ Training leaves a checkpoint every 100,000 decisions, each scored by the evaluat
 - **Every checkpoint plays the same round:** the suite's first round seed, stage, and rules. You watch the same situation handled better and better.
 - **Live, deterministic play instead of replay files:** a checkpoint plus a seed always gives the same game, so the window runs the agent directly. It's exactly the round the evaluation played, with no files to keep.
 - **Highlights by default** (up to 8): `initial`, the first checkpoint scoring 10 % of the best, the milestone, the best, and the last, filled with evenly spaced ones. `showcase_all` shows every scored checkpoint. Unscored checkpoints are scored first.
-- **A title card per checkpoint** (2 s): checkpoint and position, decisions and training time up to it (from its run's `learning.csv`), suite scores, and badges (BEST, NEW BEST, MILESTONE). A line when the round ends, then the next checkpoint. A summary at the end.
-- **Controls:** the replay viewer's (SPACE pause, 1-4 speed, N step, R restart), plus Left/Right for the previous or next checkpoint. The default speed is 2×, so highlights take about 4 minutes.
+- **A title card per checkpoint**, which stays until you press Enter (at first it closed after 2 s, too short to read): checkpoint and position, decisions and training time up to it (from its run's `learning.csv`), suite scores, and badges (BEST, NEW BEST, MILESTONE). A line when the round ends, then the next checkpoint. A summary at the end.
+- **Controls:** Enter starts the round after its card, plus the replay viewer's (SPACE or P pause, 1-4 speed, N step, R restart), and Left/Right for the previous or next checkpoint (which shows its card again). The default speed is 2×, so highlights take about 4 minutes.
 - **Readable overlays:** centered messages (title cards, and the round-over text everywhere) now sit on a dark backdrop. Top bar mode labels are shortened to fit beside the HEALTH gauge.
 
 ## Consequences

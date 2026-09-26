@@ -4,7 +4,7 @@ from src.utils.types import ColorValue
 
 BACKGROUND: ColorValue = (10, 10, 12)
 PANEL_BORDER: ColorValue = (44, 46, 54)
-FIELD_BORDER: ColorValue = (255, 255, 255)
+FIELD_BORDER: ColorValue = PANEL_BORDER  # gray, like the panels (was white)
 
 TEXT: ColorValue = (235, 235, 240)
 TEXT_DIM: ColorValue = (130, 133, 145)

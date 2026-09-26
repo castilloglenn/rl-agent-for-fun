@@ -23,11 +23,16 @@ def test_sim_clock_counts_steps():
 def test_layout_fits_field_and_panels():
     layout = Layout.for_field(855, 480)
     assert layout.field_view.size == (855, 480)
-    for rect in (layout.top_bar, layout.panel, layout.bottom_bar):
+    panels = (layout.left_panel, layout.right_panel)
+    for rect in (layout.top_bar, *panels):
         assert layout.window.contains(rect)
-    assert not layout.field_view.colliderect(layout.panel)
+    for panel in panels:
+        assert not layout.field_view.colliderect(panel)
+        assert not layout.top_bar.colliderect(panel)
+    assert layout.left_panel.right < layout.field_view.left
+    assert layout.right_panel.left > layout.field_view.right
+    assert layout.window.width <= 1470  # the laptop screen
     assert not layout.field_view.colliderect(layout.top_bar)
-    assert not layout.field_view.colliderect(layout.bottom_bar)
 
 
 def test_field_drawn_inside_field_view():
@@ -59,10 +64,10 @@ def test_renderer_draws_with_and_without_lines():
 
     # Only the field view changes: the panels look the same either way.
     field_view = renderer.layout.field_view
-    panel_area = renderer.layout.panel
-    assert _crop(with_lines, renderer, panel_area) == _crop(
-        without_lines, renderer, panel_area
-    )
+    for panel_area in (renderer.layout.left_panel, renderer.layout.right_panel):
+        assert _crop(with_lines, renderer, panel_area) == _crop(
+            without_lines, renderer, panel_area
+        )
     assert _crop(with_lines, renderer, field_view) != _crop(
         without_lines, renderer, field_view
     )
@@ -155,24 +160,24 @@ def test_top_bar_shows_the_reward_profile():
 
 
 def test_side_panel_content_fits_inside_the_panel():
-    """The last line must end above the panel's bottom border."""
+    """The last line must end above each panel's bottom border."""
     config = get_maze_car_config()
     renderer = Renderer(config)
     world = create_world(config)
     create_start_car(world)
     renderer.draw(world)
-    panel = renderer.layout.panel
-    bottom_rows = renderer.display.subsurface(
-        (panel.x + 2, panel.bottom - 4, panel.width - 4, 3)
-    )
-    data = pygame.image.tobytes(bottom_rows, "RGB")
     from src.render import theme
 
-    colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
-    assert colors == {theme.BACKGROUND}  # no text touching the border
+    for panel in (renderer.layout.left_panel, renderer.layout.right_panel):
+        bottom_rows = renderer.display.subsurface(
+            (panel.x + 2, panel.bottom - 4, panel.width - 4, 3)
+        )
+        data = pygame.image.tobytes(bottom_rows, "RGB")
+        colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+        assert colors == {theme.BACKGROUND}  # no text touching the border
 
 
-def test_top_bar_fits_long_names():
+def test_panels_fit_long_names():
     """Long names are shortened with "…", never drawn past the edge."""
     from src.render import theme
     from src.render.panels import RewardStatus
@@ -186,10 +191,62 @@ def test_top_bar_fits_long_names():
     create_start_car(world, label="A very long player name (keyboard)")
     status = RewardStatus(profile="an-extremely-long-profile", last=0, total=0)
     renderer.draw(world, 1.0, status)
+    for bar in (renderer.layout.top_bar, renderer.layout.left_panel):
+        edge = renderer.display.subsurface(
+            (bar.right - 8, bar.y + 2, 6, bar.h - 4)
+        )
+        data = pygame.image.tobytes(edge, "RGB")
+        colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+        # No text: only the background, and section separator lines.
+        assert colors <= {theme.BACKGROUND, theme.PANEL_BORDER}
+
+
+def test_question_mark_toggles_the_shortcuts_box():
+    from src.render import panels, theme
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    create_start_car(world)
+    for expected in (True, False):
+        event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_SLASH)
+        pygame.event.post(event)
+        renderer.poll_events()
+        assert renderer.show_shortcuts is expected
+    renderer.show_shortcuts = True
+    renderer.draw(world)  # live play: its own shortcuts
+    mode = panels.ModeInfo("REPLAY", theme.GOOD, (("SPACE", "pause"),))
+    renderer.draw(world, 1.0, None, mode)
+    assert ("?", "these shortcuts") in panels.LIVE_SHORTCUTS
+
+
+def test_every_mode_lists_its_shortcuts():
+    from src.envs.maze_car.demo import RECORDING_SHORTCUTS
+    from src.experiments.showcase import SHORTCUTS as SHOWCASE
+    from src.replay.viewer import SHORTCUTS as REPLAY
+
+    for shortcuts in (RECORDING_SHORTCUTS, REPLAY, SHOWCASE):
+        keys = [key for key, _ in shortcuts]
+        assert "?" in keys and "Esc" in keys
+    assert "K" in [key for key, _ in RECORDING_SHORTCUTS]
+    assert "<- ->" in [key for key, _ in SHOWCASE]
+
+
+def test_the_top_bar_doesnt_move_when_the_status_changes():
+    from src.sim.components import Motion
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    car = create_start_car(world)
     bar = renderer.layout.top_bar
-    edge = renderer.display.subsurface(
-        (bar.right - 12, bar.y + 2, 10, bar.h - 4)
-    )
-    data = pygame.image.tobytes(edge, "RGB")
-    colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
-    assert colors == {theme.BACKGROUND}
+    left_part = (bar.x, bar.y, bar.w - 110, bar.h)  # all but the status
+    images = []
+    for speed in (0.0, 1.0, -0.5):  # STOPPED, DRIVING, REVERSING
+        world.component(car, Motion).speed = speed
+        renderer.draw(world)
+        images.append(
+            pygame.image.tobytes(renderer.display.subsurface(left_part), "RGB")
+        )
+    assert images[0] == images[1] == images[2]
+

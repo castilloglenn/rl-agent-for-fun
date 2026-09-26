@@ -195,7 +195,7 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 | `viewer.py` | `ReplayViewer`: replay mode in a window (`app.py -replay <file>`). Verifies the replay headless first, then plays it with `PlaybackControl` (SPACE pause, 1-4 for 0.5×/1×/2×/4×, N one step while paused, R restart). Shows its state through a `ModeInfo` |
 | `replayer.py` | `Replayer(replay)`: rebuilds the game from the file alone (embedded stage, seed, game-defining config via `config_with_game`, reward profile), re-simulates, and `verify()`s the end line (step, reason, score, reward). Code and observation version differences are reported as notes |
 
-- **Window modes:** `Renderer.draw(..., mode=ModeInfo(...))` shows a mode's label in the top bar (for example "REPLAY 2× · verified"), its key hints in the bottom bar, and its messages in the field. The renderer doesn't know what the mode is. `Renderer.keys_pressed` lists this frame's key presses for modes with their own controls.
+- **Window modes:** `Renderer.draw(..., mode=ModeInfo(...))` shows a mode's label in the left panel's DRIVER section (for example "REPLAY 2× · verified"), its shortcuts in the `?` box, and its messages in the field. `Renderer.poll_events(game_over)` handles Esc (close a box, ask before quitting, or quit when the game is over), Enter, and `?`; `modal_open` tells modes to freeze while a box is open. The renderer doesn't know what the mode is. `Renderer.keys_pressed` lists this frame's key presses for modes with their own controls.
 - Recorders get an `on_before_reset` hook, so a round cut short by a restart is finished and saved before the new game replaces it.
 - `env.finish_recording()` ends a recording early (for example when the player quits). The replay then verifies up to that step.
 - Actions are coerced to plain bools, so agents may pass numpy booleans.
@@ -214,8 +214,8 @@ A controller decides the car's `ActionInput` before each step. Live, that's a **
 | File | Contents |
 |---|---|
 | `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
-| `layout.py` | `Layout.for_field`: screen rects for the top bar, field view, side panel, and bottom bar. The window size follows from the field size |
-| `panels.py` | Top bar (round, time, score, status; then driver, stage name and size, rules, spawn mode, seed, reward profile, shortened with "…" if too long), side panel (car, sensor distances, objective, score (game points), agent reward (profile, last step, this game), leaderboard). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field, bottom bar (events, step, FPS) |
+| `layout.py` | `Layout.for_field`: screen rects for the left panel, top bar, field view, and right panel ([decision 021](decisions/021-window-layout-on-four-sides.md)). The window size follows from the field size |
+| `panels.py` | Top bar, one row (HEALTH gauge on the left; round, time, score, status on the right). Left game boxes (driver and mode; game: stage, rules, spawns, seed; score; leaderboard; agent: reward profile and reward, step, sim rate). Right car boxes (car and inputs, sensors, objective, display: FPS, vsync). Every section is its own box, with even 16 px gaps. Text is shortened with "…" to fit. `?` toggles a shortcuts box over the field (each mode's `ModeInfo.shortcuts`). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field |
 | `warnings.py` | When HUD values and ray lines turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, time, FPS. Pure functions, shared by the panels and the field |
 | `theme.py` | Colors and text sizes |
 

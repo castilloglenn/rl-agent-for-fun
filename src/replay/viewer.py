@@ -23,7 +23,15 @@ from src.utils.timing import FixedStepClock
 
 SPEEDS = (0.5, 1.0, 2.0, 4.0)
 SPEED_KEYS = {pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2, pygame.K_4: 3}
-HINTS = "SPACE pause  1-4 speed  N step  R restart  H lines"
+SHORTCUTS = (
+    ("SPACE / P", "pause / resume"),
+    ("1-4", "speed: 0.5x, 1x, 2x, 4x"),
+    ("N", "one step while paused"),
+    ("R", "restart"),
+    ("H", "lines"),
+    ("?", "these shortcuts"),
+    ("Esc", "quit (asks first)"),
+)
 
 
 @dataclass
@@ -40,7 +48,7 @@ class PlaybackControl:
         return SPEEDS[self.speed_index]
 
     def handle_key(self, key: int) -> None:
-        if key == pygame.K_SPACE:
+        if key in (pygame.K_SPACE, pygame.K_p):
             self.paused = not self.paused
         elif key in SPEED_KEYS:
             self.speed_index = SPEED_KEYS[key]
@@ -93,17 +101,17 @@ class ReplayViewer:
         messages = ()
         if self.replayer.done:
             messages = _end_messages(self.verification)
-        return ModeInfo(label, color, HINTS, messages)
+        return ModeInfo(label, color, SHORTCUTS, messages)
 
     def run(self) -> None:
         elapsed = 0.0
         while self.running:
-            commands = self.renderer.poll_events()
+            commands = self.renderer.poll_events(game_over=self.replayer.done)
             if Command.QUIT in commands:
                 break
             for key in self.renderer.keys_pressed:
                 self.control.handle_key(key)
-            self.tick(elapsed)
+            self.tick(0.0 if self.renderer.modal_open else elapsed)
             env = self.replayer.env
             alpha = 1.0 if self.control.paused else self.clock.alpha
             self.renderer.draw(

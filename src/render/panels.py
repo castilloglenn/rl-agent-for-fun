@@ -17,6 +17,7 @@ from pygame import Rect, Surface
 
 from src.ecs import World
 from src.render import theme, warnings
+from src.render.layout import MARGIN
 from src.sim.components import (
     ActionInput,
     Checkpoint,
@@ -43,6 +44,7 @@ from src.utils.ui import draw_text, get_font
 
 DASH = "—"
 PADDING = 14
+CARD_GAP = MARGIN  # between boxes, the same as around them
 
 
 @dataclass(frozen=True)
@@ -54,8 +56,20 @@ class ModeInfo:
 
     label: str
     label_color: ColorValue
-    hints: str
+    shortcuts: tuple[tuple[str, str], ...]  # (key, what it does), for "?"
     messages: tuple[tuple[str, ColorValue], ...] = ()
+
+
+# Live play's keys, shown by "?" when no mode is active.
+LIVE_SHORTCUTS = (
+    ("W A S D / arrows", "drive"),
+    ("SPACE", "brake"),
+    ("P", "pause / resume"),
+    ("R", "restart"),
+    ("H", "lines"),
+    ("?", "these shortcuts"),
+    ("Esc", "quit (asks first)"),
+)
 
 
 @dataclass(frozen=True)
@@ -172,24 +186,40 @@ def draw_top_bar(
     world: World,
     car: CarInfo | None,
     hud: ConfigDict,
-    reward: RewardStatus | None = None,
-    mode: ModeInfo | None = None,
 ) -> None:
+    """One row of essentials: the car's gauges on the left (fuel joins in
+    step 9), and round, time, score, and the car's status on the right.
+    """
     _box(surface, rect)
-    x = rect.x + PADDING
-    y = rect.y + 8
+    y = rect.y + (rect.height - theme.BIG_SIZE) // 2 - 2
+    if car is not None:
+        draw_gauge(surface, "HEALTH", car.health, rect.x + PADDING, y)
+
     state = world.resource(RoundState)
     time_left = seconds_left(world)
-    items = (
+    items = [
         ("ROUND", f"{state.number}/{state.total}", warnings.NORMAL),
         ("TIME", format_time(time_left), warnings.time_level(time_left, hud)),
         ("SCORE", f"{car.score.total:,.0f}" if car else DASH, warnings.NORMAL),
-    )
-    for label, value, level in items:
+    ]
+    status = car_status(car) if car is not None else None
+    # Measured first, so the group ends at the right edge.
+    label_font = get_font(theme.HEADER_SIZE)
+    value_font = get_font(theme.BIG_SIZE, True)
+    widths = [
+        label_font.size(label)[0] + 8 + value_font.size(value)[0]
+        for label, value, _ in items
+    ]
+    total = sum(widths) + 28 * (len(items) - 1)
+    if status:  # a fixed slot: a changing status never moves the rest
+        status_font = get_font(theme.TEXT_SIZE, True)
+        total += 28 + max(status_font.size(text)[0] for text in STATUSES)
+    x = rect.right - PADDING - total
+    for (label, value, level), width in zip(items, widths):
         label_rect = draw_text(
             surface, label, (x, y + 3), theme.HEADER_SIZE, theme.TEXT_DIM
         )
-        value_rect = draw_text(
+        draw_text(
             surface,
             value,
             (label_rect.right + 8, y),
@@ -197,107 +227,65 @@ def draw_top_bar(
             warnings.value_color(level),
             bold=True,
         )
-        x = value_rect.right + 28
+        x += width + 28
+    if status:
+        text, color = status
+        draw_text(surface, text, (x, y + 2), theme.TEXT_SIZE, color, True)
 
-    if car is not None:
-        if car.eliminated:
-            status, color = "WRECKED", theme.BAD
-        elif car.speed > 0:
-            status, color = "DRIVING", theme.GOOD
-        elif car.speed < 0:
-            status, color = "REVERSING", theme.GOOD
-        else:
-            status, color = "STOPPED", theme.WARN
-        status_rect = draw_text(
-            surface, status, (x, y + 2), theme.TEXT_SIZE, color, True
-        )
-        x = status_rect.right + 28
-    right = rect.right - PADDING
-    if car is not None:  # gauges, right-aligned (fuel joins in step 9)
-        right = draw_gauge(surface, "HEALTH", car.health, right, y).left - 16
-    if mode:
-        draw_text(
-            surface,
-            _fit(mode.label, right - x, theme.TEXT_SIZE),
-            (x, y + 2),
-            theme.TEXT_SIZE,
-            mode.label_color,
-            bold=True,
-        )
 
-    y += 26
-    x = rect.x + PADDING
-    details = [
-        ("DRIVER", car.label if car else DASH),
-        *round_details(world, reward),
-    ]
-    right_edge = rect.right - PADDING
-    label_font = get_font(theme.HEADER_SIZE)
-    min_value = get_font(theme.TEXT_SIZE).size("xx…")[0]
-    for label, value in details:
-        if x + label_font.size(label)[0] + 6 + min_value > right_edge:
-            break  # no room for this label and a short value
-        label_rect = draw_text(
-            surface, label, (x, y + 1), theme.HEADER_SIZE, theme.TEXT_DIM
-        )
-        value_x = label_rect.right + 6
-        value = _fit(value, right_edge - value_x, theme.TEXT_SIZE)
-        value_rect = draw_text(
-            surface, value, (value_x, y), theme.TEXT_SIZE, theme.TEXT
-        )
-        x = value_rect.right + 16
-        if x >= right_edge:
-            break
+STATUSES = ("DRIVING", "REVERSING", "STOPPED", "WRECKED")
+
+
+def car_status(car: CarInfo) -> tuple[str, ColorValue]:
+    if car.eliminated:
+        return "WRECKED", theme.BAD
+    if car.speed > 0:
+        return "DRIVING", theme.GOOD
+    if car.speed < 0:
+        return "REVERSING", theme.GOOD
+    return "STOPPED", theme.WARN
 
 
 def draw_gauge(
     surface: Surface,
     label: str,
     share: float,
-    right: float,
+    left: float,
     y: float,
     blocks: int = 10,
 ) -> Rect:
-    """A retro gauge ending at `right`: label, filled blocks, and a
+    """A retro gauge starting at `left`: label, filled blocks, and a
     percentage. Green above 60 %, amber from 30 %, red below. Returns its
     area.
     """
     color = health_color(share)
-    value = draw_text(
-        surface,
-        f"{share:.0%}",
-        (right, y + 2),
-        theme.TEXT_SIZE,
-        color,
-        bold=True,
-        anchor="topright",
+    label_rect = draw_text(
+        surface, label, (left, y + 3), theme.HEADER_SIZE, theme.TEXT_DIM
     )
-    value.width = get_font(theme.TEXT_SIZE, True).size("100%")[0]
-    value.right = right  # a steady width, so the blocks don't jump
     filled = max(round(share * blocks), 1 if share > 0 else 0)
     size, gap = 10, 3
-    left = value.left - 10 - blocks * (size + gap) + gap
+    start = label_rect.right + 8
     top = y + 6
     for i in range(blocks):
         pygame.draw.rect(
             surface,
             color if i < filled else theme.BAR_EMPTY,
-            Rect(left + i * (size + gap), top, size, size),
+            Rect(start + i * (size + gap), top, size, size),
         )
-    label_rect = draw_text(
+    value = draw_text(
         surface,
-        label,
-        (left - 8, y + 3),
-        theme.HEADER_SIZE,
-        theme.TEXT_DIM,
-        anchor="topright",
+        f"{share:.0%}",
+        (start + blocks * (size + gap) - gap + 10, y + 2),
+        theme.TEXT_SIZE,
+        color,
+        bold=True,
     )
     return label_rect.union(value)
 
 
-def _fit(text: str, width: float, size: int) -> str:
+def _fit(text: str, width: float, size: int, bold: bool = False) -> str:
     """`text`, shortened with "…" to fit `width` pixels."""
-    font = get_font(size)
+    font = get_font(size, bold)
     if font.size(text)[0] <= width:
         return text
     while text and font.size(text + "…")[0] > width:
@@ -325,16 +313,23 @@ def round_details(
 
 
 class _Column:
-    """Draws panel sections top to bottom."""
+    """Draws panel sections top to bottom, each in its own box (a card),
+    with a gap between them.
+    """
 
     def __init__(self, surface: Surface, rect: Rect) -> None:
         self.surface = surface
         self.rect = rect
         self.left = rect.x + PADDING
         self.right = rect.right - PADDING
-        self.y = rect.y + PADDING
+        self.y = rect.y
+        self.card_top: int | None = None
 
     def header(self, title: str) -> None:
+        """Starts a section: closes the previous card, opens a new one."""
+        self.finish()
+        self.card_top = self.y
+        self.y += 10
         draw_text(
             self.surface,
             title,
@@ -348,6 +343,12 @@ class _Column:
     def row(
         self, label: str, value: str, level: int = warnings.NORMAL
     ) -> None:
+        font = get_font(theme.TEXT_SIZE)
+        width = self.right - self.left
+        # The value keeps at least half the row, then the label fits.
+        label_width = min(font.size(label)[0], width // 2)
+        value = _fit(value, width - label_width - 12, theme.TEXT_SIZE)
+        label = _fit(label, width - font.size(value)[0] - 12, theme.TEXT_SIZE)
         draw_text(
             self.surface,
             label,
@@ -365,29 +366,98 @@ class _Column:
         )
         self.y += theme.LINE_HEIGHT
 
-    def note(self, text: str) -> None:
+    def note(
+        self, text: str, color: ColorValue = theme.TEXT_DIM, bold=False
+    ) -> None:
         draw_text(
             self.surface,
-            text,
+            _fit(text, self.right - self.left, theme.TEXT_SIZE, bold),
             (self.left, self.y),
             theme.TEXT_SIZE,
-            theme.TEXT_DIM,
+            color,
+            bold=bold,
         )
         self.y += theme.LINE_HEIGHT
 
     def gap(self) -> None:
-        self.y += 6
+        """The end of a section (finish draws its card)."""
+
+    def finish(self) -> None:
+        """Draws the open card's box around what was drawn in it."""
+        if self.card_top is None:
+            return
+        bottom = self.y + 6  # rows leave ~5 px under their text
+        _box(
+            self.surface,
+            Rect(
+                self.rect.x,
+                self.card_top,
+                self.rect.width,
+                bottom - self.card_top,
+            ),
+        )
+        self.y = bottom + CARD_GAP
+        self.card_top = None
 
 
-def draw_side_panel(
+def draw_game_panel(
+    surface: Surface,
+    rect: Rect,
+    world: World,
+    cars: list[CarInfo],
+    reward: RewardStatus | None = None,
+    mode: ModeInfo | None = None,
+) -> None:
+    """Left: who's playing, which game, and how it's going."""
+    column = _Column(surface, rect)
+    car = cars[0] if cars else None
+
+    column.header("DRIVER")
+    column.note(car.label if car else DASH, theme.TEXT, bold=True)
+    if mode:
+        column.note(mode.label, mode.label_color, bold=True)
+    else:
+        column.note("Live play")
+    column.gap()
+
+    column.header("GAME")
+    for label, value in round_details(world):
+        column.row(label.capitalize(), value)
+
+    column.header("SCORE (game points)")
+    if car:
+        column.row("Distance", f"+{car.score.distance_points:,.0f}")
+        column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
+
+    column.header("LEADERBOARD")
+    ranked = sorted(cars, key=lambda info: -info.score.total)
+    for rank, info in enumerate(ranked, start=1):
+        column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
+
+    # What an agent learns from, and the simulation it steps through.
+    column.header("AGENT")
+    if reward:
+        column.row("Reward profile", reward.profile)
+        column.row("Reward this game", f"{reward.total:+,.2f}")
+    else:
+        column.note("No reward profile")
+    column.row("Step", f"{world.resource(SimClock).step:,}")
+    sim_rate = world.resource(SimConfig).steps_per_second
+    column.row("Sim rate", f"{sim_rate} steps/s")
+    column.finish()
+
+
+def draw_car_panel(
     surface: Surface,
     rect: Rect,
     world: World,
     cars: list[CarInfo],
     hud: ConfigDict,
-    reward: RewardStatus | None = None,
+    display: tuple[float, int, bool] = (0.0, 60, False),
 ) -> None:
-    _box(surface, rect)
+    """Right: the car's live instruments, next to the field, and the
+    display. display: (fps, target frame rate, vsync).
+    """
     column = _Column(surface, rect)
     car = cars[0] if cars else None
     stop_distance = 0.0
@@ -436,29 +506,17 @@ def draw_side_panel(
     else:
         column.row("Checkpoint", DASH)
     column.row("Collected", str(car.score.checkpoints) if car else DASH)
-    column.gap()
 
-    column.header("SCORE (game points)")
-    if car:
-        column.row("Distance", f"+{car.score.distance_points:,.0f}")
-        column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
-        column.row("Last step", f"+{car.score.last_step:g}")
-    column.gap()
-
-    column.header(
-        f"AGENT REWARD ({reward.profile})" if reward else "AGENT REWARD"
+    fps, frame_rate, vsync = display
+    column.header("DISPLAY")
+    column.row(
+        "FPS",
+        f"{fps:.0f}/{frame_rate}",
+        warnings.fps_level(fps, frame_rate, hud),
     )
-    if reward:
-        column.row("Last step", f"{reward.last:+,.2f}")
-        column.row("This game", f"{reward.total:+,.2f}")
-    else:
-        column.note("No reward profile")
-    column.gap()
-
-    column.header("LEADERBOARD")
-    ranked = sorted(cars, key=lambda info: -info.score.total)
-    for rank, info in enumerate(ranked, start=1):
-        column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
+    column.row("Vsync", "on" if vsync else "off")
+    column.note("?  shortcuts")
+    column.finish()
 
 
 # Mirrored columns: the car's left side on the left, right side on the right.
@@ -555,63 +613,3 @@ def _draw_inputs(column: _Column, action: ActionInput) -> None:
         )
         x = rect.left - 10
     column.y += theme.LINE_HEIGHT
-
-
-# Bottom bar
-
-
-def draw_bottom_bar(
-    surface: Surface,
-    rect: Rect,
-    world: World,
-    fps: float,
-    frame_rate: int,
-    vsync: bool,
-    hud: ConfigDict,
-    hints: str = "R: restart  H: lines",
-) -> None:
-    _box(surface, rect)
-    y = rect.centery
-    _draw_events(surface, rect, world)
-    step = world.resource(SimClock).step
-    sim_rate = world.resource(SimConfig).steps_per_second
-    sync = " vsync" if vsync else ""
-    fps_level = warnings.fps_level(fps, frame_rate, hud)
-    # Drawn right to left, so only the FPS part can change color.
-    parts = (
-        (hints, theme.TEXT_DIM),
-        (f"FPS {fps:.0f}/{frame_rate}{sync}", warnings.label_color(fps_level)),
-        (f"SIM {sim_rate}/s", theme.TEXT_DIM),
-        (f"Step {step:,}", theme.TEXT_DIM),
-    )
-    x = rect.right - PADDING
-    for text, color in parts:
-        drawn = draw_text(
-            surface, text, (x, y), theme.TEXT_SIZE, color, anchor="midright"
-        )
-        x = drawn.left - 20
-
-
-def _draw_events(surface: Surface, rect: Rect, world: World) -> None:
-    """The latest event, with its time into the round."""
-    events = world.resource(EventLog).events
-    if not events:
-        text, color = "No events yet", theme.TEXT_DIM
-    else:
-        event = events[-1]
-        sps = world.resource(SimConfig).steps_per_second
-        text = f"{format_time(event.step / sps)}  {event.text}"
-        if event.danger:
-            color = theme.BAD
-        elif event.kind == "checkpoint":
-            color = theme.GOOD
-        else:
-            color = theme.TEXT
-    draw_text(
-        surface,
-        text,
-        (rect.x + PADDING, rect.centery),
-        theme.TEXT_SIZE,
-        color,
-        anchor="midleft",
-    )

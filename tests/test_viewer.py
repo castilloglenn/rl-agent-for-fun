@@ -105,7 +105,7 @@ def test_the_hud_shows_the_replay(viewer):
     env = viewer.replayer.env
     viewer.renderer.draw(env.world, 1.0, env.reward_status(), viewer.mode())
     assert env.driver == "zen (replay)"
-    assert viewer.mode().hints.startswith("SPACE pause")
+    assert viewer.mode().shortcuts[0] == ("SPACE / P", "pause / resume")
 
 
 def test_presentation_settings_come_from_the_viewer_config():
