@@ -6,7 +6,7 @@
 	runs run_heuristic run_random run_driver run_episodes run_reward \
 	run_rules run_stage run_seconds run_best recordings replay_last \
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
-	resume_last eval eval_baselines
+	resume_last eval eval_baselines agents agent
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -47,6 +47,8 @@ help:
 	@echo "  make resume_last                     resume the newest stopped training run"
 	@echo "  make eval AGENT=id                   score an agent's checkpoints (suites/box.json)"
 	@echo "  make eval_baselines                  score the heuristic and random baselines"
+	@echo "  make agents                          list agents: best score, milestone"
+	@echo "  make agent AGENT=id                  an agent's digest: lineage, scores, trend"
 	@echo "Develop"
 	@echo "  make test                            run all tests"
 	@echo "  make test_file FILE=path             run one test file"
@@ -200,3 +202,10 @@ eval:
 
 eval_baselines:
 	python app.py -eval_baselines
+
+agents:
+	python app.py -list_agents
+
+agent:
+	$(call require,AGENT,my_agent)
+	python app.py -show_agent $(AGENT)

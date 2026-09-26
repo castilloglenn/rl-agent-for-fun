@@ -40,7 +40,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5a3 | Full checkpoints (optimizer and random states too), exact resume (`make resume`, `make resume_last`), branch into a new agent ([decision 015](decisions/015-exact-resume-by-resimulation.md)) | Done |
 | 5a4 | Car health: wall hits cost health by impact speed (speed into the wall), the car stops on contact, wrecked at 0. Collisions in the rules file, health in the observation, `damage` reward term, HEALTH gauge and hit blink ([decision 016](decisions/016-car-health-and-wall-hits.md)) | Done |
 | 5a5 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint, best checkpoint picked (`make eval`, [decision 017](decisions/017-evaluation-suite.md)) | Done |
-| 5a6 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Next |
+| 5a6 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `make agent` digest ([decision 018](decisions/018-agent-history-and-profile.md)). **Milestone: the first skilled agent**, checked at each scoring | Done |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
 | 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
@@ -310,9 +310,9 @@ runs/<run_id>/      per-episode detail (step 4h)
 | Checkpoints | Milestones only: best, latest, every Nth, and any branch point | A retention policy prunes the rest |
 | Replays | New bests and evaluation episodes only, gzipped | Forever |
 
-- Rough sizes (ESTIMATES, NOT MEASURED): 1,000 history events ≈ 200 KB. A checkpoint with optimizer state ≈ 60 KB (about 5,000 network parameters), so 50 milestones ≈ 3 MB per agent.
+- Sizes, measured in 5a6: about 180 bytes per history event, a ~1 KB profile, 50 KB per checkpoint (weights), and about 1.1 MB of checkpoints per 2M-decision phase. The optimizer state lives in the run's `resume.pt` (257 KB) instead. So the retention policy is **not built yet**: every checkpoint is kept until agents grow much larger.
 - **Token-efficient review:** read `profile.json` first, then only the relevant history lines. Per-episode CSVs only when needed.
-- An `agent summary <id>` command prints a compact digest (lineage, skills, trend) for both humans and Claude.
+- **Built in 5a6** ([decision 018](decisions/018-agent-history-and-profile.md)): `make agent AGENT=id` prints the digest (lineage, best scores next to the heuristic, score trend, totals, milestone), and `make agents` lists every agent.
 
 #### 5b. Imitation agents
 

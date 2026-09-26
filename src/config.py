@@ -27,6 +27,8 @@ flags.DEFINE_boolean("resume_last", False, "Resume the newest stopped run.")
 flags.DEFINE_string("eval", "", "Score an agent's checkpoints (suite).")
 flags.DEFINE_boolean("eval_baselines", False, "Score the baselines (suite).")
 flags.DEFINE_string("suite", "box", "Evaluation suite: suites/<name>.json.")
+flags.DEFINE_boolean("list_agents", False, "List agents (profiles).")
+flags.DEFINE_string("show_agent", "", "Print an agent's digest.")
 flags.DEFINE_string(
     "from", "", "Branch a new agent from <id>[@checkpoint] (-new_agent)."
 )

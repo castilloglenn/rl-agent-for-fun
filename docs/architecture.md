@@ -106,6 +106,7 @@ agents/<id>/                (gitignored: local data)
 | `model.py` | `ModelSpec` (from/to dict, validated) and `load_model_spec(name or path)` |
 | `network.py` | `PolicyNetwork(spec, obs_size, actions)`: separate policy and value MLPs (multilayer perceptrons). `forward(obs)` returns (action logits, values) |
 | `store.py` | `create_agent(id, spec, seed)`: seeded weights, without touching global torch randomness. `load_agent(id or path, checkpoint)`: the newest checkpoint by default (`prefer_best` or `"best"`: the best scored one). `save_checkpoint` |
+| `history.py` | `record(folder, event, ...)` appends to `history.jsonl` and rebuilds `profile.json` (`build_profile`: model, lineage, totals, best scores, milestone). Events come from the store (created, branched), training, and scoring ([decision 018](decisions/018-agent-history-and-profile.md)) |
 | `trainer.py` | `TrainerSpec` (unknown or missing keys refused) and `load_trainer_spec(name or path)` |
 | `ppo.py` | PPO math: `Rollout`, `advantages()` (GAE, no value across an episode end), `update()` (clipped policy loss, value loss, entropy bonus, gradient clipping), `UpdateStats` |
 | `driver.py` | `AgentDriver`: decides every `action_repeat` steps and holds the action in between. Deterministic (highest-scoring action) by default, or seeded sampling. Record `{"type": "agent", "id", "checkpoint"}`, label `<id> (agent)` |
@@ -168,6 +169,10 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 - Training scores each saved checkpoint when the trainer's `evaluate` is on, with a separate env and driver, so training itself is unchanged.
 - `load_agent(..., prefer_best=True)` (watching) loads the best scored checkpoint, else the newest. `"best"` asks for it explicitly.
+
+### Agent digests (`src/experiments/agents.py`)
+
+`list_agents()` and `format_agents()` for `make agents`, and `agent_summary(id)` for `make agent`: the profile, the score trend over scored checkpoints (a sparkline), and the heuristic's score from the baseline cache. Scoring a checkpoint (`evaluation.py`) records `scored`, `new_best`, and, once, the `milestone`.
 
 ## Replays (`src/replay/`)
 
@@ -235,4 +240,4 @@ every drawn frame:
 
 ## Not built yet
 
-Agent history and profiles, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).
+Imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).

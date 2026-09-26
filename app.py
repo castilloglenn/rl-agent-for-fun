@@ -53,6 +53,17 @@ def _dispatch(cl_args) -> None:
         _resume(cl_args, config)
     elif cl_args.eval or cl_args.eval_baselines:
         _evaluate(cl_args, config)
+    elif cl_args.list_agents:
+        from src.experiments.agents import format_agents, list_agents
+
+        print(format_agents(list_agents()))
+    elif cl_args.show_agent:
+        from src.experiments.agents import AgentError, agent_summary
+
+        try:
+            print(agent_summary(cl_args.show_agent))
+        except AgentError as error:
+            raise SystemExit(str(error))
     elif cl_args.list_recordings:
         from src.replay.recordings import format_recordings, list_recordings
 
@@ -165,12 +176,10 @@ def _resume(cl_args, config) -> None:
 def _evaluate(cl_args, config) -> None:
     import torch
 
-    from src.agents.store import AgentError
-    from src.drivers.heuristic import CompassDriver
-    from src.drivers.random_driver import RandomDriver
+    from src.agents.store import AGENTS_DIR, AgentError
     from src.experiments.evaluation import (
         SuiteError,
-        evaluate,
+        baseline_scores,
         evaluate_agent,
         format_results,
         load_suite,
@@ -180,13 +189,7 @@ def _evaluate(cl_args, config) -> None:
     try:
         suite = load_suite(cl_args.suite)
         print(f"Suite {suite.label}: {suite.description}")
-        baselines = {
-            name: evaluate(driver, suite, config)
-            for name, driver in (
-                ("heuristic", CompassDriver()),
-                ("random", RandomDriver()),
-            )
-        }
+        baselines = baseline_scores(suite, AGENTS_DIR, config)
         rows = []
         if cl_args.eval:
             rows = evaluate_agent(

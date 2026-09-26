@@ -50,6 +50,8 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make resume RUN=folder` | Resume a stopped training run exactly, with its own trainer, stage, rules, and reward |
 | `make eval AGENT=id` | Score an agent's checkpoints with the evaluation suite (`suites/box.json`), shown next to the baselines, best marked. Watching the agent then uses the best one |
 | `make eval_baselines` | Score the heuristic and random baselines only |
+| `make agents` | List every agent: model, decisions, best checkpoint and score, milestone, last update |
+| `make agent AGENT=id` | An agent's digest: lineage, best scores next to the heuristic, score trend, totals, milestone |
 | `make resume_last` | Resume the newest stopped training run |
 | `make test` | Run all tests |
 | `make test_file FILE=path` | Run one test file |
@@ -58,7 +60,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `-resume <folder>`, `-resume_last`, `--from <agent>@<checkpoint>` (with `-new_agent`: branch a new agent from a checkpoint), `-eval <id>`, `-eval_baselines`, `--suite` (default `box`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `-resume <folder>`, `-resume_last`, `--from <agent>@<checkpoint>` (with `-new_agent`: branch a new agent from a checkpoint), `-eval <id>`, `-eval_baselines`, `--suite` (default `box`), `-list_agents`, `-show_agent <id>`, `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 

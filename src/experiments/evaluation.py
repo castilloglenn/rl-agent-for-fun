@@ -20,7 +20,8 @@ from pathlib import Path
 from ml_collections import ConfigDict
 
 from src.agents.driver import AgentDriver
-from src.agents.store import BEST_FILE, load_agent
+from src.agents.history import BEST_FILE, read_history, record
+from src.agents.store import load_agent
 from src.config import get_maze_car_config
 from src.drivers.base import Driver
 from src.envs.maze_car.env import MazeCarEnv
@@ -30,6 +31,7 @@ from src.sim.resources import Field, SimConfig
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.sim.systems.sensors import cast_rays
+from src.utils.version import code_version
 
 SUITE_FORMAT = 1
 SUITES_DIR = Path(__file__).resolve().parents[2] / "suites"
@@ -282,16 +284,82 @@ def evaluate_checkpoint(
         writer.writeheader()
         for r in rows:
             writer.writerow({k: _round_value(r[k]) for k in COLUMNS})
+    record(
+        agent_folder,
+        "scored",
+        checkpoint=checkpoint,
+        suite=suite.label,
+        **{k: round(row[k], 4) for k in COLUMNS[2:]},
+    )
     if suite.name == DEFAULT_SUITE:
-        best = best_row(rows)
-        (agent_folder / BEST_FILE).write_text(
-            json.dumps(
-                {"suite": suite.label, "checkpoint": best["checkpoint"]},
-                indent=2,
-            )
-            + "\n"
-        )
+        _update_best(agent_folder, suite, rows, base_config)
     return row
+
+
+def _update_best(agent_folder, suite, rows, base_config) -> None:
+    """Saves the best checkpoint, and records the milestone once the best
+    one first beats the heuristic and survives most rounds.
+    """
+    path = agent_folder / BEST_FILE
+    before = None
+    if path.exists():
+        before = json.loads(path.read_text())["checkpoint"]
+    best = best_row(rows)
+    path.write_text(
+        json.dumps({"suite": suite.label, "checkpoint": best["checkpoint"]})
+        + "\n"
+    )
+    if best["checkpoint"] != before:
+        record(
+            agent_folder,
+            "new_best",
+            checkpoint=best["checkpoint"],
+            suite=suite.label,
+            score_mean=round(best["score_mean"], 1),
+        )
+    if any(e["event"] == "milestone" for e in read_history(agent_folder)):
+        return
+    heuristic = baseline_scores(suite, agent_folder.parent, base_config)[
+        "heuristic"
+    ]
+    beats = best["score_mean"] > heuristic["score_mean"]
+    if beats and best["wreck_rate"] < 0.5:
+        record(
+            agent_folder,
+            "milestone",
+            name="first skilled agent",
+            checkpoint=best["checkpoint"],
+            decisions=best["decisions"],
+            suite=suite.label,
+            score_mean=round(best["score_mean"], 1),
+            wreck_rate=round(best["wreck_rate"], 4),
+            heuristic_score=round(heuristic["score_mean"], 1),
+        )
+
+
+def baseline_scores(
+    suite: Suite, agents_root: Path, base_config: ConfigDict | None = None
+) -> dict[str, dict]:
+    """The heuristic's and random driver's scores on the suite, cached in
+    <agents root>/baselines/<suite>-v<version>.json for this code version.
+    """
+    from src.drivers.heuristic import CompassDriver
+    from src.drivers.random_driver import RandomDriver
+
+    path = Path(agents_root) / "baselines" / f"{suite.label}.json"
+    if path.exists():
+        cached = json.loads(path.read_text())
+        if cached.get("code") == code_version():
+            return cached["scores"]
+    scores = {
+        "heuristic": evaluate(CompassDriver(), suite, base_config),
+        "random": evaluate(RandomDriver(), suite, base_config),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"code": code_version(), "scores": scores}, indent=2) + "\n"
+    )
+    return scores
 
 
 def evaluate_agent(

@@ -29,6 +29,7 @@ from typing import Callable
 import torch
 from ml_collections import ConfigDict
 
+from src.agents.history import record
 from src.agents.ppo import Rollout, UpdateStats, update
 from src.agents.store import (
     LoadedAgent,
@@ -73,6 +74,7 @@ LEARNING_COLUMNS = (
     "clip_fraction",
 )
 RECENT = 20  # episodes averaged in learning.csv and progress lines
+EPISODE_SUMMARY = 100  # a history summary line per this many episodes
 SUMMARY_EPISODES = 100  # episodes behind the summary's mean and survival
 RESUME_FORMAT = 1
 
@@ -158,6 +160,18 @@ def train_agent(
         suite=suite,
     )
     training.write_config()
+    world = env.world
+    record(
+        loaded.folder,
+        "phase_started",
+        run=folder.name,
+        trainer=trainer.name,
+        reward=env.reward_profile.name,
+        stage=world.resource(Stage).name,
+        rules=world.resource(Rules).name,
+        start_checkpoint=loaded.checkpoint,
+        start_decisions=loaded.decisions,
+    )
     (folder / "notes.md").write_text(
         f"# {folder.name}\n\nYour observations.\n"
     )
@@ -226,6 +240,12 @@ def resume_training(
         suite=(run_config.get("suite") or {}).get("name", suite),
     )
     training.restore(state)
+    record(
+        loaded.folder,
+        "phase_resumed",
+        run=folder.name,
+        decisions=training.start_decisions + training.learned,
+    )
     return training.run(on_update)
 
 
@@ -505,6 +525,20 @@ class _Training:
                 / "replays"
                 / f"ep{self.episode:04d}_score{result.score:.0f}.jsonl.gz"
             )
+        if (self.episode + 1) % EPISODE_SUMMARY == 0:
+            last = self.results[-EPISODE_SUMMARY:]
+            record(
+                self.agent.folder,
+                "episodes",
+                run=self.folder.name,
+                first=self.episode - EPISODE_SUMMARY + 1,
+                last=self.episode,
+                score_mean=round(statistics.mean(r.score for r in last), 1),
+                score_min=min(r.score for r in last),
+                score_max=max(r.score for r in last),
+                wreck_rate=sum(r.ended_by == "wrecked" for r in last)
+                / len(last),
+            )
         self.episode += 1
         self._start_episode()
 
@@ -544,6 +578,13 @@ class _Training:
         )
         if name not in self.saved:
             self.saved.append(name)
+        record(
+            self.agent.folder,
+            "checkpoint_saved",
+            run=self.folder.name,
+            checkpoint=name,
+            decisions=self.start_decisions + self.learned,
+        )
         self.saved_at = self.learned
         return name
 
@@ -689,6 +730,17 @@ class _Training:
                 {**asdict(summary), "folder": str(summary.folder)}, indent=2
             )
             + "\n"
+        )
+        record(
+            self.agent.folder,
+            "phase_ended",
+            run=self.folder.name,
+            interrupted=interrupted,
+            decisions=summary.agent_decisions,
+            episodes=summary.episodes,
+            seconds=summary.seconds,
+            mean_score=round(summary.mean_score, 1),
+            survival_rate=round(summary.survival_rate, 4),
         )
         return summary
 

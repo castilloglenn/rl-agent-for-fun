@@ -13,6 +13,7 @@ from pathlib import Path
 
 import torch
 
+from src.agents.history import BEST_FILE, record
 from src.agents.model import ModelSpec
 from src.agents.network import PolicyNetwork
 from src.drivers.actions import CANONICAL_ACTIONS, CANONICAL_NAMES
@@ -20,7 +21,6 @@ from src.sim.observation import OBSERVATION_NAMES, OBSERVATION_VERSION
 
 AGENTS_DIR = Path(__file__).resolve().parents[2] / "agents"
 CHECKPOINT_FORMAT = 1
-BEST_FILE = "evaluations/best.json"  # the best checkpoint, from 5a5
 _ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
@@ -55,6 +55,7 @@ def create_agent(
         torch.manual_seed(seed)
         network = new_network(spec)
     save_checkpoint(folder, "initial", network, spec, {"seed": seed})
+    record(folder, "created", model=spec.name, seed=seed)
     return folder
 
 
@@ -81,6 +82,16 @@ def branch_agent(
                 "agent": parent.agent_id,
                 "checkpoint": parent.checkpoint,
             },
+        },
+    )
+    record(
+        folder,
+        "created",
+        model=parent.spec.name,
+        decisions=parent.decisions,
+        branched_from={
+            "agent": parent.agent_id,
+            "checkpoint": parent.checkpoint,
         },
     )
     return folder
