@@ -25,19 +25,32 @@ def _dispatch(cl_args) -> None:
         print("TODO: Run unittests")
     elif cl_args.new_agent:
         from src.agents.model import load_model_spec
-        from src.agents.store import AgentError, create_agent
+        from src.agents.store import AgentError, branch_agent, create_agent
 
+        source = getattr(cl_args, "from")
         try:
-            folder = create_agent(
-                cl_args.new_agent, load_model_spec(cl_args.model), cl_args.seed
-            )
+            if source:
+                parent, _, checkpoint = source.partition("@")
+                folder = branch_agent(
+                    cl_args.new_agent, parent, checkpoint or None
+                )
+                made = f"branched from {source}"
+            else:
+                folder = create_agent(
+                    cl_args.new_agent,
+                    load_model_spec(cl_args.model),
+                    cl_args.seed,
+                )
+                made = cl_args.model
         except AgentError as error:
             raise SystemExit(str(error))
-        print(f"Created agent {cl_args.new_agent!r} ({cl_args.model})")
+        print(f"Created agent {cl_args.new_agent!r} ({made})")
         print(f"  {folder}")
         print(f"Watch it: make maze_car_agent AGENT={cl_args.new_agent}")
     elif cl_args.train:
         _train(cl_args, config)
+    elif cl_args.resume or cl_args.resume_last:
+        _resume(cl_args, config)
     elif cl_args.list_recordings:
         from src.replay.recordings import format_recordings, list_recordings
 
@@ -101,20 +114,6 @@ def _train(cl_args, config) -> None:
     if cl_args.round_seconds > 0:
         rules = rules.with_round_seconds(cl_args.round_seconds)
 
-    def progress(report):
-        if report.update % 10 and not report.saved:
-            if report.decisions < report.total:
-                return
-        score = (
-            "" if report.score_mean is None else f"{report.score_mean:,.0f}"
-        )
-        line = (
-            f"  {report.decisions:>9,}/{report.total:,} decisions  "
-            f"{report.episodes:>4} episodes  score {score:>6}  "
-            f"entropy {report.stats.entropy:.2f}  {report.seconds:,.0f} s"
-        )
-        print(line + (f"  saved {report.saved}" if report.saved else ""))
-
     try:
         trainer = load_trainer_spec(cl_args.trainer)
         print(
@@ -128,7 +127,7 @@ def _train(cl_args, config) -> None:
             first_seed=cl_args.seed,
             reward=cl_args.reward,
             rules=rules,
-            on_update=progress,
+            on_update=_training_progress,
         )
     except AgentError as error:
         raise SystemExit(
@@ -136,6 +135,45 @@ def _train(cl_args, config) -> None:
         )
     except TrainerError as error:
         raise SystemExit(str(error))
+    _training_done(summary)
+
+
+def _resume(cl_args, config) -> None:
+    import torch
+
+    from src.agents.store import AgentError
+    from src.experiments.training import (
+        TrainingError,
+        last_stopped_run,
+        resume_training,
+    )
+
+    torch.set_num_threads(1)
+    try:
+        run = cl_args.resume or last_stopped_run()
+        print(f"Resuming {run} (Ctrl+C stops again)")
+        summary = resume_training(
+            run, base_config=config, on_update=_training_progress
+        )
+    except (AgentError, TrainingError) as error:
+        raise SystemExit(str(error))
+    _training_done(summary)
+
+
+def _training_progress(report) -> None:
+    if report.update % 10 and not report.saved:
+        if report.decisions < report.total:
+            return
+    score = "" if report.score_mean is None else f"{report.score_mean:,.0f}"
+    line = (
+        f"  {report.decisions:>9,}/{report.total:,} decisions  "
+        f"{report.episodes:>4} episodes  score {score:>6}  "
+        f"entropy {report.stats.entropy:.2f}  {report.seconds:,.0f} s"
+    )
+    print(line + (f"  saved {report.saved}" if report.saved else ""))
+
+
+def _training_done(summary) -> None:
     state = "interrupted, " if summary.interrupted else ""
     print(
         f"Done ({state}{summary.decisions:,} decisions, "
@@ -145,7 +183,9 @@ def _train(cl_args, config) -> None:
     )
     print(f"Checkpoints: {', '.join(summary.checkpoints) or 'none'}")
     print(f"Saved in {summary.folder}")
-    print(f"Watch it: make maze_car_agent AGENT={cl_args.train}")
+    if summary.interrupted:
+        print("Resume it exactly: make resume_last")
+    print(f"Watch it: make maze_car_agent AGENT={summary.agent}")
 
 
 def _experiment_run(cl_args, config) -> None:

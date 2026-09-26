@@ -37,12 +37,12 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Next |
 | 5a1 | Agent core: model files (`models/`), policy network, `AgentDriver` (12 canonical actions, action repeat 4), saving and loading agents ([decision 014](decisions/014-model-and-trainer-files.md)) | Done |
 | 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Done |
-| 5a3 | Full checkpoints (optimizer and random states too), exact resume, pause, branch. 5a2's Ctrl+C already keeps the weights | Next |
-| 5a4 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Planned |
+| 5a3 | Full checkpoints (optimizer and random states too), exact resume (`make resume`, `make resume_last`), branch into a new agent ([decision 015](decisions/015-exact-resume-by-resimulation.md)) | Done |
+| 5a4 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Next |
 | 5a5 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Planned |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
-| 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
-| 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
+| 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Planned |
+| 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
@@ -251,9 +251,9 @@ How agents are trained is flexible: imitation only, RL only, or both in either o
 
 - A torch neural network drives the car through the env, and learns by trial and error over many episodes.
 - **Output of training:** the weights go to the agent (`agents/<id>/checkpoints/d0100k.pt`, ...), so watching the agent always picks up its newest ones. The run folder holds the config, metrics, learning curve (`learning.csv`), and best replays, and records which checkpoints it wrote.
-- **Pause in place:** training stops between episodes and stays in memory. While paused, you can watch replays or load the current weights into live play. Resume continues exactly.
-- **Stop and resume later:** save a checkpoint, exit, and resume from it any time.
-- **A full checkpoint holds:**
+- **Pause in place:** moved to step 6 (control center), which has a window to pause from. In the terminal, Ctrl+C plus exact resume covers it.
+- **Stop and resume later** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md)): Ctrl+C, then `make resume_last`. The resumed run ends exactly as an uninterrupted one would.
+- **A full checkpoint** (`runs/<run>/resume.pt`, rewritten after every update) **holds:**
 
   | Item | Why |
   |---|---|
@@ -261,9 +261,10 @@ How agents are trained is flexible: imitation only, RL only, or both in either o
   | Optimizer state | Avoids a learning stutter after resume |
   | Episode/step counters, best score | Keeps metrics and replays continuous |
   | Random number generator states | Makes a resumed run identical to an uninterrupted one |
+  | The current episode's seed and decisions so far | Rebuilds the game in progress by re-simulation (deterministic) |
   | Replay buffer (only for value-based algorithms like DQN, optional) | The agent's past experience. Can be tens to hundreds of MB. PPO, recommended in [decision 012](decisions/012-agent-training-modes.md), doesn't need one |
 
-- **Branch:** resume an old checkpoint with a changed setting as a new run, then compare.
+- **Branch** (5a3): `python app.py -new_agent <id> --from <agent>@<checkpoint>` makes a new agent from an old checkpoint. Train it with another trainer or reward, then compare.
 - **Observation spec:** the observation becomes configurable per run (number of rays, compass vs sensor-only), recorded in the run config together with its version. See [decision 010](decisions/010-decouple-before-file-formats.md).
 - **Reward profiles:** experiments swap the reward profile (from 4c), never the game score. The agent profile page shows which profile trained the agent.
 - **Action set covers human inputs:** 12 canonical actions (steering left/none/right × pedal none/gas/reverse/brake) express every one of the 32 key combinations exactly, because the simulation resolves input priorities. Recorded runs can then be learned exactly in 5b.

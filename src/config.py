@@ -22,6 +22,11 @@ flags.DEFINE_boolean("list_runs", False, "List experiment runs.")
 flags.DEFINE_string("new_agent", "", "Create an untrained agent with this id.")
 flags.DEFINE_string("model", "small", "Model for a new agent (models/).")
 flags.DEFINE_string("train", "", "Train this agent (a training phase).")
+flags.DEFINE_string("resume", "", "Resume a stopped training run (folder).")
+flags.DEFINE_boolean("resume_last", False, "Resume the newest stopped run.")
+flags.DEFINE_string(
+    "from", "", "Branch a new agent from <id>[@checkpoint] (-new_agent)."
+)
 flags.DEFINE_string(
     "trainer", "default", "Trainer: a name in trainers/, or a path."
 )

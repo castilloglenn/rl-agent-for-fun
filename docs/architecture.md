@@ -148,13 +148,17 @@ runs/<date>_<time>_train-<id>_seed<N>/
   learning.csv   one row per update: decisions, episodes, mean score and
                  reward of the last 20 episodes, losses, entropy, KL, clip
   replays/       each new best training episode
+  resume.pt      everything to continue exactly (after every update)
   summary.json   decisions, updates, last 100 episodes, checkpoints written
 agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 ```
 
 - Each decision samples the policy, holds it `action_repeat` steps, and its reward is the reward profile summed over them. A crash or time up ends the value chain. That's right for time up too, because `time_left` is in the observation.
 - Checkpoints are named by the agent's total decisions at the mark they passed (`d0100k` holds the weights after the first update past 100,000; the exact count is inside). A second phase continues the count.
-- Ctrl+C stops after saving the weights learned so far. Exact resume (optimizer and random states) is 5a3.
+- **Exact resume** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md)): after every update, `runs/<run>/resume.pt` holds the weights, optimizer, torch random state, counters, episode results, and the current episode's seed and decisions. `resume_training(run)` rebuilds the game by re-simulating that episode, and the run ends exactly as if it had never stopped. `last_stopped_run()` finds the newest stopped one.
+- Ctrl+C rolls back to the last update (it can land mid-rollout or mid-update), trims the CSVs to it, and saves its weights as a checkpoint.
+- Checkpoints record the run that wrote them. Resume is refused if another run trained the agent since, or while `training.lock` names a live process.
+- **Branch:** `branch_agent(new_id, source, checkpoint)` (`store.py`) copies the model and a checkpoint into a new agent's `initial`, with `branched_from` and the decision count.
 - Reproducible: the same agent, trainer, seeds, and files give the same `learning.csv` and weights. `app.py` sets torch to one thread.
 - Training replays record `{"type": "agent", "id", "training": {"run", "decisions"}}` as their driver.
 
@@ -224,4 +228,4 @@ every drawn frame:
 
 ## Not built yet
 
-Full checkpoints with exact resume, the evaluation suite, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).
+The evaluation suite, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).

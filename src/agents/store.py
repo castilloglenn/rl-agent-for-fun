@@ -35,6 +35,8 @@ class LoadedAgent:
     network: PolicyNetwork
     checkpoint: str  # checkpoint name, e.g. "initial"
     decisions: int = 0  # decisions trained on so far, over all phases
+    branched_from: dict | None = None  # {"agent", "checkpoint"} if branched
+    run: str | None = None  # the training run that wrote the checkpoint
 
 
 def new_network(spec: ModelSpec) -> PolicyNetwork:
@@ -47,6 +49,43 @@ def create_agent(
     """A new, untrained agent: its model plus an "initial" checkpoint with
     seeded random weights.
     """
+    folder = _new_folder(agent_id, spec, root)
+    with torch.random.fork_rng():  # seeded, without touching global state
+        torch.manual_seed(seed)
+        network = new_network(spec)
+    save_checkpoint(folder, "initial", network, spec, {"seed": seed})
+    return folder
+
+
+def branch_agent(
+    agent_id: str,
+    source: str | Path,
+    checkpoint: str | None = None,
+    root: Path | None = None,
+) -> Path:
+    """A new agent that starts from another agent's checkpoint (default:
+    its newest), with the same model. Its "initial" checkpoint records
+    where it branched from, and keeps the decision count going.
+    """
+    parent = load_agent(source, checkpoint, root=root)
+    folder = _new_folder(agent_id, parent.spec, root)
+    save_checkpoint(
+        folder,
+        "initial",
+        parent.network,
+        parent.spec,
+        {
+            "decisions": parent.decisions,
+            "branched_from": {
+                "agent": parent.agent_id,
+                "checkpoint": parent.checkpoint,
+            },
+        },
+    )
+    return folder
+
+
+def _new_folder(agent_id: str, spec: ModelSpec, root: Path | None) -> Path:
     if not _ID.match(agent_id):
         raise AgentError(
             f"agent id {agent_id!r}: use letters, digits, - and _ only"
@@ -59,10 +98,6 @@ def create_agent(
     (folder / "model.json").write_text(
         json.dumps(spec.to_dict(), indent=2) + "\n"
     )
-    with torch.random.fork_rng():  # seeded, without touching global state
-        torch.manual_seed(seed)
-        network = new_network(spec)
-    save_checkpoint(folder, "initial", network, spec, {"seed": seed})
     return folder
 
 
@@ -85,6 +120,11 @@ def save_checkpoint(
         path,
     )
     return path
+
+
+def checkpoint_run(path: Path) -> str | None:
+    """The training run that wrote a checkpoint file (None if none)."""
+    return torch.load(path, weights_only=True).get("run")
 
 
 def load_agent(
@@ -137,6 +177,8 @@ def load_agent(
         network,
         path.stem,
         int(data.get("decisions", 0)),
+        data.get("branched_from"),
+        data.get("run"),
     )
 
 
