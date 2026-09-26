@@ -30,14 +30,24 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_seconds SECONDS=n` | Another round length (the rules get renamed, for example `standard-90s`) |
 | `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
 | `make replay FILE=path` | Watch a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart |
+| `make runs` | List all experiment runs (newest first): driver, stage, rules, reward, episodes, mean and best score, survival |
+| `make run_heuristic` | Run the heuristic for 100 episodes, headless, into `runs/` |
+| `make run_random` | Same, with the random baseline |
+| `make run_driver DRIVER=name` | Run any headless driver (`random`, `heuristic`) |
+| `make run_episodes EPISODES=n` | Heuristic, `n` episodes |
+| `make run_reward REWARD=name` | Heuristic, with another reward profile |
+| `make run_rules RULES=name` | Heuristic, with other game rules |
+| `make run_stage STAGE=name` | Heuristic, on another stage |
+| `make run_seconds SECONDS=n` | Heuristic, with another round length |
+| `make run_best RUN=folder` | Watch a run's best replay |
 | `make test` | Run all tests |
 | `make test_file FILE=path` | Run one test file |
 | `make fixtures` | Regenerate the behavior fixtures (only for an intended behavior change) |
-| `make run` | Agent entry point (stub: `src/main.py` prints "Done.") |
+| `make main` | Agent entry point (stub: `src/main.py` prints "Done."). It was `make run` before step 4h |
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `--driver`, `--player`, `--reward`, `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 

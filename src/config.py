@@ -11,6 +11,15 @@ flags.DEFINE_string("player", "You", "Your player name (recordings, HUD).")
 flags.DEFINE_string(
     "reward", "default", "Reward profile: a name in rewards/, or a path."
 )
+flags.DEFINE_string("run", "", "Start an experiment run with this name.")
+flags.DEFINE_integer("episodes", 100, "Episodes in an experiment run.")
+flags.DEFINE_integer(
+    "seed", 0, "First seed of a run (episode i uses seed + i)."
+)
+flags.DEFINE_string("stage", "", "Stage by name or path (default: config).")
+flags.DEFINE_string("rules", "", "Rules by name or path (default: config).")
+flags.DEFINE_boolean("list_runs", False, "List experiment runs.")
+flags.DEFINE_string("best_replay", "", "Watch a run's best replay (folder).")
 flags.DEFINE_float(
     "round_seconds",
     0.0,

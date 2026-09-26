@@ -31,8 +31,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4e | Replay mode in the window: pause, 0.5×/1×/2×/4× speed, frame stepping, restart | Done |
 | 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Done |
 | 4g | **Game rules** as files: round length, rounds per game, and scoring together in `rules/<name>.json` ([decision 013](decisions/013-game-rules-files.md)) | Done |
-| 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Next |
-| 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Planned |
+| 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Done |
+| 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Next |
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
@@ -215,6 +215,7 @@ runs/<date>_<name>_seed<N>/
 
 - Runs can be listed, compared (learning curves on one chart), replayed, and reproduced with the same seed.
 - `config.json` records the **reward profile** used (name and full content), the **game-defining config**, and the **code version**.
+- **Built** (`src/experiments/`): folders are `runs/<date>_<time>_<name>_seed<N>/`, with a `summary.json` too. Best replays are chosen by **game score** (the fair measure). Ctrl+C keeps the metrics so far. `make runs` lists runs, and `make run_best RUN=<folder>` watches a run's best episode. `make run` became `make main`, so "run" now means experiment runs.
 - Expected sizes, as ESTIMATES: replays a few KB each, model files KB to a few MB.
 
 #### 4i. Record your own demo rounds

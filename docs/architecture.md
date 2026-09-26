@@ -10,6 +10,7 @@ src/envs/maze_car/     MazeCarEnv wraps a World; MazeCarDemo drives it by keyboa
 src/render/            Renderer: pygame window, reads the World, never writes it
 src/replay/            Replay files: format, recorder (env hooks), replayer
 src/drivers/           Who drives: keyboard, baselines, later agents (one interface)
+src/experiments/       Experiment runs: many headless episodes into runs/
 stages/, rules/,       Data files: stages (where), rules (how the game is
 rewards/               played and scored), reward profiles (what agents learn)
 ```
@@ -84,6 +85,28 @@ Baseline results on 30 unseen seeds (box stage, 60 s rounds):
 |---|---|---|---|
 | random | 13.7 | 0.0 | 100 % (it barely moves) |
 | heuristic | 2,502 | 16.2 | 97 % |
+
+## Experiment runs (`src/experiments/`)
+
+`run_experiment(name, driver, config, episodes, first_seed, reward, rules)` (`runner.py`) plays episode *i* with seed `first_seed + i`, headless, into a run folder:
+
+```
+runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
+  config.json    driver record, episodes, seeds, full stage, rules, reward
+                 profile, game-defining config, observation version, code
+  metrics.csv    one row per episode, flushed as it goes: episode, seed,
+                 steps, seconds, score, distance points, checkpoints,
+                 agent reward, how it ended
+  replays/       each new best episode by game score, gzipped and
+                 self-verifying (ep0012_score2456.jsonl.gz)
+  summary.json   episodes, mean and best score, checkpoints, survival rate
+  notes.md       your observations
+```
+
+- Ctrl+C stops cleanly: the metrics so far and a summary marked `interrupted` are kept.
+- `runs.py`: `list_runs()` / `format_runs()` for `make runs`, and `best_replay(folder)` for `make run_best`.
+- Speed: about 0.17 s per 60 s heuristic episode (5 episodes in 0.85 s), replay recording included.
+- The keyboard driver is refused: runs are headless.
 
 ## Replays (`src/replay/`)
 

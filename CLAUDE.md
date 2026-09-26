@@ -16,6 +16,8 @@ make help          # every command: one word, at most one parameter
 make maze_car      # drive with the keyboard
 make maze_car_heuristic
 make replay FILE=path/to/replay.jsonl
+make run_heuristic # a headless experiment run into runs/
+make runs          # list runs
 make test
 ```
 

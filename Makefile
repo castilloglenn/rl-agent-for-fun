@@ -1,8 +1,10 @@
 # One word per command, at most one parameter. `make help` lists them.
 
-.PHONY: help run test test_file fixtures maze_car maze_car_heuristic \
+.PHONY: help main test test_file fixtures maze_car maze_car_heuristic \
 	maze_car_random maze_car_driver maze_car_player maze_car_stage \
-	maze_car_reward maze_car_rules maze_car_seconds maze_car_fps replay
+	maze_car_reward maze_car_rules maze_car_seconds maze_car_fps replay \
+	runs run_heuristic run_random run_driver run_episodes run_reward \
+	run_rules run_stage run_seconds run_best
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -20,13 +22,24 @@ help:
 	@echo "  make maze_car_fps FPS=n              cap the frame rate"
 	@echo "Replays"
 	@echo "  make replay FILE=path                watch a replay (.jsonl, .jsonl.gz)"
+	@echo "Experiment runs (headless, 100 episodes, saved in runs/)"
+	@echo "  make runs                            list all runs"
+	@echo "  make run_heuristic                   run the heuristic baseline"
+	@echo "  make run_random                      run the random baseline"
+	@echo "  make run_driver DRIVER=name          run any driver"
+	@echo "  make run_episodes EPISODES=n         heuristic, n episodes"
+	@echo "  make run_reward REWARD=name          heuristic, another reward profile"
+	@echo "  make run_rules RULES=name            heuristic, other game rules"
+	@echo "  make run_stage STAGE=name            heuristic, another stage"
+	@echo "  make run_seconds SECONDS=n           heuristic, another round length"
+	@echo "  make run_best RUN=folder             watch a run's best replay"
 	@echo "Develop"
 	@echo "  make test                            run all tests"
 	@echo "  make test_file FILE=path             run one test file"
 	@echo "  make fixtures                        regenerate behavior fixtures"
-	@echo "  make run                             agent entry point (stub)"
+	@echo "  make main                            agent entry point (stub)"
 
-run:
+main:
 	clear
 	python app.py
 
@@ -93,3 +106,40 @@ replay:
 	$(call require,FILE,path/to/replay.jsonl)
 	clear
 	python app.py -replay $(FILE)
+
+runs:
+	python app.py -list_runs
+
+run_heuristic:
+	python app.py -run heuristic --driver heuristic
+
+run_random:
+	python app.py -run random --driver random
+
+run_driver:
+	$(call require,DRIVER,heuristic)
+	python app.py -run $(DRIVER) --driver $(DRIVER)
+
+run_episodes:
+	$(call require,EPISODES,500)
+	python app.py -run heuristic --driver heuristic --episodes $(EPISODES)
+
+run_reward:
+	$(call require,REWARD,time_bonus)
+	python app.py -run heuristic-$(REWARD) --driver heuristic --reward $(REWARD)
+
+run_rules:
+	$(call require,RULES,sprint)
+	python app.py -run heuristic-$(RULES) --driver heuristic --rules $(RULES)
+
+run_stage:
+	$(call require,STAGE,box)
+	python app.py -run heuristic-$(STAGE) --driver heuristic --stage $(STAGE)
+
+run_seconds:
+	$(call require,SECONDS,90)
+	python app.py -run heuristic-$(SECONDS)s --driver heuristic --round_seconds $(SECONDS)
+
+run_best:
+	$(call require,RUN,runs/<folder>)
+	python app.py -best_replay $(RUN)

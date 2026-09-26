@@ -2,23 +2,43 @@ from absl import app, flags
 from ml_collections import config_flags
 
 from src.config import get_agent_config, get_maze_car_config
-from src.envs.maze_car.demo import MazeCarDemo
 from src.main import Main
 
 
 def run(_):
     cl_args = flags.FLAGS
+    config = cl_args.maze_car
+    if cl_args.stage:
+        config.stage = cl_args.stage
+    if cl_args.rules:
+        config.rules = cl_args.rules
+
     if cl_args.tests:
         print("TODO: Run unittests")
+    elif cl_args.list_runs:
+        from src.experiments.runs import format_runs, list_runs
+
+        print(format_runs(list_runs()))
+    elif cl_args.best_replay:
+        from src.experiments.runs import best_replay
+        from src.replay.viewer import ReplayViewer
+
+        path = best_replay(cl_args.best_replay)
+        print(f"Playing {path}")
+        ReplayViewer.open(path, config).run()
     elif cl_args.replay:
         from src.replay.viewer import ReplayViewer
 
-        ReplayViewer.open(cl_args.replay, cl_args.maze_car).run()
+        ReplayViewer.open(cl_args.replay, config).run()
+    elif cl_args.run:
+        _experiment_run(cl_args, config)
     elif game := cl_args.demo:
         match game:
             case "maze_car":
+                from src.envs.maze_car.demo import MazeCarDemo
+
                 MazeCarDemo(
-                    cl_args.maze_car,
+                    config,
                     driver=cl_args.driver,
                     player=cl_args.player,
                     reward=cl_args.reward,
@@ -28,6 +48,48 @@ def run(_):
                 pass
     else:
         Main()
+
+
+def _experiment_run(cl_args, config) -> None:
+    from src.drivers.registry import make_driver
+    from src.experiments.runner import run_experiment
+    from src.sim.rules import load_rules
+
+    if cl_args.driver == "keyboard":
+        raise SystemExit(
+            "A run is headless: pick --driver random or heuristic."
+        )
+    rules = load_rules(config.rules)
+    if cl_args.round_seconds > 0:
+        rules = rules.with_round_seconds(cl_args.round_seconds)
+
+    def progress(episode, result):
+        if (episode + 1) % 10 == 0 or episode + 1 == cl_args.episodes:
+            print(
+                f"  episode {episode + 1}/{cl_args.episodes}  "
+                f"score {result.score:,.0f}  ended by {result.ended_by}"
+            )
+
+    print(f"Run {cl_args.run!r}: {cl_args.driver}, {cl_args.episodes} episodes")
+    summary = run_experiment(
+        cl_args.run,
+        make_driver(cl_args.driver),
+        config,
+        episodes=cl_args.episodes,
+        first_seed=cl_args.seed,
+        reward=cl_args.reward,
+        rules=rules,
+        on_episode=progress,
+    )
+    state = "interrupted, " if summary.interrupted else ""
+    print(
+        f"Done ({state}{summary.episodes} episodes, {summary.seconds:.1f} s): "
+        f"mean score {summary.mean_score:,.0f}, best {summary.best_score:,.0f} "
+        f"(episode {summary.best_episode}), "
+        f"checkpoints {summary.mean_checkpoints:.1f}/round, "
+        f"survived {summary.survival_rate:.0%}"
+    )
+    print(f"Saved in {summary.folder}")
 
 
 if __name__ == "__main__":
