@@ -19,6 +19,8 @@ flags.DEFINE_integer(
 flags.DEFINE_string("stage", "", "Stage by name or path (default: config).")
 flags.DEFINE_string("rules", "", "Rules by name or path (default: config).")
 flags.DEFINE_boolean("list_runs", False, "List experiment runs.")
+flags.DEFINE_string("new_agent", "", "Create an untrained agent with this id.")
+flags.DEFINE_string("model", "small", "Model for a new agent (models/).")
 flags.DEFINE_boolean("record", True, "Record your demo rounds (--norecord).")
 flags.DEFINE_boolean("list_recordings", False, "List recorded demo rounds.")
 flags.DEFINE_boolean("replay_last", False, "Watch the newest recording.")

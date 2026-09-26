@@ -35,6 +35,11 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Done |
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Next |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Next |
+| 5a1 | Agent core: model files (`models/`), policy network, `AgentDriver` (12 canonical actions, action repeat 4), saving and loading agents ([decision 014](decisions/014-model-and-trainer-files.md)) | Done |
+| 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Next |
+| 5a3 | Full checkpoints, pause (Ctrl+C saves), resume, branch | Planned |
+| 5a4 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Planned |
+| 5a5 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Planned |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
 | 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
@@ -231,6 +236,18 @@ runs/<date>_<name>_seed<N>/
 How agents are trained is flexible: imitation only, RL only, or both in either order. See [decision 012](decisions/012-agent-training-modes.md).
 
 #### 5a. RL agent and training
+
+**Sub-steps:** 5a1 agent core → 5a2 PPO training → 5a3 checkpoints and resume → 5a4 evaluation suite → 5a5 agent storage and history (milestone).
+
+**Measured before planning:** torch 2.14 works in the venv. A 14 → 64 → 64 → 12 policy network (5,900 parameters) decides in 28 µs on one CPU core (9 µs measured in 5a1, with inference mode). With action repeat 4, collection should reach roughly 35,000 simulation steps per second (an ESTIMATE until 5a2 measures it). The CPU is used, not the Apple GPU: at this size, transfers would cost more than they save.
+
+**Settings as named files** ([decision 014](decisions/014-model-and-trainer-files.md)):
+- **`models/<name>.json`** (5a1): the agent's network shape, activation, observation spec, action set, and action repeat. Picked when an agent is created, copied into the agent, and **fixed for its life**. Resuming with a different model is refused, since the weights wouldn't fit.
+- **`trainers/<name>.json`** (5a2): learning rate, discount (how far ahead the agent cares), exploration bonus, rollout and batch sizes, epochs, total steps, checkpoint and evaluation intervals, seeds. **Can change at every training phase**, and each phase records which trainer it used.
+- A training run = model (for a new agent) + trainer + stage + rules + reward profile.
+- `agents/` is gitignored, like `runs/`.
+
+**Milestone bar:** the agent survives most 60 s rounds and beats the heuristic's mean score (2,502) on the same seeds.
 
 - A torch neural network drives the car through the env, and learns by trial and error over many episodes.
 - **Output of training:** model weights (`.pt`), config, metrics, replays, all in the run folder.

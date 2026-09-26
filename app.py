@@ -6,7 +6,15 @@ from src.main import Main
 
 
 def run(_):
-    cl_args = flags.FLAGS
+    from src.drivers.registry import DriverError
+
+    try:
+        _dispatch(flags.FLAGS)
+    except DriverError as error:
+        raise SystemExit(str(error))
+
+
+def _dispatch(cl_args) -> None:
     config = cl_args.maze_car
     if cl_args.stage:
         config.stage = cl_args.stage
@@ -15,6 +23,19 @@ def run(_):
 
     if cl_args.tests:
         print("TODO: Run unittests")
+    elif cl_args.new_agent:
+        from src.agents.model import load_model_spec
+        from src.agents.store import AgentError, create_agent
+
+        try:
+            folder = create_agent(
+                cl_args.new_agent, load_model_spec(cl_args.model), cl_args.seed
+            )
+        except AgentError as error:
+            raise SystemExit(str(error))
+        print(f"Created agent {cl_args.new_agent!r} ({cl_args.model})")
+        print(f"  {folder}")
+        print(f"Watch it: make maze_car_agent AGENT={cl_args.new_agent}")
     elif cl_args.list_recordings:
         from src.replay.recordings import format_recordings, list_recordings
 
@@ -72,7 +93,7 @@ def _experiment_run(cl_args, config) -> None:
 
     if cl_args.driver == "keyboard":
         raise SystemExit(
-            "A run is headless: pick --driver random or heuristic."
+            "A run is headless: pick --driver random, heuristic, or agent:<id>."
         )
     rules = load_rules(config.rules)
     if cl_args.round_seconds > 0:

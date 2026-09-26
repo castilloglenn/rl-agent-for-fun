@@ -9,13 +9,15 @@ src/sim/               Maze Car rules: components, resources, systems, factories
 src/envs/maze_car/     MazeCarEnv wraps a World; MazeCarDemo drives it by keyboard
 src/render/            Renderer: pygame window, reads the World, never writes it
 src/replay/            Replay files: format, recorder (env hooks), replayer
-src/drivers/           Who drives: keyboard, baselines, later agents (one interface)
+src/drivers/           Who drives: keyboard, baselines, agents (one interface)
+src/agents/            Learned agents: model files, policy network, agents/
 src/experiments/       Experiment runs: many headless episodes into runs/
 stages/, rules/,       Data files: stages (where), rules (how the game is
-rewards/               played and scored), reward profiles (what agents learn)
+rewards/, models/      played and scored), reward profiles (what agents
+                       learn), models (an agent's network shape)
 ```
 
-Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks.
+Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks. `agents` uses `drivers` and `replay` (for its driver record), and only `drivers/registry.py` imports `agents`, lazily, so torch loads only when an agent drives.
 
 ## ECS core (`src/ecs/world.py`)
 
@@ -77,7 +79,7 @@ Everything that decides a car's actions implements **`Driver`** (`base.py`): `re
 | `random_driver.py` | `RandomDriver`: a random canonical action every 4 steps (30/s, like agents), seeded. The floor |
 | `heuristic.py` | `CompassDriver`: rules on the observation only (steer to the checkpoint, turn away from close walls, brake within stopping range, slow down near an off-center checkpoint so it doesn't orbit it). The bar agents must beat |
 | `episode.py` | `run_episode(env, driver, seed)`: plays one game headless, returns an `EpisodeResult` (score, checkpoints, reward, how it ended) |
-| `registry.py` | `make_driver(name)`: `keyboard`, `random`, `heuristic` |
+| `registry.py` | `make_driver(name)`: `keyboard`, `random`, `heuristic`, or `agent:<id>` (newest checkpoint) / `agent:<id>@<checkpoint>`. An unknown driver or a missing or incompatible agent raises `DriverError`, which `app.py` prints as a clean message |
 
 Baseline results on 30 unseen seeds (box stage, 60 s rounds):
 
@@ -85,6 +87,29 @@ Baseline results on 30 unseen seeds (box stage, 60 s rounds):
 |---|---|---|---|
 | random | 13.7 | 0.0 | 100 % (it barely moves) |
 | heuristic | 2,502 | 16.2 | 97 % |
+
+## Agents (`src/agents/`)
+
+A learned agent is a folder, built from a model file ([decision 014](decisions/014-model-and-trainer-files.md)):
+
+```
+models/<name>.json          network shape: hidden layers, activation,
+                            observation version, action set, action repeat
+agents/<id>/                (gitignored: local data)
+  model.json                a copy of the model, fixed for the agent's life
+  checkpoints/initial.pt    weights (plus the model and observation version)
+```
+
+| File | Contents |
+|---|---|
+| `model.py` | `ModelSpec` (from/to dict, validated) and `load_model_spec(name or path)` |
+| `network.py` | `PolicyNetwork(spec, obs_size, actions)`: separate policy and value MLPs (multilayer perceptrons). `forward(obs)` returns (action logits, values) |
+| `store.py` | `create_agent(id, spec, seed)`: seeded weights, without touching global torch randomness. `load_agent(id or path, checkpoint)`: the newest checkpoint by default. `save_checkpoint` |
+| `driver.py` | `AgentDriver`: decides every `action_repeat` steps and holds the action in between. Deterministic (highest-scoring action) by default, or seeded sampling. Record `{"type": "agent", "id", "checkpoint"}`, label `<id> (agent)` |
+
+**Safety:** loading is refused when the checkpoint was saved for another model, the model uses another action set, or its observation version isn't the env's. Checkpoints load with `torch.load(weights_only=True)`, so a file can't run code.
+
+- Speed: about 9 µs per decision (small model, one CPU core, inference mode).
 
 ## Experiment runs (`src/experiments/`)
 
@@ -174,4 +199,4 @@ every drawn frame:
 
 ## Not built yet
 
-Maze walls, crash detection, observation, reward, the agent, training, and replay. `torch` is in the requirements but unused. See [roadmap](roadmap.md).
+Training (PPO, trainer files), full checkpoints with resume, the evaluation suite, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).

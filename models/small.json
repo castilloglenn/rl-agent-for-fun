@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "small",
+  "description": "Two layers of 64: small and fast, enough for the box stage.",
+  "hidden": [64, 64],
+  "activation": "tanh",
+  "observation_version": 1,
+  "actions": "canonical12",
+  "action_repeat": 4
+}

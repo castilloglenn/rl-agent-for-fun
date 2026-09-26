@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "medium",
+  "description": "Two layers of 128: more capacity, for harder stages later.",
+  "hidden": [128, 128],
+  "activation": "tanh",
+  "observation_version": 1,
+  "actions": "canonical12",
+  "action_repeat": 4
+}
