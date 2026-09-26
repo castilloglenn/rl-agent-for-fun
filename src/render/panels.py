@@ -212,17 +212,18 @@ def draw_top_bar(
             surface, status, (x, y + 2), theme.TEXT_SIZE, color, True
         )
         x = status_rect.right + 28
+    right = rect.right - PADDING
+    if car is not None:  # gauges, right-aligned (fuel joins in step 9)
+        right = draw_gauge(surface, "HEALTH", car.health, right, y).left - 16
     if mode:
         draw_text(
             surface,
-            mode.label,
+            _fit(mode.label, right - x, theme.TEXT_SIZE),
             (x, y + 2),
             theme.TEXT_SIZE,
             mode.label_color,
             bold=True,
         )
-    if car is not None:  # gauges, right-aligned (fuel joins in step 9)
-        draw_gauge(surface, "HEALTH", car.health, rect.right - PADDING, y)
 
     y += 26
     x = rect.x + PADDING

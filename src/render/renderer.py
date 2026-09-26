@@ -32,7 +32,7 @@ from src.utils.common import (
     lerp_angle,
 )
 from src.utils.types import Colors, ColorValue
-from src.utils.ui import draw_text
+from src.utils.ui import draw_text, get_font
 
 
 class Command:
@@ -258,6 +258,17 @@ class Renderer:
     def _draw_centered_lines(self, lines: list[tuple]) -> None:
         center_x, center_y = self.layout.field_view.center
         y = center_y - 13 * len(lines)
+        # A dark backdrop, so the text stays readable over rays and cars.
+        width = max(
+            get_font(size, bold).size(text)[0]
+            for text, size, _, bold in lines
+        )
+        backdrop = pygame.Rect(0, 0, width + 32, 26 * len(lines) + 12)
+        backdrop.center = (center_x, center_y)
+        shade = Surface(backdrop.size, pygame.SRCALPHA)
+        shade.fill((*theme.BACKGROUND, 225))
+        self.display.blit(shade, backdrop)
+        pygame.draw.rect(self.display, theme.PANEL_BORDER, backdrop, width=1)
         for text, size, color, bold in lines:
             draw_text(
                 self.display,

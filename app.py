@@ -70,6 +70,24 @@ def _dispatch(cl_args) -> None:
         print(format_dataset(build_dataset(spec, repeat)))
     elif cl_args.imitate:
         _imitate(cl_args, config)
+    elif cl_args.showcase:
+        from src.agents.store import AgentError
+        from src.experiments.showcase import Showcase, plan
+
+        try:
+            folder, stops = plan(
+                cl_args.showcase,
+                everything=cl_args.showcase_all,
+                base_config=config,
+                on_scored=lambda row: print(f"  scored {row['checkpoint']}"),
+            )
+        except AgentError as error:
+            raise SystemExit(str(error))
+        print(
+            f"Showcasing {folder.name}: "
+            + ", ".join(stop.checkpoint for stop in stops)
+        )
+        Showcase(folder, stops, config).run()
     elif cl_args.list_agents:
         from src.experiments.agents import format_agents, list_agents
 

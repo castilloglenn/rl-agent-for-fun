@@ -175,6 +175,10 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 `build_dataset(spec, action_repeat)` re-simulates a player's recordings (`datasets/<name>.json`: player, all or kept, min score) into samples: the observation at each decision step, labeled with the most-pressed action over that decision's steps. The idle wait before the first key is left out, and recordings that don't verify are skipped with the reason. `imitate(agent, trainer, dataset, config)` trains the policy on them (cross-entropy), and the value head on the discounted rewards, holding out whole rounds for checking. It saves `clone-e<epochs>`, records an `imitation` phase, and scores the clone. See [decision 019](decisions/019-imitation-agents.md).
 
+### Showcase (`src/experiments/showcase.py`)
+
+`plan(agent)` picks the checkpoints to show (highlights, or all), scoring any unscored ones, and collects each one's suite scores, training time, and badges. `Showcase(folder, stops, config).run()` plays each checkpoint live on the suite's first round seed (deterministic, so it's the evaluation's round) behind a title card, with the replay viewer's `PlaybackControl` plus Left/Right to switch checkpoints. See [decision 020](decisions/020-showcase-mode.md).
+
 ### Agent digests (`src/experiments/agents.py`)
 
 `list_agents()` and `format_agents()` for `make agents`, and `agent_summary(id)` for `make agent`: the profile, the score trend over scored checkpoints (a sparkline), and the heuristic's score from the baseline cache. Scoring a checkpoint (`evaluation.py`) records `scored`, `new_best`, and, once, the `milestone`.

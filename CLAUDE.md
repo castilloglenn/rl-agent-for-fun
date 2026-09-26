@@ -25,6 +25,7 @@ make resume_last                   # continue a stopped training exactly
 make eval AGENT=rookie             # score its checkpoints, pick the best
 make agent AGENT=rookie            # its digest: lineage, scores, milestone
 make imitate AGENT=clone           # clone your recorded driving
+make showcase AGENT=rookie         # watch its progression, checkpoint by checkpoint
 make recordings    # your recorded rounds (every demo round is recorded)
 make test
 ```

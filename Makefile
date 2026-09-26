@@ -6,7 +6,8 @@
 	runs run_heuristic run_random run_driver run_episodes run_reward \
 	run_rules run_stage run_seconds run_best recordings replay_last \
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
-	resume_last eval eval_baselines agents agent dataset imitate
+	resume_last eval eval_baselines agents agent dataset imitate \
+	showcase showcase_all
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -49,6 +50,8 @@ help:
 	@echo "  make eval_baselines                  score the heuristic and random baselines"
 	@echo "  make agents                          list agents: best score, milestone"
 	@echo "  make agent AGENT=id                  an agent's digest: lineage, scores, trend"
+	@echo "  make showcase AGENT=id               watch its progression: highlight checkpoints"
+	@echo "  make showcase_all AGENT=id           watch every scored checkpoint"
 	@echo "  make dataset                         preview your recordings as an imitation dataset"
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
 	@echo "Develop"
@@ -214,6 +217,16 @@ agent:
 
 dataset:
 	python app.py -preview_dataset
+
+showcase:
+	$(call require,AGENT,my_agent)
+	clear
+	python app.py -showcase $(AGENT)
+
+showcase_all:
+	$(call require,AGENT,my_agent)
+	clear
+	python app.py -showcase $(AGENT) --showcase_all
 
 imitate:
 	$(call require,AGENT,my_clone)

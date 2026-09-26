@@ -53,6 +53,8 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make agents` | List every agent: model, decisions, best checkpoint and score, milestone, last update |
 | `make dataset` | Preview your recordings as an imitation dataset (`datasets/mine.json`): rounds, samples, your mean score, and skipped recordings with why |
 | `make imitate AGENT=id` | Clone your driving into an agent (created if new) with `trainers/imitate.json`, then score the clone. Continue with RL: `make train AGENT=id` |
+| `make showcase AGENT=id` | Watch an agent's progression: highlight checkpoints on the same round, each after a title card (decisions, training time, suite scores, badges). SPACE pause, 1-4 speed, Left/Right checkpoint, R restart, Esc quit |
+| `make showcase_all AGENT=id` | The same, for every scored checkpoint |
 | `make agent AGENT=id` | An agent's digest: lineage, best scores next to the heuristic, score trend, totals, milestone |
 | `make resume_last` | Resume the newest stopped training run |
 | `make test` | Run all tests |
@@ -62,7 +64,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `-resume <folder>`, `-resume_last`, `--from <agent>@<checkpoint>` (with `-new_agent`: branch a new agent from a checkpoint), `-eval <id>`, `-eval_baselines`, `--suite` (default `box`), `-list_agents`, `-show_agent <id>`, `-preview_dataset`, `-imitate <id>`, `--dataset` (default `mine`), `--imitation_trainer` (default `imitate`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `-resume <folder>`, `-resume_last`, `--from <agent>@<checkpoint>` (with `-new_agent`: branch a new agent from a checkpoint), `-eval <id>`, `-eval_baselines`, `--suite` (default `box`), `-list_agents`, `-show_agent <id>`, `-preview_dataset`, `-imitate <id>`, `-showcase <id>`, `--showcase_all`, `--dataset` (default `mine`), `--imitation_trainer` (default `imitate`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 
