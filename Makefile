@@ -4,13 +4,15 @@
 	maze_car_random maze_car_driver maze_car_player maze_car_stage \
 	maze_car_reward maze_car_rules maze_car_seconds maze_car_fps replay \
 	runs run_heuristic run_random run_driver run_episodes run_reward \
-	run_rules run_stage run_seconds run_best
+	run_rules run_stage run_seconds run_best recordings replay_last \
+	maze_car_norecord
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
 help:
 	@echo "Play"
-	@echo "  make maze_car                        drive with the keyboard"
+	@echo "  make maze_car                        drive with the keyboard (recorded)"
+	@echo "  make maze_car_norecord               drive without recording"
 	@echo "  make maze_car_heuristic              watch the heuristic baseline"
 	@echo "  make maze_car_random                 watch the random baseline"
 	@echo "  make maze_car_driver DRIVER=name     keyboard, random, heuristic"
@@ -22,6 +24,8 @@ help:
 	@echo "  make maze_car_fps FPS=n              cap the frame rate"
 	@echo "Replays"
 	@echo "  make replay FILE=path                watch a replay (.jsonl, .jsonl.gz)"
+	@echo "  make replay_last                     watch your newest recording"
+	@echo "  make recordings                      list recorded rounds per player"
 	@echo "Experiment runs (headless, 100 episodes, saved in runs/)"
 	@echo "  make runs                            list all runs"
 	@echo "  make run_heuristic                   run the heuristic baseline"
@@ -58,6 +62,10 @@ fixtures:
 maze_car:
 	clear
 	python app.py -demo maze_car
+
+maze_car_norecord:
+	clear
+	python app.py -demo maze_car --norecord
 
 maze_car_heuristic:
 	clear
@@ -143,3 +151,10 @@ run_seconds:
 run_best:
 	$(call require,RUN,runs/<folder>)
 	python app.py -best_replay $(RUN)
+
+recordings:
+	python app.py -list_recordings
+
+replay_last:
+	clear
+	python app.py -replay_last

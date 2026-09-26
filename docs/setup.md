@@ -19,7 +19,8 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 | Command | Does |
 |---|---|
-| `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, R restarts, H toggles lines, Esc quits |
+| `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, R restarts, H toggles lines, Esc quits. **Every round is recorded** to `recordings/<player>/` (REC in the top bar). K keeps the last recording for good |
+| `make maze_car_norecord` | Drive without recording |
 | `make maze_car_heuristic` | Watch the heuristic baseline drive |
 | `make maze_car_random` | Watch the random baseline drive |
 | `make maze_car_driver DRIVER=name` | Any driver: `keyboard`, `random`, `heuristic` |
@@ -29,6 +30,8 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), a name in `rules/`, or a path |
 | `make maze_car_seconds SECONDS=n` | Another round length (the rules get renamed, for example `standard-90s`) |
 | `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
+| `make recordings` | List recorded rounds per player (recent and kept counts, newest) |
+| `make replay_last` | Watch your newest recording |
 | `make replay FILE=path` | Watch a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart |
 | `make runs` | List all experiment runs (newest first): driver, stage, rules, reward, episodes, mean and best score, survival |
 | `make run_heuristic` | Run the heuristic for 100 episodes, headless, into `runs/` |
@@ -47,7 +50,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 

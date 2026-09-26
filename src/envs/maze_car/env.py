@@ -83,6 +83,8 @@ class MazeCarEnv(Environment):
         """Starts a new game. Returns the first observation and info."""
         if seed is None and self.random_seeds:
             seed = random.SystemRandom().randrange(1_000_000)
+        if self.recorder and hasattr(self, "world"):
+            self.recorder.on_before_reset(self)
         self.world, self.car = create_game(
             self.config,
             label=self.driver,
@@ -223,14 +225,15 @@ class MazeCarEnv(Environment):
             total=self.round_reward,
         )
 
-    def render(self, alpha: float = 1.0) -> float:
+    def render(self, alpha: float = 1.0, mode=None) -> float:
         """Handles window events and draws one frame. Returns the real
-        seconds since the previous frame.
+        seconds since the previous frame. mode: an optional ModeInfo (for
+        example the recording indicator).
         """
         commands = self.renderer.poll_events()
         if Command.QUIT in commands:
             self.running = False
         if Command.RESTART in commands:
             self.reset()
-        self.renderer.draw(self.world, alpha, self.reward_status())
+        self.renderer.draw(self.world, alpha, self.reward_status(), mode)
         return self.renderer.present()

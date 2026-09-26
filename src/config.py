@@ -19,6 +19,9 @@ flags.DEFINE_integer(
 flags.DEFINE_string("stage", "", "Stage by name or path (default: config).")
 flags.DEFINE_string("rules", "", "Rules by name or path (default: config).")
 flags.DEFINE_boolean("list_runs", False, "List experiment runs.")
+flags.DEFINE_boolean("record", True, "Record your demo rounds (--norecord).")
+flags.DEFINE_boolean("list_recordings", False, "List recorded demo rounds.")
+flags.DEFINE_boolean("replay_last", False, "Watch the newest recording.")
 flags.DEFINE_string("best_replay", "", "Watch a run's best replay (folder).")
 flags.DEFINE_float(
     "round_seconds",

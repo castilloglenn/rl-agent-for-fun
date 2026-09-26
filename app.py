@@ -15,6 +15,20 @@ def run(_):
 
     if cl_args.tests:
         print("TODO: Run unittests")
+    elif cl_args.list_recordings:
+        from src.replay.recordings import format_recordings, list_recordings
+
+        print(format_recordings(list_recordings()))
+    elif cl_args.replay_last:
+        from src.replay.recordings import latest_recording
+        from src.replay.viewer import ReplayViewer
+
+        try:
+            path = latest_recording()
+        except FileNotFoundError as error:
+            raise SystemExit(str(error))
+        print(f"Playing {path}")
+        ReplayViewer.open(path, config).run()
     elif cl_args.list_runs:
         from src.experiments.runs import format_runs, list_runs
 
@@ -43,6 +57,7 @@ def run(_):
                     player=cl_args.player,
                     reward=cl_args.reward,
                     round_seconds=cl_args.round_seconds,
+                    record=cl_args.record,
                 )
             case _:
                 pass

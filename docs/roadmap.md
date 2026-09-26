@@ -23,7 +23,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 3f | Round timer (60 s = 7,200 steps at 120 steps/s) and crash = game over | Done |
 | 3g | Rewards (+1 per 10 px forward) and checkpoints (+100, seeded random spawns) | Done |
 | 3h | Env API for agents: observation (`get_state`: rays, speed, steering, checkpoint compass, time left), reward, game over, 5-bool action | Done |
-| **4** | **Stages, replays, and experiment runs** | Next |
+| **4** | **Stages, replays, and experiment runs** | Done |
 | 4a | **Groundwork (urgent, before any file format):** split config into game-defining vs presentation keys, separate the agent reward from the game score, code version stamp ([decision 010](decisions/010-decouple-before-file-formats.md)) | Done |
 | 4b | Stage format: the box stage as a file (origin 0,0), loader, spawn schedules (random from seed, or scripted). The stage takes over the game-defining field and checkpoint keys ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)) | Done |
 | 4c | **Reward profiles:** agent rewards as weighted terms in `rewards/<name>.json`, separate from the game score ([decision 011](decisions/011-reward-profiles.md)) | Done |
@@ -32,9 +32,9 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4f | Baseline drivers: random and heuristic ("compass driver"), and the one driver interface every driver uses | Done |
 | 4g | **Game rules** as files: round length, rounds per game, and scoring together in `rules/<name>.json` ([decision 013](decisions/013-game-rules-files.md)) | Done |
 | 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Done |
-| 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Next |
-| **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Planned |
-| 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Planned |
+| 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Done |
+| **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Next |
+| 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Next |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
 | 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps) | Planned |
@@ -224,6 +224,7 @@ runs/<date>_<name>_seed<N>/
 - Recordings are stored **per player** (`recordings/<player>/`).
 - **Keep a run:** a key after the round (for example K) marks it kept. Kept runs are never removed by the latest-50 limit, and they're the natural dataset for an imitation agent (5b).
 - Replay your own rounds, and later compare them with agents on the same stage + seed.
+- **Built** (`src/replay/recordings.py`): rounds are saved when they end, and as "stopped" on restart or quit (under 1 s: not saved). The top bar shows a red REC; after a round, the field shows the saved file and "Press K to keep it". `make recordings` lists them, `make replay_last` watches the newest, and `make maze_car_norecord` drives without recording. Only keyboard rounds are recorded; baselines use the runner (4h).
 
 ### 5. Agents
 

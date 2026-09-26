@@ -57,6 +57,11 @@ class ReplayRecorder:
         )
         self._last = {}
 
+    def on_before_reset(self, env) -> None:
+        """Called before a reset replaces the game. Nothing to do here;
+        subclasses can finish and save the game being replaced.
+        """
+
     def on_step(self, step: int, actions: dict[str, tuple]) -> None:
         """Called before the world steps. Stores only changed actions."""
         # Plain bools: agents may pass numpy bools, which JSON can't write.
