@@ -1,7 +1,7 @@
 {
   "format": 1,
   "name": "default",
-  "description": "PPO with common defaults: 1M decisions, about 4 min.",
+  "description": "PPO with common defaults: 2M decisions, about 7 min.",
   "algorithm": "ppo",
   "learning_rate": 0.0003,
   "gamma": 0.99,
@@ -10,10 +10,11 @@
   "entropy": 0.01,
   "value_coef": 0.5,
   "max_grad_norm": 0.5,
+  "reward_scale": 0.01,
   "rollout": 2048,
   "minibatch": 64,
   "epochs": 10,
-  "total_decisions": 1000000,
+  "total_decisions": 2000000,
   "checkpoint_every": 100000,
   "seed": 0
 }

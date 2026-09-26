@@ -5,6 +5,7 @@ from src.sim.components import (
     ActionInput,
     CarSpec,
     Checkpoint,
+    Health,
     Hitbox,
     Motion,
     PreviousPose,
@@ -112,6 +113,7 @@ def create_car(
 ) -> int:
     """A car centered at (x, y) in world coordinates."""
     config = world.resource(SimConfig)
+    health = world.resource(Rules).collisions.health
     transform = Transform(x=x, y=y, angle=angle)
     sensors = Sensors(
         rays=[
@@ -134,6 +136,7 @@ def create_car(
         sensors,
         PreviousPose(x, y, angle),
         Score(),
+        Health(current=health, maximum=health),
         Renderable(color=color, label=label),
     )
 

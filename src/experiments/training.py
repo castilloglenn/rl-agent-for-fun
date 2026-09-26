@@ -458,7 +458,7 @@ class _Training:
             buffer["actions"][t] = action
             buffer["log_probs"][t] = log_probs[action]
             buffer["values"][t] = value[0]
-            buffer["rewards"][t] = reward
+            buffer["rewards"][t] = reward * self.trainer.reward_scale
             buffer["dones"][t] = float(done)
             self.decisions += 1
             if done:

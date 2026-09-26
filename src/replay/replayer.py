@@ -16,7 +16,7 @@ from src.envs.maze_car.rewards import RewardProfile
 from src.replay.format import Replay, to_current_actions
 from src.sim.components import Score
 from src.sim.resources import RoundState, SimClock
-from src.sim.rules import Rules, Scoring
+from src.sim.rules import Rules
 from src.sim.stage import Stage
 from src.utils.version import code_version
 
@@ -26,24 +26,6 @@ class Verification:
     ok: bool
     problems: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)  # not failures
-
-
-def replay_rules(header: dict) -> Rules:
-    """The replay's embedded rules. Replays recorded before rules files
-    (roadmap step 4g) kept them in their config instead.
-    """
-    if "rules" in header:
-        return Rules.from_dict(header["rules"])
-    config = header["config"]
-    return Rules(
-        name="legacy",
-        round_seconds=float(config["round"]["seconds"]),
-        rounds=config["game"]["rounds"],
-        scoring=Scoring(
-            distance_step=float(config["rewards"]["distance_step"]),
-            checkpoint=float(config["rewards"]["checkpoint"]),
-        ),
-    )
 
 
 def driver_label(driver: dict) -> str:
@@ -73,7 +55,7 @@ class Replayer:
             driver=driver_label(replay.slots["1"]),
             reward=RewardProfile.from_dict(header["reward"]),
             stage=Stage.from_dict(header["stage"]),
-            rules=replay_rules(header),
+            rules=Rules.from_dict(header["rules"]),
         )
         self.env.reset(seed=header["seed"])
 

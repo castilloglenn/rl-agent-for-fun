@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal reinforcement learning playground. The first environment is **Maze Car**: a top-down pygame car with distance-sensing rays. The goal is for an agent to learn to drive it, and to make that learning visible.
 
-The simulation is an ECS (Entity Component System), built to support walls, replay, multiple cars, and parallel envs. The first game rules (box map, crash, timer, rewards, checkpoints) and a Gymnasium-style env API for agents are built. Stages, rules, reward profiles, replays, recordings, experiment runs, the agent core (model files, policy network, agent driver), PPO training with trainer files, and exact resume are built too. Next: roadmap step 5a4 (evaluation suite). See [roadmap](docs/roadmap.md).
+The simulation is an ECS (Entity Component System), built to support walls, replay, multiple cars, and parallel envs. The first game rules (box map, car health and wall hits, timer, rewards, checkpoints) and a Gymnasium-style env API for agents are built. Stages, rules, reward profiles, replays, recordings, experiment runs, the agent core (model files, policy network, agent driver), PPO training with trainer files, exact resume, and car health are built too. Next: roadmap step 5a5 (evaluation suite). See [roadmap](docs/roadmap.md).
 
 ## Core commands
 
@@ -20,7 +20,7 @@ make run_heuristic # a headless experiment run into runs/
 make runs          # list runs
 make new_agent AGENT=rookie        # an untrained agent in agents/
 make maze_car_agent AGENT=rookie   # watch it drive
-make train AGENT=rookie            # train it (about 3.5 min)
+make train AGENT=rookie            # train it (about 7 min)
 make resume_last                   # continue a stopped training exactly
 make recordings    # your recorded rounds (every demo round is recorded)
 make test

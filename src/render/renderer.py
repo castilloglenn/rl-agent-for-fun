@@ -7,6 +7,8 @@ from src.render import panels, theme, warnings
 from src.render.layout import Layout
 from src.sim.components import (
     Checkpoint,
+    Eliminated,
+    Health,
     Hitbox,
     Motion,
     PreviousPose,
@@ -17,7 +19,13 @@ from src.sim.components import (
 )
 from src.sim.geometry import car_corners
 from src.sim.stage import Stage, load_stage
-from src.sim.resources import EventLog, Field, RoundState, SimConfig
+from src.sim.resources import (
+    EventLog,
+    Field,
+    RoundState,
+    SimClock,
+    SimConfig,
+)
 from src.utils.common import (
     get_triangle_coordinates_from_rect,
     lerp,
@@ -173,7 +181,8 @@ class Renderer:
                 width=2,
             )
         sim = world.resource(SimConfig)
-        for _, (transform, motion, hitbox, sensors, renderable, previous) in (
+        step = world.resource(SimClock).step
+        for car, (transform, motion, hitbox, sensors, renderable, previous) in (
             world.query(
                 Transform, Motion, Hitbox, Sensors, Renderable, PreviousPose
             )
@@ -188,11 +197,28 @@ class Renderer:
                 transform,
                 hitbox,
                 sensors,
-                renderable,
+                self._car_color(world, car, renderable, step, sim),
                 previous,
                 alpha,
                 ray_levels,
             )
+
+    def _car_color(self, world, car, renderable, step, sim) -> ColorValue:
+        """Dark red once wrecked. After a hit, it blinks red for a moment
+        (in simulation time, so replays and pauses show it the same way).
+        """
+        if world.try_component(car, Eliminated):
+            return theme.WRECKED
+        health = world.try_component(car, Health)
+        if health is None or health.last_hit_step is None:
+            return renderable.color
+        since = step - health.last_hit_step
+        hud = self.config.hud
+        if since < hud.hit_flash_seconds * sim.steps_per_second:
+            blink = max(round(hud.hit_blink_seconds * sim.steps_per_second), 1)
+            if (since // blink) % 2 == 0:
+                return theme.HIT
+        return renderable.color
 
     def _draw_round_over(
         self, world: World, mode: panels.ModeInfo | None = None
@@ -264,7 +290,7 @@ class Renderer:
         transform: Transform,
         hitbox: Hitbox,
         sensors: Sensors,
-        renderable: Renderable,
+        color: ColorValue,
         previous: PreviousPose,
         alpha: float,
         ray_levels: dict[str, int],
@@ -274,9 +300,7 @@ class Renderer:
         center_y = lerp(previous.center_y, transform.y, alpha)
         angle = lerp_angle(previous.angle, transform.angle, alpha)
 
-        surface = self._car_surface(
-            hitbox.width, hitbox.height, renderable.color
-        )
+        surface = self._car_surface(hitbox.width, hitbox.height, color)
         rotated = pygame.transform.rotate(surface, angle)
         screen_center = (center_x + self.offset[0], center_y + self.offset[1])
         if self.show_lines:

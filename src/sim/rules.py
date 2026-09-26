@@ -24,11 +24,37 @@ class Scoring:
 
 
 @dataclass(frozen=True)
+class Collisions:
+    """What a wall hit does. The impact speed is the car's speed into the
+    wall (px/s), so grazing a wall hurts less than hitting it head-on.
+    """
+
+    health: float = 100.0  # a car's full health
+    safe_speed: float = 60.0  # hits at or below this do no damage
+    lethal_speed: float = 240.0  # hits at or above this wreck the car
+    scrape_damage: float = 0.1  # health lost per px slid along a wall
+
+    def damage(self, impact: float) -> float:
+        """Health lost by a hit at `impact` px/s: none up to safe_speed,
+        rising linearly to all of it at lethal_speed.
+        """
+        if impact <= self.safe_speed:
+            return 0.0
+        if impact >= self.lethal_speed:
+            return self.health
+        share = (impact - self.safe_speed) / (
+            self.lethal_speed - self.safe_speed
+        )
+        return self.health * share
+
+
+@dataclass(frozen=True)
 class Rules:
     name: str
     round_seconds: float
     rounds: int
     scoring: Scoring
+    collisions: Collisions
     description: str = ""
     format: int = RULES_FORMAT
 
@@ -39,12 +65,17 @@ class Rules:
                 f"unsupported rules format {data.get('format')!r}, "
                 f"expected {RULES_FORMAT}"
             )
+        if "collisions" not in data:
+            raise RulesError("rules need collisions (health and speeds)")
         rules = Rules(
             name=data["name"],
             round_seconds=float(data["round_seconds"]),
             rounds=data["rounds"],
             scoring=Scoring(
                 **{k: float(v) for k, v in data.get("scoring", {}).items()}
+            ),
+            collisions=Collisions(
+                **{k: float(v) for k, v in data["collisions"].items()}
             ),
             description=data.get("description", ""),
         )
@@ -60,6 +91,7 @@ class Rules:
             "round_seconds": self.round_seconds,
             "rounds": self.rounds,
             "scoring": asdict(self.scoring),
+            "collisions": asdict(self.collisions),
         }
 
     def validate(self) -> None:
@@ -69,6 +101,15 @@ class Rules:
             raise RulesError("rounds must be a whole number, at least 1")
         if self.scoring.distance_step <= 0:
             raise RulesError("scoring distance_step must be positive")
+        collisions = self.collisions
+        if collisions.health <= 0:
+            raise RulesError("collisions health must be positive")
+        if not 0 <= collisions.safe_speed <= collisions.lethal_speed:
+            raise RulesError(
+                "collisions need 0 <= safe_speed <= lethal_speed"
+            )
+        if collisions.scrape_damage < 0:
+            raise RulesError("collisions scrape_damage can't be negative")
 
     def with_round_seconds(self, seconds: float) -> "Rules":
         """These rules with another round length, under a new name (so

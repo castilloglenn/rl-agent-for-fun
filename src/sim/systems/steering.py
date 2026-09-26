@@ -7,9 +7,10 @@ from src.sim.components import (
     Motion,
     Transform,
 )
-from src.sim.elimination import eliminate, round_active
-from src.sim.geometry import car_corners, inside
-from src.sim.resources import Field
+from src.sim.collisions import hit_wall
+from src.sim.elimination import round_active
+from src.sim.geometry import car_corners, inside, rotation_impact
+from src.sim.resources import Field, SimConfig
 
 
 def steering_system(world: World) -> None:
@@ -28,11 +29,22 @@ def steering_system(world: World) -> None:
         corners = car_corners(
             transform.x, transform.y, angle, hitbox.width, hitbox.height
         )
-        # Turning a corner into the border is a crash.
         if inside(corners, field.rect):
             transform.angle = angle
-        else:
-            eliminate(world, car, "wall")
+            continue
+        # Turning a corner into the border is a wall hit: the turn is
+        # blocked (the speed stays), and the corner's speed into the wall
+        # is the impact.
+        before = car_corners(
+            transform.x,
+            transform.y,
+            transform.angle,
+            hitbox.width,
+            hitbox.height,
+        )
+        impact = rotation_impact(before, corners, field.rect)
+        steps_per_second = world.resource(SimConfig).steps_per_second
+        hit_wall(world, car, impact * steps_per_second, keep=1.0)
 
 
 def next_steering(steering: float, action: ActionInput, spec: CarSpec) -> float:

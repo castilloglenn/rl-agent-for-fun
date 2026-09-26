@@ -36,10 +36,11 @@ def _place_checkpoint(world, car, dx, dy):
     spot.x, spot.y = transform.x + dx, transform.y + dy
 
 
-def test_layout_is_14_named_float32_values():
+def test_layout_is_15_named_float32_values():
     env = _env()
     observation, info = env.reset()
-    assert len(OBSERVATION_NAMES) == 14 == observation.shape[0]
+    assert len(OBSERVATION_NAMES) == 15 == observation.shape[0]
+    assert OBSERVATION_NAMES[-1] == "health" and observation[-1] == 1.0
     assert observation.dtype == np.float32
     assert env.observation_version == 1
     assert env.action_names == (
@@ -99,8 +100,8 @@ def test_compass_is_relative_to_the_heading():
 def test_values_stay_in_range_during_random_driving():
     env = _env()
     rng = random.Random(3)
-    lows = np.full(14, np.inf)
-    highs = np.full(14, -np.inf)
+    lows = np.full(15, np.inf)
+    highs = np.full(15, -np.inf)
     for episode in range(3):
         observation, _ = env.reset(seed=episode)
         for _ in range(2000):
@@ -114,7 +115,7 @@ def test_values_stay_in_range_during_random_driving():
     assert _value(lows, "speed") >= -1 / 3 - 1e-6
 
 
-def test_crash_terminates():
+def test_a_wreck_terminates():
     env = _env()
     env.reset()
     terminated = truncated = False
@@ -123,7 +124,7 @@ def test_crash_terminates():
         if terminated or truncated:
             break
     assert terminated and not truncated
-    assert info["eliminated"] == "wall"
+    assert info["eliminated"] == "wrecked"
 
 
 def test_time_up_truncates():

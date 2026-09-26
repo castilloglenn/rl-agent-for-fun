@@ -13,7 +13,7 @@ from src.envs.maze_car.rewards import (
 )
 from src.render.panels import RewardStatus
 from src.render.renderer import Command, Renderer
-from src.sim.components import ActionInput, Eliminated, Motion
+from src.sim.components import ActionInput, Eliminated, Health, Motion
 from src.sim.components import Score as CarScore
 from src.sim.factories import create_game
 from src.sim.observation import (
@@ -107,7 +107,7 @@ class MazeCarEnv(Environment):
 
         action: 5 bools, in `action_names` order.
         Returns (observation, reward, terminated, truncated, info):
-        terminated when the car is out (a crash), truncated when the round
+        terminated when the car is out (wrecked), truncated when the round
         ran out of time. The reward comes from the reward profile, and is 0
         once the game is over. The game points gained are in info["points"].
         """
@@ -140,6 +140,7 @@ class MazeCarEnv(Environment):
             "score": score.total,
             "checkpoints": score.checkpoints,
             "step": self.world.resource(SimClock).step,
+            "health": self.world.component(self.car, Health).current,
             "eliminated": eliminated.reason if eliminated else None,
         }
 
@@ -179,6 +180,9 @@ class MazeCarEnv(Environment):
         checkpoints_before = score.checkpoints
         distance_points_before = score.distance_points
         steering_before = motion.steering
+        health = self.world.component(self.car, Health)
+        health_before = health.current
+        contacts_before = health.contacts
         was_out = self._is_out()
 
         action_input = ActionInput(*action) if action else ActionInput()
@@ -194,7 +198,10 @@ class MazeCarEnv(Environment):
         events = StepEvents(
             points=points,
             checkpoints=score.checkpoints - checkpoints_before,
-            crashed=self._is_out() and not was_out,
+            damage=(health_before - health.current) / health.maximum,
+            wrecked=self._is_out() and not was_out,
+            contacts=health.contacts - contacts_before,
+            stopped=motion.speed == 0,
             time_up=self._time_up(),
             distance=max(motion.moved, 0.0),
             speed=motion.speed * sim.steps_per_second / sim.max_speed,

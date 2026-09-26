@@ -1,6 +1,6 @@
 # 014: Agent models and training profiles as files
 
-**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation intervals moved to 5a4, with the evaluation suite.
+**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation intervals moved to 5a5, with the evaluation suite.
 
 ## Context
 
@@ -48,9 +48,10 @@ Two new file types, like stages, rules, and reward profiles:
 | `clip` | 0.2 | How far one update may move the policy |
 | `entropy` | 0.01 | Exploration bonus |
 | `value_coef`, `max_grad_norm` | 0.5, 0.5 | Standard PPO stability terms |
+| `reward_scale` | 0.01 | The learner sees rewards times this (added in 5a4; measured: at 1.5M decisions, mean score 5,234 and 100 % survival with 0.01, against 3,907 and 90 % with 1). The same factor on every reward doesn't change the best driving, but keeps the value head's error (rewards in the hundreds) from using up the shared gradient limit. Metrics and the HUD show real rewards |
 | `rollout` | 2048 | Decisions collected per update |
 | `minibatch`, `epochs` | 64, 10 | How each rollout is learned from |
-| `total_decisions` | 1,000,000 | Length of the training phase |
+| `total_decisions` | 2,000,000 | Length of the training phase (1M until 5a4: with sliding walls, learning starts later) |
 | `checkpoint_every` | 100,000 | Decisions between saved weights |
 | `seed` | 0 | Action sampling and minibatch order |
 

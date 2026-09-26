@@ -143,6 +143,8 @@ def get_maze_car_config() -> ConfigDict:
     config.hud.time_caution = 10.0  # seconds left: amber
     config.hud.time_danger = 5.0  # seconds left: red
     config.hud.checkpoint_near = 80.0  # px: checkpoint distance turns green
+    config.hud.hit_flash_seconds = 0.5  # a car blinks red this long after a hit
+    config.hud.hit_blink_seconds = 0.1  # on or off this long, while blinking
 
     config.car = ConfigDict()
     config.car.width = 24

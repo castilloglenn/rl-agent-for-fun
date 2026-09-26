@@ -20,7 +20,7 @@ help:
 	@echo "  make maze_car_player PLAYER=name     drive, with your player name"
 	@echo "  make maze_car_stage STAGE=name       another stage (name or path)"
 	@echo "  make maze_car_reward REWARD=name     another reward profile"
-	@echo "  make maze_car_rules RULES=name       other game rules (standard, sprint, marathon)"
+	@echo "  make maze_car_rules RULES=name       other game rules (standard, sprint, marathon, classic)"
 	@echo "  make maze_car_seconds SECONDS=n      another round length (renames the rules)"
 	@echo "  make maze_car_fps FPS=n              cap the frame rate"
 	@echo "Replays"

@@ -38,8 +38,9 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5a1 | Agent core: model files (`models/`), policy network, `AgentDriver` (12 canonical actions, action repeat 4), saving and loading agents ([decision 014](decisions/014-model-and-trainer-files.md)) | Done |
 | 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Done |
 | 5a3 | Full checkpoints (optimizer and random states too), exact resume (`make resume`, `make resume_last`), branch into a new agent ([decision 015](decisions/015-exact-resume-by-resimulation.md)) | Done |
-| 5a4 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Next |
-| 5a5 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Planned |
+| 5a4 | Car health: wall hits cost health by impact speed (speed into the wall), the car stops on contact, wrecked at 0. Collisions in the rules file, health in the observation, `damage` reward term, HEALTH gauge and hit blink ([decision 016](decisions/016-car-health-and-wall-hits.md)) | Done |
+| 5a5 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Next |
+| 5a6 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Planned |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
 | 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
@@ -158,7 +159,7 @@ Details: [decision 009](decisions/009-stage-format-and-spawn-schedules.md).
 Details: [decision 011](decisions/011-reward-profiles.md).
 
 - The agent reward is a **weighted sum of terms**, defined in a profile file: `rewards/<name>.json`, starting with `rewards/default.json` (points only, today's reward).
-- Terms are things measurable in one step: points, checkpoints, crashed, time up, per step, distance moved, speed, steering change, closest wall.
+- Terms are things measurable in one step: points, checkpoints, damage, wrecked, time up, per step, distance moved, speed, steering change, closest wall.
 - Unknown terms or a wrong format fail early with a clear error. New terms can be added later without breaking old profiles.
 - **The game score is never affected**, so agents trained with different profiles still compete on the same leaderboard.
 - The env takes a profile by name or path. Replays (4d) and runs (4h) record the profile used, and agent profiles (step 5) show "trained with".
@@ -237,13 +238,13 @@ How agents are trained is flexible: imitation only, RL only, or both in either o
 
 #### 5a. RL agent and training
 
-**Sub-steps:** 5a1 agent core → 5a2 PPO training → 5a3 checkpoints and resume → 5a4 evaluation suite → 5a5 agent storage and history (milestone).
+**Sub-steps:** 5a1 agent core → 5a2 PPO training → 5a3 checkpoints and resume → 5a4 car health → 5a5 evaluation suite → 5a6 agent storage and history (milestone).
 
 **Measured before planning:** torch 2.14 works in the venv. A 14 → 64 → 64 → 12 policy network (5,900 parameters) decides in 28 µs on one CPU core (9 µs measured in 5a1, with inference mode). Measured in 5a2: collection runs at 30,300 simulation steps per second (7,600 decisions per second), and training as a whole at about 5,000 decisions per second, so 1M decisions take about 3.5 min. The CPU is used, not the Apple GPU: at this size, transfers would cost more than they save.
 
 **Settings as named files** ([decision 014](decisions/014-model-and-trainer-files.md)):
 - **`models/<name>.json`** (5a1): the agent's network shape, activation, observation spec, action set, and action repeat. Picked when an agent is created, copied into the agent, and **fixed for its life**. Resuming with a different model is refused, since the weights wouldn't fit.
-- **`trainers/<name>.json`** (5a2): learning rate, discount (how far ahead the agent cares), exploration bonus, rollout and batch sizes, epochs, total decisions, checkpoint interval, seed. Evaluation intervals come with the evaluation suite (5a4). **Can change at every training phase**, and each phase records which trainer it used.
+- **`trainers/<name>.json`** (5a2): learning rate, discount (how far ahead the agent cares), exploration bonus, rollout and batch sizes, epochs, total decisions, checkpoint interval, seed. Evaluation intervals come with the evaluation suite (5a5). **Can change at every training phase**, and each phase records which trainer it used.
 - A training run = model (for a new agent) + trainer + stage + rules + reward profile.
 - `agents/` is gitignored, like `runs/`.
 

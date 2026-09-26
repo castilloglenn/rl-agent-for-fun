@@ -1,6 +1,6 @@
 {
   "format": 1,
   "name": "default",
-  "description": "Game points (+1 per 10 px, +100 per checkpoint), and -500 for crashing.",
-  "terms": {"points": 1.0, "crash": -500}
+  "description": "Game points (+1 per 10 px, +100 per checkpoint), -100 per wall contact (even a harmless bump), -500 for a full loss of health (a 25 % hit costs -125), and -0.25 per step stopped (-30/s, idle or pinned).",
+  "terms": {"points": 1.0, "damage": -500, "contact": -100, "stopped": -0.25}
 }

@@ -51,17 +51,54 @@ def max_move_fraction(
     """Largest fraction (0 to 1) of the move (dx, dy) that keeps every
     point within bounds. Below 1 means a point reached the border.
     """
-    fraction = 1.0
+    return move_until_contact(points, dx, dy, bounds)[0]
+
+
+def move_until_contact(
+    points: list[Point], dx: float, dy: float, bounds: Rect
+) -> tuple[float, bool, bool]:
+    """Like max_move_fraction, plus which borders stop the move: (fraction,
+    a left or right border, a top or bottom border).
+    """
+    fraction_x = fraction_y = 1.0
     for px, py in points:
         if dx > 0:
-            fraction = min(fraction, (bounds.right - px) / dx)
+            fraction_x = min(fraction_x, (bounds.right - px) / dx)
         elif dx < 0:
-            fraction = min(fraction, (bounds.left - px) / dx)
+            fraction_x = min(fraction_x, (bounds.left - px) / dx)
         if dy > 0:
-            fraction = min(fraction, (bounds.bottom - py) / dy)
+            fraction_y = min(fraction_y, (bounds.bottom - py) / dy)
         elif dy < 0:
-            fraction = min(fraction, (bounds.top - py) / dy)
-    return max(fraction, 0.0)
+            fraction_y = min(fraction_y, (bounds.top - py) / dy)
+    fraction = max(min(fraction_x, fraction_y), 0.0)
+    if fraction >= 1.0:
+        return 1.0, False, False
+    return fraction, fraction_x <= fraction, fraction_y <= fraction
+
+
+def impact_speed(dx: float, dy: float, hit_x: bool, hit_y: bool) -> float:
+    """Speed into the border(s) that stopped a move of (dx, dy) per step,
+    in px per step: grazing a border hits it slower than meeting it
+    head-on.
+    """
+    if hit_x and hit_y:  # a corner, into both at once
+        return math.hypot(dx, dy)
+    return abs(dx) if hit_x else abs(dy) if hit_y else 0.0
+
+
+def rotation_impact(
+    before: list[Point], after: list[Point], bounds: Rect
+) -> float:
+    """Speed into the border (px per step) of the fastest corner that a
+    rotation from `before` to `after` pushes out of bounds.
+    """
+    speed = 0.0
+    for (x0, y0), (x1, y1) in zip(before, after):
+        if x1 > bounds.right or x1 < bounds.left:
+            speed = max(speed, abs(x1 - x0))
+        if y1 > bounds.bottom or y1 < bounds.top:
+            speed = max(speed, abs(y1 - y0))
+    return speed
 
 
 def direction(angle: float) -> Point:

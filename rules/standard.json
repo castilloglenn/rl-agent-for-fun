@@ -1,8 +1,9 @@
 {
   "format": 1,
   "name": "standard",
-  "description": "One 60 s round, points for distance and checkpoints.",
+  "description": "One 60 s round, points for distance and checkpoints. Wall hits cost health by impact speed, and scraping along a wall by distance.",
   "round_seconds": 60,
   "rounds": 1,
-  "scoring": {"distance_step": 10, "checkpoint": 100}
+  "scoring": {"distance_step": 10, "checkpoint": 100},
+  "collisions": {"health": 100, "safe_speed": 60, "lethal_speed": 240, "scrape_damage": 0.1}
 }

@@ -6,7 +6,7 @@ from src.ecs import World
 from src.sim.components import Eliminated, Motion, Renderable
 from src.sim.resources import EventLog, RoundState, SimClock
 
-REASON_TEXT = {"wall": "crashed into the wall"}
+REASON_TEXT = {"wrecked": "was wrecked"}
 
 
 def eliminate(world: World, car: int, reason: str) -> None:

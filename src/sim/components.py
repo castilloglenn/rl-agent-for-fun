@@ -154,12 +154,33 @@ class Checkpoint:
 
 
 @dataclass
+class Health:
+    """A car's health. Wall hits cost health by impact speed (the rules'
+    collisions); at 0 the car is wrecked.
+    """
+
+    current: float
+    maximum: float
+    last_hit_step: int | None = None  # last step a hit cost health
+    last_hit_damage: float = 0.0
+    contact_step: int | None = None  # last step it touched a wall
+    contacts: int = 0  # separate wall contacts so far (bumps and hits)
+    scraped: float = 0.0  # px slid along a wall in the current scrape
+    scrape_damage: float = 0.0  # health lost in the current scrape
+
+    @property
+    def share(self) -> float:
+        """0 (wrecked) .. 1 (full)."""
+        return self.current / self.maximum
+
+
+@dataclass
 class Eliminated:
-    """Marks a car that is out of the round (crash, later hazards or
+    """Marks a car that is out of the round (wrecked, later hazards or
     weapons). Car systems skip it. Added by `eliminate`.
     """
 
-    reason: str  # e.g. "wall"
+    reason: str  # e.g. "wrecked"
     step: int
 
 

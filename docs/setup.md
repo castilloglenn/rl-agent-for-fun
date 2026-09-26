@@ -27,7 +27,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |
 | `make maze_car_stage STAGE=name` | Another stage: a name in `stages/`, or a path |
 | `make maze_car_reward REWARD=name` | Another reward profile: a name in `rewards/`, or a path |
-| `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), a name in `rules/`, or a path |
+| `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), `classic` (any wall contact wrecks), a name in `rules/`, or a path |
 | `make maze_car_seconds SECONDS=n` | Another round length (the rules get renamed, for example `standard-90s`) |
 | `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
 | `make recordings` | List recorded rounds per player (recent and kept counts, newest) |
@@ -46,7 +46,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make new_agent AGENT=id` | Create an untrained agent in `agents/<id>/` from `models/small.json` |
 | `make maze_car_agent AGENT=id` | Watch an agent drive (its newest checkpoint) |
 | `make run_agent AGENT=id` | Run an agent for 100 episodes, headless, into `runs/` |
-| `make train AGENT=id` | Train an agent for one phase with `trainers/default.json` (1M decisions, about 3.5 min). Checkpoints go to `agents/<id>/checkpoints/`, the learning curve to a `runs/` folder. Ctrl+C stops and keeps the weights. Another trainer: `python app.py -train <id> --trainer <name>` |
+| `make train AGENT=id` | Train an agent for one phase with `trainers/default.json` (2M decisions, about 7 min). Checkpoints go to `agents/<id>/checkpoints/`, the learning curve to a `runs/` folder. Ctrl+C stops and keeps the weights. Another trainer: `python app.py -train <id> --trainer <name>` |
 | `make resume RUN=folder` | Resume a stopped training run exactly, with its own trainer, stage, rules, and reward |
 | `make resume_last` | Resume the newest stopped training run |
 | `make test` | Run all tests |

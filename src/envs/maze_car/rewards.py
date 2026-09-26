@@ -27,7 +27,10 @@ class StepEvents:
 
     points: float  # game points gained (distance and checkpoints)
     checkpoints: int  # checkpoints reached
-    crashed: bool  # the car went out this step
+    damage: float  # share of full health lost this step (0 to 1)
+    wrecked: bool  # health reached 0 this step
+    contacts: int  # new wall contacts this step (bumps and hits)
+    stopped: bool  # the car ended the step at speed 0 (idle, or pinned)
     time_up: bool  # the round ended on time this step
     distance: float  # px moved forward (0 when stopped or reversing)
     speed: float  # speed as a fraction of max speed (negative reversing)
@@ -71,7 +74,10 @@ TERMS: Mapping[str, Term] = MappingProxyType(
         "checkpoint_speed": Term(
             _checkpoint_speed, MappingProxyType({"window": 10.0})
         ),
-        "crash": Term(lambda e, p: float(e.crashed)),
+        "damage": Term(lambda e, p: e.damage),
+        "wrecked": Term(lambda e, p: float(e.wrecked)),
+        "contact": Term(lambda e, p: e.contacts),
+        "stopped": Term(lambda e, p: float(e.stopped)),
         "time_up": Term(lambda e, p: float(e.time_up)),
         "per_step": Term(lambda e, p: 1.0),
         "distance": Term(lambda e, p: e.distance),

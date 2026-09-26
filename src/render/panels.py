@@ -21,6 +21,7 @@ from src.sim.components import (
     ActionInput,
     Checkpoint,
     Eliminated,
+    Health,
     Motion,
     Ray,
     Renderable,
@@ -78,6 +79,7 @@ class CarInfo:
     rays: list[Ray]
     eliminated: bool
     score: Score
+    health: float  # 0 (wrecked) .. 1 (full)
 
 
 def car_infos(world: World) -> list[CarInfo]:
@@ -94,11 +96,18 @@ def car_infos(world: World) -> list[CarInfo]:
             rays=sensors.rays,
             eliminated=world.try_component(car, Eliminated) is not None,
             score=score,
+            health=health.share,
         )
-        for car, (renderable, motion, transform, action, sensors, score) in (
-            world.query(
-                Renderable, Motion, Transform, ActionInput, Sensors, Score
-            )
+        for car, (
+            renderable,
+            motion,
+            transform,
+            action,
+            sensors,
+            score,
+            health,
+        ) in world.query(
+            Renderable, Motion, Transform, ActionInput, Sensors, Score, Health
         )
     ]
 
@@ -113,6 +122,14 @@ DIRECTIONS = (
     "right",
     "ahead-right",
 )
+
+
+def health_color(share: float) -> ColorValue:
+    if share > 0.6:
+        return theme.GOOD
+    if share >= 0.3:
+        return theme.WARN
+    return theme.BAD
 
 
 def nearest_checkpoint(
@@ -184,7 +201,7 @@ def draw_top_bar(
 
     if car is not None:
         if car.eliminated:
-            status, color = "CRASHED", theme.BAD
+            status, color = "WRECKED", theme.BAD
         elif car.speed > 0:
             status, color = "DRIVING", theme.GOOD
         elif car.speed < 0:
@@ -204,6 +221,8 @@ def draw_top_bar(
             mode.label_color,
             bold=True,
         )
+    if car is not None:  # gauges, right-aligned (fuel joins in step 9)
+        draw_gauge(surface, "HEALTH", car.health, rect.right - PADDING, y)
 
     y += 26
     x = rect.x + PADDING
@@ -228,6 +247,51 @@ def draw_top_bar(
         x = value_rect.right + 16
         if x >= right_edge:
             break
+
+
+def draw_gauge(
+    surface: Surface,
+    label: str,
+    share: float,
+    right: float,
+    y: float,
+    blocks: int = 10,
+) -> Rect:
+    """A retro gauge ending at `right`: label, filled blocks, and a
+    percentage. Green above 60 %, amber from 30 %, red below. Returns its
+    area.
+    """
+    color = health_color(share)
+    value = draw_text(
+        surface,
+        f"{share:.0%}",
+        (right, y + 2),
+        theme.TEXT_SIZE,
+        color,
+        bold=True,
+        anchor="topright",
+    )
+    value.width = get_font(theme.TEXT_SIZE, True).size("100%")[0]
+    value.right = right  # a steady width, so the blocks don't jump
+    filled = max(round(share * blocks), 1 if share > 0 else 0)
+    size, gap = 10, 3
+    left = value.left - 10 - blocks * (size + gap) + gap
+    top = y + 6
+    for i in range(blocks):
+        pygame.draw.rect(
+            surface,
+            color if i < filled else theme.BAR_EMPTY,
+            Rect(left + i * (size + gap), top, size, size),
+        )
+    label_rect = draw_text(
+        surface,
+        label,
+        (left - 8, y + 3),
+        theme.HEADER_SIZE,
+        theme.TEXT_DIM,
+        anchor="topright",
+    )
+    return label_rect.union(value)
 
 
 def _fit(text: str, width: float, size: int) -> str:

@@ -56,11 +56,11 @@ Geometry and physics rules: [conventions](conventions.md).
 **For agents:**
 - `reset(seed)` starts a new game (world + car + checkpoint) and returns `(observation, info)`. With `random_seeds=True` (the demo), each reset picks a fresh seed. Otherwise `game.seed` is used.
 - `step(action)` returns `(observation, reward, terminated, truncated, info)`:
-  - `terminated`: the car is out (a crash).
+  - `terminated`: the car is out (wrecked).
   - `truncated`: the round ran out of time.
-  - `reward`: from the env's **reward profile** (`MazeCarEnv(config, reward="default")`: a name in `rewards/`, a path, or a `RewardProfile`). The profile is a weighted sum of per-step terms (points, distance points, checkpoints, checkpoint speed, crash, time up, per step, distance, speed, steering change, closest wall; some take parameters), and never changes the game score. `rewards/default.json` is the game points gained, and -500 for crashing. It's 0 once the game is over. See [decision 011](decisions/011-reward-profiles.md).
-- `info` has `score`, `points` (game points this step), `checkpoints`, `step`, and `eliminated`.
-- `get_state()` returns the observation: 14 float32 values from `observe()` (`src/sim/observation.py`). The names are in `observation_names`, and the version is in `observation_version`. See [game design](game-design.md#observation-what-the-agent-sees).
+  - `reward`: from the env's **reward profile** (`MazeCarEnv(config, reward="default")`: a name in `rewards/`, a path, or a `RewardProfile`). The profile is a weighted sum of per-step terms (points, distance points, checkpoints, checkpoint speed, damage, wrecked, contact, stopped, time up, per step, distance, speed, steering change, closest wall; some take parameters), and never changes the game score. `rewards/default.json` is the game points gained, -100 per new wall contact (`contact`, bumps included; pushing on into the wall is the same contact), -500 per full loss of health (`damage` is the share of health lost that step), and -0.25 per step the car ends stopped (`stopped`: idle, or pinned against a wall). It's 0 once the game is over. See [decision 011](decisions/011-reward-profiles.md).
+- `info` has `score`, `points` (game points this step), `checkpoints`, `step`, `health`, and `eliminated` (`"wrecked"` or None).
+- `get_state()` returns the observation: 15 float32 values from `observe()` (`src/sim/observation.py`). The names are in `observation_names`, and the version is in `observation_version`. See [game design](game-design.md#observation-what-the-agent-sees).
 - An action is 5 bools, in `action_names` order: `(turn_left, turn_right, gas, reverse, brake)`.
 - Measured: about 49,000 `step` calls per second on one core, headless (observation and reward included).
 
@@ -153,7 +153,7 @@ runs/<date>_<time>_train-<id>_seed<N>/
 agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 ```
 
-- Each decision samples the policy, holds it `action_repeat` steps, and its reward is the reward profile summed over them. A crash or time up ends the value chain. That's right for time up too, because `time_left` is in the observation.
+- Each decision samples the policy, holds it `action_repeat` steps, and its reward is the reward profile summed over them. A wreck or time up ends the value chain. That's right for time up too, because `time_left` is in the observation.
 - Checkpoints are named by the agent's total decisions at the mark they passed (`d0100k` holds the weights after the first update past 100,000; the exact count is inside). A second phase continues the count.
 - **Exact resume** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md)): after every update, `runs/<run>/resume.pt` holds the weights, optimizer, torch random state, counters, episode results, and the current episode's seed and decisions. `resume_training(run)` rebuilds the game by re-simulating that episode, and the run ends exactly as if it had never stopped. `last_stopped_run()` finds the newest stopped one.
 - Ctrl+C rolls back to the last update (it can land mid-rollout or mid-update), trims the CSVs to it, and saves its weights as a checkpoint.

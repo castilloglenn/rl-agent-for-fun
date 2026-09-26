@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from src.sim.components import Motion
+
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
 from src.sim.components import Score
@@ -43,7 +45,10 @@ def _events(**overrides) -> StepEvents:
     values = dict(
         points=0.0,
         checkpoints=0,
-        crashed=False,
+        damage=0.0,
+        wrecked=False,
+        contacts=0,
+        stopped=False,
         time_up=False,
         distance=0.0,
         speed=0.0,
@@ -56,12 +61,24 @@ def _events(**overrides) -> StepEvents:
 # Profiles
 
 
-def test_default_profile_is_points_and_a_crash_penalty():
+def test_default_profile_is_points_and_wall_penalties():
     profile = load_reward_profile("default")
     assert profile.name == "default"
-    assert dict(profile.terms) == {"points": 1.0, "crash": -500.0}
+    assert dict(profile.terms) == {
+        "points": 1.0,
+        "damage": -500.0,
+        "contact": -100.0,
+        "stopped": -0.25,
+    }
     assert profile(_events(points=3)) == 3
-    assert profile(_events(points=1, crashed=True)) == 1 - 500
+    assert profile(_events(stopped=True)) == -0.25  # idle or pinned
+    assert profile(_events(contacts=1)) == -100  # a harmless bump
+    assert profile(_events(contacts=1, damage=0.25)) == -100 - 125
+    # A full loss of health costs -500 on top of the contact.
+    assert profile(_events(contacts=1, damage=1.0, wrecked=True)) == -600
+    assert profile(
+        _events(contacts=1, damage=1.0, wrecked=True, stopped=True)
+    ) == pytest.approx(-600.25)
 
 
 def test_round_trip_matches_the_file():
@@ -82,7 +99,10 @@ def test_load_by_path():
         ("points", _events(points=7), 7),
         ("distance_points", _events(points=107, distance_points=7), 7),
         ("checkpoints", _events(checkpoints=1), 1),
-        ("crash", _events(crashed=True), 1),
+        ("damage", _events(damage=0.4), 0.4),
+        ("wrecked", _events(wrecked=True), 1),
+        ("contact", _events(contacts=1), 1),
+        ("stopped", _events(stopped=True), 1),
         ("time_up", _events(time_up=True), 1),
         ("per_step", _events(), 1),
         ("distance", _events(distance=2.5), 2.5),
@@ -96,9 +116,9 @@ def test_each_term(term, events, expected):
 
 
 def test_reward_is_the_weighted_sum():
-    profile = _profile(points=1.0, crash=-200, per_step=-0.01)
+    profile = _profile(points=1.0, wrecked=-200, per_step=-0.01)
     assert profile(_events(points=3)) == pytest.approx(2.99)
-    assert profile(_events(crashed=True)) == pytest.approx(-200.01)
+    assert profile(_events(wrecked=True)) == pytest.approx(-200.01)
 
 
 @pytest.mark.parametrize(
@@ -123,15 +143,23 @@ def test_env_uses_the_default_profile():
     env = _env()
     assert env.reward_profile.name == "default"
     env.reset()
-    for _ in range(200):
+    health = env.info()["health"]
+    for _ in range(400):
         _, reward, terminated, truncated, info = env.step(GAS)
-        assert reward == info["points"] - (500 if terminated else 0)
+        damage = (health - info["health"]) / 100
+        health = info["health"]
+        contact = 100 if terminated else 0  # its one contact is the wreck
+        stopped = 0.25 if env.world.component(env.car, Motion).speed == 0 else 0
+        assert reward == pytest.approx(
+            info["points"] - 500 * damage - contact - stopped
+        )
         if terminated or truncated:
             break
+    assert terminated  # full speed into the wall: wrecked
 
 
-def test_a_crash_penalty_never_changes_the_game_score():
-    penalized = _env(reward=_profile(points=1.0, crash=-1000))
+def test_a_wreck_penalty_never_changes_the_game_score():
+    penalized = _env(reward=_profile(points=1.0, wrecked=-1000))
     plain = _env(reward=_profile(points=1.0))
     penalized.reset(seed=1)
     plain.reset(seed=1)
@@ -144,7 +172,7 @@ def test_a_crash_penalty_never_changes_the_game_score():
         if terminated or truncated:
             break
 
-    assert info["eliminated"] == "wall"
+    assert info["eliminated"] == "wrecked"
     assert penalized_total == plain_total - 1000  # the penalty, once
     assert penalized.score == plain.score  # the game score is untouched
 

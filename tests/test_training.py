@@ -25,6 +25,7 @@ from src.experiments.training import (
 )
 from src.replay.format import read_replay
 from src.replay.replayer import Replayer
+from src.sim.observation import OBSERVATION_NAMES
 from src.sim.rules import load_rules
 
 DEFAULT = load_trainer_spec("default")
@@ -106,7 +107,7 @@ def test_missing_trainer_keys_and_files():
 def _rollout(rewards, values, dones, last_value):
     count = len(rewards)
     return Rollout(
-        observations=torch.zeros(count, 14),
+        observations=torch.zeros(count, len(OBSERVATION_NAMES)),
         actions=torch.zeros(count, dtype=torch.long),
         log_probs=torch.zeros(count),
         values=torch.tensor(values, dtype=torch.float32),
@@ -143,7 +144,7 @@ def test_an_update_favors_rewarded_actions(tmp_path):
     network = load_agent(folder).network
     optimizer = torch.optim.Adam(network.parameters(), lr=0.003)
     generator = torch.Generator().manual_seed(0)
-    observations = torch.zeros(256, 14)
+    observations = torch.zeros(256, len(OBSERVATION_NAMES))
 
     def probability_of_3():
         with torch.no_grad():
@@ -267,3 +268,22 @@ def test_training_runs_are_listed(tmp_path):
     rows = list_runs(tmp_path / "runs")
     assert rows[0]["driver"] == "pupil" and rows[0]["status"] == "done"
     assert "pupil" in format_runs(rows)
+
+
+def test_reward_scale_changes_learning_not_metrics(tmp_path):
+    unscaled = TrainerSpec.from_dict({**TINY.to_dict(), "reward_scale": 1.0})
+    scaled = TrainerSpec.from_dict({**TINY.to_dict(), "reward_scale": 0.01})
+    plain = _train(tmp_path / "plain", trainer=unscaled)
+    small = _train(tmp_path / "small", trainer=scaled)
+    first = [_rows(s.folder / "metrics.csv")[0] for s in (plain, small)]
+    assert first[0] == first[1]  # same game, same reward shown
+    losses = [
+        float(_rows(s.folder / "learning.csv")[0]["value_loss"])
+        for s in (plain, small)
+    ]
+    assert losses[1] < losses[0] / 100  # the value head's error shrinks
+
+
+def test_reward_scale_must_be_positive():
+    with pytest.raises(TrainerError, match="reward_scale"):
+        TrainerSpec.from_dict({**DEFAULT.to_dict(), "reward_scale": 0})

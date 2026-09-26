@@ -7,7 +7,7 @@ import pytest
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
 from src.replay.recorder import ReplayRecorder, human_driver
-from src.replay.replayer import Replayer, replay_rules
+from src.replay.replayer import Replayer
 from src.sim.components import Score
 from src.sim.factories import create_game
 from src.sim.resources import RoundState
@@ -101,14 +101,3 @@ def test_replays_embed_and_use_their_rules():
     assert replayer.run().ok
 
 
-def test_replays_from_before_rules_files_still_load():
-    old_header = {
-        "config": {
-            "round": {"seconds": 60.0},
-            "game": {"rounds": 1, "seed": 0},
-            "rewards": {"distance_step": 10.0, "checkpoint": 100},
-        }
-    }
-    rules = replay_rules(old_header)
-    assert (rules.round_seconds, rules.rounds) == (60, 1)
-    assert rules.scoring == load_rules("standard").scoring

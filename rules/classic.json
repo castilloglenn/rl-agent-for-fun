@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "classic",
+  "description": "Like standard, but any wall contact wrecks the car.",
+  "round_seconds": 60,
+  "rounds": 1,
+  "scoring": {"distance_step": 10, "checkpoint": 100},
+  "collisions": {"health": 100, "safe_speed": 0, "lethal_speed": 0, "scrape_damage": 0}
+}

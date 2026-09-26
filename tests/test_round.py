@@ -1,4 +1,4 @@
-"""Round timer and crash = game over (roadmap step 3f)."""
+"""Round timer, and a wrecked car ends the round (steps 3f, 5a4)."""
 
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
@@ -45,7 +45,7 @@ def test_time_up_ends_the_round_and_freezes_the_world():
     assert world.resource(SimClock).step == step
 
 
-def test_crash_eliminates_the_car_and_ends_the_round():
+def test_a_full_speed_hit_wrecks_the_car_and_ends_the_round():
     world = create_world(get_maze_car_config())
     car = create_start_car(world, label="Tester")
     world.add_component(car, GAS)
@@ -53,16 +53,15 @@ def test_crash_eliminates_the_car_and_ends_the_round():
         world.step()
 
     eliminated = world.component(car, Eliminated)
-    assert eliminated.reason == "wall"
+    assert eliminated.reason == "wrecked"
     state = world.resource(RoundState)
     assert state.over and state.reason == "all_out"
 
     texts = [event.text for event in world.resource(EventLog).events]
-    assert texts == [
-        "Tester crashed into the wall",
-        "Round over: every car is out",
-    ]
-    assert world.resource(EventLog).events[0].step == eliminated.step
+    assert texts[0].startswith("Tester hit the wall at 300 px/s")
+    assert texts[0].endswith(": -100 health")
+    assert texts[1:] == ["Tester was wrecked", "Round over: every car is out"]
+    assert world.resource(EventLog).events[1].step == eliminated.step
 
 
 def test_env_reports_game_over_and_stops_stepping():

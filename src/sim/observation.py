@@ -13,6 +13,7 @@ import numpy as np
 from src.ecs import World
 from src.sim.components import (
     Checkpoint,
+    Health,
     Motion,
     Sensors,
     Transform,
@@ -30,6 +31,7 @@ OBSERVATION_NAMES = (
     "checkpoint_sin",  # relative angle: + is to the left
     "checkpoint_cos",  # relative angle: + is ahead
     "time_left",  # 1 at the start of the round .. 0
+    "health",  # 1 (full) .. 0 (wrecked)
 )
 
 
@@ -49,6 +51,7 @@ def observe(world: World, car: int) -> np.ndarray:
     values.append(motion.steering)
     values.extend(_checkpoint_compass(world, transform, diagonal))
     values.append(state.steps_left / state.steps_total)
+    values.append(world.component(car, Health).share)
     return np.array(values, dtype=np.float32)
 
 

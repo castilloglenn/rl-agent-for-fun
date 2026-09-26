@@ -4,7 +4,7 @@
 
 A 2D car game where RL agents (and you) drive:
 
-- Walls. A crash is game over for that car.
+- Walls. Hitting one costs health by impact speed, and a wrecked car (health 0) is out.
 - Fuel and checkpoints spawn on the map. Fuel capacity is limited, so an agent must weigh chasing fuel against chasing checkpoints or other high-reward spots.
 - Multiplayer: several cars, controlled by agents or humans.
 - Later: weapons and skills. Deliberately postponed to keep the basics correct first.
@@ -20,8 +20,8 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 | Round length | 60 seconds = **7,200 steps** at 120 steps/s ([decision 008](decisions/008-fixed-timestep-clock.md)). The timer counts simulation steps, never real time, to keep replays deterministic |
 | Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1). Round length, rounds, and scoring live in rules files (`rules/standard.json`) since roadmap step 4g ([decision 013](decisions/013-game-rules-files.md)) |
 | Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
-| Round ends | When the timer hits 0, or when the car crashes |
-| Crash | Touching the border (driving or turning into it) = game over for that car. Later, with several cars, the round continues until the timer ends or every car is out. **Implemented in step 3f**: the HUD shows CRASHED, the event log records it, and R restarts |
+| Round ends | When the timer hits 0, or when the car is wrecked |
+| Wall hits | Touching the border (driving or turning into it) costs health by impact speed, and the car slides along the wall, or stops if it hit head-on (see Car health). At 0 health the car is **wrecked**: out of the round. Later, with several cars, the round continues until the timer ends or every car is out. The HUD shows WRECKED, the event log records it, and R restarts |
 
 The HUD shows the remaining time.
 
@@ -36,7 +36,28 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 | Driving forward | **+1 per 10 px** driven. The distance accumulates across frames, so slow driving still earns |
 | Stopped or reversing | 0 (so reversing back and forth can't farm points) |
 | Checkpoint collected | **+100** |
-| Crash | Ends the round, so all future points are lost. (The agent's default reward profile also gives -500; the game score doesn't) |
+| Wall hit | No game points lost, but a wreck ends the round, so all future points are lost. (The agent's default reward profile also gives -100 per wall contact, even a harmless bump, -500 per full loss of health, and -0.25 per step stopped; the game score doesn't) |
+
+### Car health
+
+**Implemented in step 5a4** ([decision 016](decisions/016-car-health-and-wall-hits.md)). The numbers live in the rules file:
+
+```json
+"collisions": {"health": 100, "safe_speed": 60, "lethal_speed": 240, "scrape_damage": 0.1}
+```
+
+| Word | Means |
+|---|---|
+| **Bump** | A hit at or below `safe_speed` (px/s): no damage |
+| **Hit** | Damage = `health × (impact − safe_speed) / (lethal_speed − safe_speed)`, at most all of it |
+| **Scrape** | Sliding along a wall costs `scrape_damage` health per px slid (1 per 10 px), and can wreck the car. A head-on push slides nothing, so it costs nothing |
+| **Wrecked** | Health reaches 0: out of the round |
+
+- **Impact speed** is the car's speed *into* the wall, so grazing a wall hurts less than hitting it head-on. A turn that pushes a corner into the wall is a hit too, at that corner's speed; the turn doesn't happen.
+- **After a hit** the car **slides along the wall**: it loses the part of its motion into the wall and keeps the part along it (speed × that share), so it can steer away. A head-on hit stops it exactly where it touched. Pushing on into the wall is the same contact: no more impact damage, only scrape damage for the distance slid, and a head-on push stays stopped.
+- A turn into the wall is blocked, but keeps the speed.
+- `rules/classic.json` wrecks on any contact (`safe_speed` = `lethal_speed` = 0, no scraping), like the game before 5a4.
+- **In the window:** a HEALTH gauge at the top right (10 blocks: green above 60 %, amber from 30 %, red below; fuel joins it in step 9). A hit car blinks red for 0.5 s (it stays red while scraping), a wrecked car turns dark red, and the event line shows the hit (`Hit the wall at 180 px/s: -67 health`) and each scrape once it ends (`Scraped the wall for 120 px: -12 health`). Blink timings are display settings (`hud.hit_flash_seconds`, `hud.hit_blink_seconds`).
 
 ### Checkpoints
 
@@ -67,13 +88,13 @@ The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 ### Sensors
 
-Rays only detect things that can crash a car (the border now; later walls, other cars, and explosion hazards). They pass through checkpoints and fuel, which agents perceive through the compass inputs instead (see Observation).
+Rays only detect things a car can hit (the border now; later walls, other cars, and explosion hazards). They pass through checkpoints and fuel, which agents perceive through the compass inputs instead (see Observation).
 
 8 rays at 0°, ±45°, ±90°, ±135°, and 180° around the car's heading: front, front-left, left, back-left, back, back-right, right, front-right. Each ray starts where it leaves the car's body, so distance 0 means touching. Distances are exact floats. **Implemented in step 3e.**
 
 ### Observation (what the agent sees)
 
-**Implemented in step 3h** (`src/sim/observation.py`, layout version 1). 14 float32 numbers:
+**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4). 15 float32 numbers:
 
 | # | Input | Range and normalization |
 |---|---|---|
@@ -84,6 +105,7 @@ Rays only detect things that can crash a car (the border now; later walls, other
 | 11 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
 | 12 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
 | 13 | Time left in the round | 1 at the start, down to 0 |
+| 14 | Health | 1 (full) down to 0 (wrecked) |
 
 - **Direction is relative to the car**, like a compass ("ahead-left, fairly close"). Sin and cos avoid the jump from 359° to 0°.
 - **Fixed size:** a neural network needs a fixed number of inputs. Objects that vary in count use the **nearest K of each type**, with empty slots filled by zeros plus an "absent" flag. For now there's always exactly 1 checkpoint.
@@ -120,7 +142,7 @@ Hazards, checkpoints, fuel, and later skills are all the same pattern: **when a 
 | Effect on a car | Component on the car, with a duration **in steps** | `Slowed(factor=0.5, steps_left=240)`, `Stunned(steps_left=360)` |
 | Detection | One trigger system: car overlaps zone, then apply the effect | Same system for every trigger type |
 | Durations | A status system counts down and removes expired effects | "2 seconds" = 240 steps, so it stays deterministic |
-| Explosion | The same "car eliminated" path as a wall crash | No separate game-over logic |
+| Explosion | The same "car eliminated" path as a wreck | No separate game-over logic |
 
 Movement and steering read the effect components: `Slowed` scales the speed, and `Stunned` ignores the car's input.
 
@@ -129,7 +151,7 @@ Movement and steering read the effect components: `Slowed` scales the speed, and
 **Done** in steps 3f and 3g. Cheap, because step 3 needed these anyway:
 
 1. **Build checkpoints as a generic trigger + effect**, not a special case. Hazards and fuel then become new effect types, not new systems.
-2. **Handle crashes as a generic "eliminate car" event**, so explosions and later weapons reuse it.
+2. **Handle wrecks as a generic "eliminate car" event**, so explosions and later weapons reuse it.
 3. **Keep every duration in steps**, never seconds of real time.
 
 Not built early: `Slowed`, `Stunned`, and other effects. Each one is a new component plus a few lines in movement or steering, added when needed.

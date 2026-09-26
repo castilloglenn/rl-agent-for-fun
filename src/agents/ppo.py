@@ -14,7 +14,7 @@ from src.agents.trainer import TrainerSpec
 @dataclass
 class Rollout:
     """One rollout of decisions, in order. dones[t] is 1 when the episode
-    ended after decision t (a crash or time up: no value beyond it).
+    ended after decision t (wrecked or time up: no value beyond it).
     """
 
     observations: torch.Tensor  # (T, observation size)

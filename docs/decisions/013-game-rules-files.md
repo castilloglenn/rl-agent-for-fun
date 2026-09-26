@@ -8,16 +8,17 @@ The rules of a game were scattered through config: round length in `config.round
 
 ## Decision
 
-Game rules become named files in `rules/<name>.json`, starting with `rules/standard.json`, which holds today's exact values:
+Game rules become named files in `rules/<name>.json`, starting with `rules/standard.json` (shown as of 5a4, which added `collisions`, [decision 016](016-car-health-and-wall-hits.md)):
 
 ```json
 {
   "format": 1,
   "name": "standard",
-  "description": "One 60 s round, points for distance and checkpoints.",
+  "description": "One 60 s round, points for distance and checkpoints. Wall hits cost health by impact speed.",
   "round_seconds": 60,
   "rounds": 1,
-  "scoring": {"distance_step": 10, "checkpoint": 100}
+  "scoring": {"distance_step": 10, "checkpoint": 100},
+  "collisions": {"health": 100, "safe_speed": 60, "lethal_speed": 240}
 }
 ```
 
@@ -31,7 +32,7 @@ That gives three separate, swappable things, each a named file:
 
 - A game is set up by **stage + rules + seed** (plus the drivers). The agent's reward profile is separate and never changes the game.
 - Rules are chosen with one setting, `--rules <name>`, and shown in the top bar (`RULES <name>`).
-- `format` is versioned, so later rules (fuel, hazards, crash behavior, between-round rules) can be added without breaking old files.
+- `format` is versioned, so later rules (fuel, hazards, between-round rules; collisions came in 5a4) can be added without breaking old files.
 - Replays **embed the full rules**, like stages. Run configs record them.
 - `config.round`, `config.game.rounds`, and `config.rewards` go away. The config keeps `game.seed` and names the rules file (`config.rules = "standard"`), like it names the stage.
 

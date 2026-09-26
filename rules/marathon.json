@@ -4,5 +4,6 @@
   "description": "A long 120 s round: staying alive matters.",
   "round_seconds": 120,
   "rounds": 1,
-  "scoring": {"distance_step": 10, "checkpoint": 100}
+  "scoring": {"distance_step": 10, "checkpoint": 100},
+  "collisions": {"health": 100, "safe_speed": 60, "lethal_speed": 240, "scrape_damage": 0.1}
 }

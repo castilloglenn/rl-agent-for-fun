@@ -32,6 +32,10 @@ class TrainerSpec:
     total_decisions: int  # length of the training phase
     checkpoint_every: int  # decisions between saved weights
     seed: int  # action sampling and minibatch order
+    # The learner sees rewards times this. Scaling every reward the same
+    # way doesn't change the best driving, but keeps the value head's
+    # error from crowding out the policy in the shared gradient limit.
+    reward_scale: float
     description: str = ""
     format: int = TRAINER_FORMAT
 
@@ -70,7 +74,7 @@ class TrainerSpec:
             raise TrainerError("gamma must be in (0, 1]")
         if not 0 <= self.gae_lambda <= 1:
             raise TrainerError("gae_lambda must be in [0, 1]")
-        for name in ("learning_rate", "clip", "max_grad_norm"):
+        for name in ("learning_rate", "clip", "max_grad_norm", "reward_scale"):
             if getattr(self, name) <= 0:
                 raise TrainerError(f"{name} must be above 0")
         for name in ("entropy", "value_coef"):

@@ -17,6 +17,9 @@ RAY: ColorValue = (70, 72, 82)  # muted; warning rays use WARN / BAD
 CHECKPOINT: ColorValue = (70, 200, 120)
 GUIDE: ColorValue = (40, 95, 65)  # faint line from car to checkpoint
 HITBOX: ColorValue = (255, 255, 255)
+HIT: ColorValue = (230, 80, 80)  # a car blinks this after a hit
+WRECKED: ColorValue = (110, 32, 32)  # a wrecked car
+BAR_EMPTY: ColorValue = (44, 46, 54)  # unfilled blocks of a bar
 
 HEADER_SIZE = 13
 TEXT_SIZE = 14

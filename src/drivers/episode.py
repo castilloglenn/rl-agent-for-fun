@@ -11,7 +11,7 @@ class EpisodeResult:
     distance_points: float
     checkpoints: int
     reward: float  # agent reward total, from the env's reward profile
-    ended_by: str | None  # "wall", "time", or None if cut short
+    ended_by: str | None  # "wrecked", "time", or None if cut short
 
 
 def run_episode(
