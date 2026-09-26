@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "mine",
+  "description": "Your recorded rounds (player \"You\"): all of them, any score.",
+  "player": "You",
+  "include": "all",
+  "min_score": 0
+}

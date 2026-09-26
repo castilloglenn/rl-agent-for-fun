@@ -1,6 +1,6 @@
 # 012: Agents can learn by imitation, by RL, or both, in any order
 
-**Date:** 2026-09-25. **Status:** Accepted. Implemented so far: the player in driver records (4d), the driver interface and the 12 canonical actions in code (4f, `src/drivers/`), with a test that all 32 key combinations behave like their canonical action. Per-player recordings with kept runs (4i, `src/replay/recordings.py`). The agent driver, `agent:<id>` in the registry, with the record `{"type": "agent", "id", "checkpoint"}` (5a1, `src/agents/`). PPO training phases (5a2, `make train`). Planned: 5a3 onward, 5b. Baseline drivers use the record `{"type": "baseline", "id": ...}`.
+**Date:** 2026-09-25. **Status:** Accepted. Implemented so far: the player in driver records (4d), the driver interface and the 12 canonical actions in code (4f, `src/drivers/`), with a test that all 32 key combinations behave like their canonical action. Per-player recordings with kept runs (4i, `src/replay/recordings.py`). The agent driver, `agent:<id>` in the registry, with the record `{"type": "agent", "id", "checkpoint"}` (5a1, `src/agents/`). PPO training phases (5a2, `make train`). Exact resume and branching (5a3), and imitation from recordings (5b, [decision 019](019-imitation-agents.md)): all four training modes now work, since an imitation phase and RL phases can follow each other on one agent. Baseline drivers use the record `{"type": "baseline", "id": ...}`.
 
 ## Context
 

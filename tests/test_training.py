@@ -68,9 +68,16 @@ def _rows(path):
 
 
 def test_trainer_files_load_and_round_trip():
+    from src.agents.trainer import load_imitation_spec
+
     for path in TRAINERS_DIR.glob("*.json"):
-        spec = load_trainer_spec(str(path))
-        assert spec.to_dict() == json.loads(path.read_text()), path.name
+        data = json.loads(path.read_text())
+        load = (
+            load_imitation_spec
+            if data["algorithm"] == "imitation"
+            else load_trainer_spec
+        )
+        assert load(str(path)).to_dict() == data, path.name
 
 
 @pytest.mark.parametrize(

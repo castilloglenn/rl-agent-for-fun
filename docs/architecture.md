@@ -14,8 +14,9 @@ src/agents/            Learned agents: model files, policy network, agents/
 src/experiments/       Experiment runs: many headless episodes into runs/
 stages/, rules/,       Data files: stages (where), rules (how the game is
 rewards/, models/,     played and scored), reward profiles (what agents
-trainers/              learn), models (an agent's network shape), and
-                       trainers (how it learns)
+trainers/, suites/,    learn), models (an agent's network shape), trainers
+datasets/              (how it learns), suites (how it's scored), and
+                       datasets (which recordings it imitates)
 ```
 
 Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks. `agents` uses `drivers` and `replay` (for its driver record), and only `drivers/registry.py` imports `agents`, lazily, so torch loads only when an agent drives.
@@ -170,6 +171,10 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 - Training scores each saved checkpoint when the trainer's `evaluate` is on, with a separate env and driver, so training itself is unchanged.
 - `load_agent(..., prefer_best=True)` (watching) loads the best scored checkpoint, else the newest. `"best"` asks for it explicitly.
 
+### Imitation (`src/experiments/datasets.py`, `imitation.py`)
+
+`build_dataset(spec, action_repeat)` re-simulates a player's recordings (`datasets/<name>.json`: player, all or kept, min score) into samples: the observation at each decision step, labeled with the most-pressed action over that decision's steps. The idle wait before the first key is left out, and recordings that don't verify are skipped with the reason. `imitate(agent, trainer, dataset, config)` trains the policy on them (cross-entropy), and the value head on the discounted rewards, holding out whole rounds for checking. It saves `clone-e<epochs>`, records an `imitation` phase, and scores the clone. See [decision 019](decisions/019-imitation-agents.md).
+
 ### Agent digests (`src/experiments/agents.py`)
 
 `list_agents()` and `format_agents()` for `make agents`, and `agent_summary(id)` for `make agent`: the profile, the score trend over scored checkpoints (a sparkline), and the heuristic's score from the baseline cache. Scoring a checkpoint (`evaluation.py`) records `scored`, `new_best`, and, once, the `milestone`.
@@ -240,4 +245,4 @@ every drawn frame:
 
 ## Not built yet
 
-Imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).
+Maze walls, multiple cars, and the control center. See [roadmap](roadmap.md).

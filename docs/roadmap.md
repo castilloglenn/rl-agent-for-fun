@@ -33,7 +33,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 4g | **Game rules** as files: round length, rounds per game, and scoring together in `rules/<name>.json` ([decision 013](decisions/013-game-rules-files.md)) | Done |
 | 4h | Experiment runner: headless episodes, run folder, metrics, best-episode replays. The run config records the stage, rules, reward profile, game-defining config, and code version | Done |
 | 4i | Record your own demo rounds: per player, latest 50 kept, K keeps a run for good | Done |
-| **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Next |
+| **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Done |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Done (milestone reached 2026-09-27: `rookie`, best d1700k, mean 5,347 vs heuristic 2,574, no wrecks) |
 | 5a1 | Agent core: model files (`models/`), policy network, `AgentDriver` (12 canonical actions, action repeat 4), saving and loading agents ([decision 014](decisions/014-model-and-trainer-files.md)) | Done |
 | 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Done |
@@ -41,8 +41,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5a4 | Car health: wall hits cost health by impact speed (speed into the wall), the car stops on contact, wrecked at 0. Collisions in the rules file, health in the observation, `damage` reward term, HEALTH gauge and hit blink ([decision 016](decisions/016-car-health-and-wall-hits.md)) | Done |
 | 5a5 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint, best checkpoint picked (`make eval`, [decision 017](decisions/017-evaluation-suite.md)) | Done |
 | 5a6 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `make agent` digest ([decision 018](decisions/018-agent-history-and-profile.md)). **Milestone: the first skilled agent**, checked at each scoring | Done |
-| 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Next |
-| 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Planned |
+| 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL (`make imitate`, [decision 019](decisions/019-imitation-agents.md)) | Done |
+| 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Next |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
@@ -332,6 +332,8 @@ Learn to drive like a player from their recorded runs (**behavioral cloning**, a
 **Worth knowing:** clones copy mistakes too, and can drift into situations the player never recorded, because small errors compound. More varied runs help, and so does RL fine-tuning.
 
 **Agent profile page:** shows "cloned from: zen, 20 runs", followed by any RL phases and their reward profiles.
+
+**Built in 5b** ([decision 019](decisions/019-imitation-agents.md)): `datasets/mine.json` picks your recordings, `make dataset` previews them, and `make imitate AGENT=id` clones them (`trainers/imitate.json`), then scores the clone. `make agent` shows "cloned from You (N rounds, M samples)". Measured: a clone reaches about half its teacher, and RL from a clone gets a real headstart (3,802 at 100k decisions against 5 from scratch).
 
 ### 6. Control center GUI
 

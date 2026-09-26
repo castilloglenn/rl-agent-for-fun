@@ -73,6 +73,17 @@ def agent_summary(agent: str, root: Path | None = None) -> str:
     if profile["phases"]:
         lines.append("  phases:")
     for i, phase in enumerate(profile["phases"], 1):
+        if phase["kind"] == "imitation":
+            data = phase["dataset"]
+            accuracy = phase.get("accuracy")
+            lines.append(
+                f"    {i}. {phase['run']}: cloned from {data['player']} "
+                f"({data['rounds']} rounds, {data['samples']:,} samples, "
+                f"dataset {data['dataset']})"
+                + (f", accuracy {accuracy:.0%}" if accuracy else "")
+                + f" ({phase['status']})"
+            )
+            continue
         lines.append(
             f"    {i}. {phase['run']}: trainer {phase['trainer']}, "
             f"reward {phase['reward']}, {phase['stage']}/{phase['rules']}, "

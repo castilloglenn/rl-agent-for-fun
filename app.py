@@ -53,6 +53,23 @@ def _dispatch(cl_args) -> None:
         _resume(cl_args, config)
     elif cl_args.eval or cl_args.eval_baselines:
         _evaluate(cl_args, config)
+    elif cl_args.preview_dataset:
+        from src.agents.model import load_model_spec
+        from src.experiments.datasets import (
+            DatasetError,
+            build_dataset,
+            format_dataset,
+            load_dataset_spec,
+        )
+
+        try:
+            spec = load_dataset_spec(cl_args.dataset)
+        except DatasetError as error:
+            raise SystemExit(str(error))
+        repeat = load_model_spec("small").action_repeat
+        print(format_dataset(build_dataset(spec, repeat)))
+    elif cl_args.imitate:
+        _imitate(cl_args, config)
     elif cl_args.list_agents:
         from src.experiments.agents import format_agents, list_agents
 
@@ -203,6 +220,61 @@ def _evaluate(cl_args, config) -> None:
     except (AgentError, SuiteError) as error:
         raise SystemExit(str(error))
     print(format_results(rows, baselines))
+
+
+def _imitate(cl_args, config) -> None:
+    import torch
+
+    from src.agents.store import AgentError
+    from src.agents.trainer import TrainerError, load_imitation_spec
+    from src.experiments.datasets import DatasetError, load_dataset_spec
+    from src.experiments.imitation import imitate
+
+    torch.set_num_threads(1)
+
+    def progress(report):
+        if report.epoch % 5 and report.epoch != report.epochs:
+            return
+        held = report.held_out_accuracy
+        print(
+            f"  epoch {report.epoch:>3}/{report.epochs}  accuracy "
+            f"{report.train_accuracy:.0%}"
+            + ("" if held is None else f", held-out rounds {held:.0%}")
+            + f"  {report.seconds:,.1f} s"
+        )
+
+    try:
+        trainer = load_imitation_spec(cl_args.imitation_trainer)
+        dataset = load_dataset_spec(cl_args.dataset)
+        print(
+            f"Cloning {dataset.player!r} (dataset {dataset.name!r}) into "
+            f"{cl_args.imitate!r} with trainer {trainer.name!r}"
+        )
+        summary = imitate(
+            cl_args.imitate, trainer, dataset, config, on_epoch=progress
+        )
+    except (AgentError, TrainerError, DatasetError) as error:
+        raise SystemExit(str(error))
+    held = summary.held_out_accuracy
+    print(
+        f"Done ({summary.rounds} rounds, {summary.samples:,} samples, "
+        f"{summary.seconds:,.1f} s): accuracy {summary.train_accuracy:.0%}"
+        + ("" if held is None else f", held-out rounds {held:.0%}")
+    )
+    if summary.evaluation:
+        e = summary.evaluation
+        print(
+            f"The clone on the suite: score {e['score_mean']:,.0f}, "
+            f"survival {e['survival']:.0%}, wrecks {e['wreck_rate']:.0%}, "
+            f"braking {e['braking']:.0%}. Your recordings' mean score: "
+            f"{summary.player_mean_score:,.0f} (other seeds)"
+        )
+    print(f"Saved as {summary.agent}@{summary.checkpoint} ({summary.folder})")
+    print(
+        f"Watch it: make maze_car_driver "
+        f"DRIVER=agent:{summary.agent}@{summary.checkpoint}"
+    )
+    print(f"Improve it with RL: make train AGENT={summary.agent}")
 
 
 def _training_progress(report) -> None:

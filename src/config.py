@@ -29,6 +29,12 @@ flags.DEFINE_boolean("eval_baselines", False, "Score the baselines (suite).")
 flags.DEFINE_string("suite", "box", "Evaluation suite: suites/<name>.json.")
 flags.DEFINE_boolean("list_agents", False, "List agents (profiles).")
 flags.DEFINE_string("show_agent", "", "Print an agent's digest.")
+flags.DEFINE_string("imitate", "", "Clone a player's driving into an agent.")
+flags.DEFINE_string("dataset", "mine", "Imitation dataset: datasets/<name>.")
+flags.DEFINE_string(
+    "imitation_trainer", "imitate", "Imitation trainer: trainers/<name>."
+)
+flags.DEFINE_boolean("preview_dataset", False, "Show what a dataset uses.")
 flags.DEFINE_string(
     "from", "", "Branch a new agent from <id>[@checkpoint] (-new_agent)."
 )

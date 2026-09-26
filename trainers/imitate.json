@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "imitate",
+  "description": "Behavioral cloning: learn to drive like a player's recordings.",
+  "algorithm": "imitation",
+  "learning_rate": 0.001,
+  "epochs": 100,
+  "minibatch": 256,
+  "validation": 0.2,
+  "value": true,
+  "gamma": 0.99,
+  "reward_scale": 0.01,
+  "seed": 0,
+  "evaluate": true
+}

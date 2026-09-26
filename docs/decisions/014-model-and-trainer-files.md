@@ -1,6 +1,6 @@
 # 014: Agent models and training profiles as files
 
-**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation is the `evaluate` key since 5a5 (at every checkpoint).
+**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation is the `evaluate` key since 5a5 (at every checkpoint). Since 5b, a trainer file can also be an imitation trainer (`algorithm: imitation`, [decision 019](019-imitation-agents.md)).
 
 ## Context
 

@@ -77,14 +77,20 @@ class Replayer:
     def done(self) -> bool:
         return self.step_index >= self.total_steps
 
+    def next_action(self) -> tuple:
+        """The recorded action for the next step, in the env's action
+        order (5 bools).
+        """
+        stored = self._actions[self.step_index].get("1", [])
+        return to_current_actions(
+            stored, self.replay.action_names, self.env.action_names
+        )
+
     def step(self) -> bool:
         """Re-simulates one step. Returns False once the replay is over."""
         if self.done:
             return False
-        stored = self._actions[self.step_index].get("1", [])
-        action = to_current_actions(
-            stored, self.replay.action_names, self.env.action_names
-        )
+        action = self.next_action()
         self.env.step_world(action)
         self.step_index += 1
         return not self.done

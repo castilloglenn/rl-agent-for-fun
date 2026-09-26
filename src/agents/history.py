@@ -67,6 +67,7 @@ def build_profile(folder: Path) -> dict:
         kind, run = event["event"], event.get("run")
         if kind == "phase_started":
             phases[run] = {
+                "kind": event.get("kind", "rl"),
                 "run": run,
                 "trainer": event["trainer"],
                 "reward": event["reward"],
@@ -78,6 +79,11 @@ def build_profile(folder: Path) -> dict:
                 "seconds": 0.0,
                 "status": "running or stopped",
             }
+            if event.get("kind") == "imitation":
+                phases[run]["dataset"] = {
+                    k: event[k]
+                    for k in ("dataset", "player", "rounds", "samples")
+                }
         elif kind == "checkpoint_saved" and run in phases:
             phases[run]["end_decisions"] = event["decisions"]
         elif kind == "phase_ended" and run in phases:
@@ -87,6 +93,8 @@ def build_profile(folder: Path) -> dict:
                 seconds=event["seconds"],
                 status="stopped" if event["interrupted"] else "done",
             )
+            if "accuracy" in event:
+                phases[run]["accuracy"] = event["accuracy"]
         elif kind == "milestone" and milestone is None:
             milestone = {k: v for k, v in event.items() if k != "event"}
 
