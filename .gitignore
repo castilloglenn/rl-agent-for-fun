@@ -165,4 +165,4 @@ cython_debug/
 # Experiment runs and recordings are local data (docs/roadmap.md, step 4)
 runs/
 recordings/
-agents/
+/agents/

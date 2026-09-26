@@ -5,7 +5,7 @@ flags.DEFINE_boolean("tests", False, "Run unit tests.")
 flags.DEFINE_string("demo", "", "Run games with human inputs.")
 flags.DEFINE_string("replay", "", "Play a replay file in the window.")
 flags.DEFINE_string(
-    "driver", "keyboard", "Who drives the demo: keyboard, random, heuristic."
+    "driver", "keyboard", "Who drives: keyboard, random, heuristic, agent:<id>."
 )
 flags.DEFINE_string("player", "You", "Your player name (recordings, HUD).")
 flags.DEFINE_string(
@@ -21,6 +21,10 @@ flags.DEFINE_string("rules", "", "Rules by name or path (default: config).")
 flags.DEFINE_boolean("list_runs", False, "List experiment runs.")
 flags.DEFINE_string("new_agent", "", "Create an untrained agent with this id.")
 flags.DEFINE_string("model", "small", "Model for a new agent (models/).")
+flags.DEFINE_string("train", "", "Train this agent (a training phase).")
+flags.DEFINE_string(
+    "trainer", "default", "Trainer: a name in trainers/, or a path."
+)
 flags.DEFINE_boolean("record", True, "Record your demo rounds (--norecord).")
 flags.DEFINE_boolean("list_recordings", False, "List recorded demo rounds.")
 flags.DEFINE_boolean("replay_last", False, "Watch the newest recording.")

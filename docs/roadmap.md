@@ -36,8 +36,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | **5** | **Agents** ([decision 012](decisions/012-agent-training-modes.md)) | Next |
 | 5a | RL agent and training: torch model, training loop, full checkpoints, pause / resume / branch, evaluation suite (box-map skills). **Milestone: the first skilled agent** | Next |
 | 5a1 | Agent core: model files (`models/`), policy network, `AgentDriver` (12 canonical actions, action repeat 4), saving and loading agents ([decision 014](decisions/014-model-and-trainer-files.md)) | Done |
-| 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Next |
-| 5a3 | Full checkpoints, pause (Ctrl+C saves), resume, branch | Planned |
+| 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Done |
+| 5a3 | Full checkpoints (optimizer and random states too), exact resume, pause, branch. 5a2's Ctrl+C already keeps the weights | Next |
 | 5a4 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Planned |
 | 5a5 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Planned |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
@@ -239,18 +239,18 @@ How agents are trained is flexible: imitation only, RL only, or both in either o
 
 **Sub-steps:** 5a1 agent core → 5a2 PPO training → 5a3 checkpoints and resume → 5a4 evaluation suite → 5a5 agent storage and history (milestone).
 
-**Measured before planning:** torch 2.14 works in the venv. A 14 → 64 → 64 → 12 policy network (5,900 parameters) decides in 28 µs on one CPU core (9 µs measured in 5a1, with inference mode). With action repeat 4, collection should reach roughly 35,000 simulation steps per second (an ESTIMATE until 5a2 measures it). The CPU is used, not the Apple GPU: at this size, transfers would cost more than they save.
+**Measured before planning:** torch 2.14 works in the venv. A 14 → 64 → 64 → 12 policy network (5,900 parameters) decides in 28 µs on one CPU core (9 µs measured in 5a1, with inference mode). Measured in 5a2: collection runs at 30,300 simulation steps per second (7,600 decisions per second), and training as a whole at about 5,000 decisions per second, so 1M decisions take about 3.5 min. The CPU is used, not the Apple GPU: at this size, transfers would cost more than they save.
 
 **Settings as named files** ([decision 014](decisions/014-model-and-trainer-files.md)):
 - **`models/<name>.json`** (5a1): the agent's network shape, activation, observation spec, action set, and action repeat. Picked when an agent is created, copied into the agent, and **fixed for its life**. Resuming with a different model is refused, since the weights wouldn't fit.
-- **`trainers/<name>.json`** (5a2): learning rate, discount (how far ahead the agent cares), exploration bonus, rollout and batch sizes, epochs, total steps, checkpoint and evaluation intervals, seeds. **Can change at every training phase**, and each phase records which trainer it used.
+- **`trainers/<name>.json`** (5a2): learning rate, discount (how far ahead the agent cares), exploration bonus, rollout and batch sizes, epochs, total decisions, checkpoint interval, seed. Evaluation intervals come with the evaluation suite (5a4). **Can change at every training phase**, and each phase records which trainer it used.
 - A training run = model (for a new agent) + trainer + stage + rules + reward profile.
 - `agents/` is gitignored, like `runs/`.
 
 **Milestone bar:** the agent survives most 60 s rounds and beats the heuristic's mean score (2,502) on the same seeds.
 
 - A torch neural network drives the car through the env, and learns by trial and error over many episodes.
-- **Output of training:** model weights (`.pt`), config, metrics, replays, all in the run folder.
+- **Output of training:** the weights go to the agent (`agents/<id>/checkpoints/d0100k.pt`, ...), so watching the agent always picks up its newest ones. The run folder holds the config, metrics, learning curve (`learning.csv`), and best replays, and records which checkpoints it wrote.
 - **Pause in place:** training stops between episodes and stays in memory. While paused, you can watch replays or load the current weights into live play. Resume continues exactly.
 - **Stop and resume later:** save a checkpoint, exit, and resume from it any time.
 - **A full checkpoint holds:**

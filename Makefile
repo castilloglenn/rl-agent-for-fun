@@ -5,7 +5,7 @@
 	maze_car_reward maze_car_rules maze_car_seconds maze_car_fps replay \
 	runs run_heuristic run_random run_driver run_episodes run_reward \
 	run_rules run_stage run_seconds run_best recordings replay_last \
-	maze_car_norecord new_agent maze_car_agent run_agent
+	maze_car_norecord new_agent maze_car_agent run_agent train
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -41,6 +41,7 @@ help:
 	@echo "  make new_agent AGENT=id              create an untrained agent (small model)"
 	@echo "  make maze_car_agent AGENT=id         watch an agent drive"
 	@echo "  make run_agent AGENT=id              run an agent for 100 episodes"
+	@echo "  make train AGENT=id                  train an agent (trainers/default.json)"
 	@echo "Develop"
 	@echo "  make test                            run all tests"
 	@echo "  make test_file FILE=path             run one test file"
@@ -176,3 +177,7 @@ maze_car_agent:
 run_agent:
 	$(call require,AGENT,my_agent)
 	python app.py -run $(AGENT) --driver agent:$(AGENT)
+
+train:
+	$(call require,AGENT,my_agent)
+	python app.py -train $(AGENT)

@@ -46,6 +46,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make new_agent AGENT=id` | Create an untrained agent in `agents/<id>/` from `models/small.json` |
 | `make maze_car_agent AGENT=id` | Watch an agent drive (its newest checkpoint) |
 | `make run_agent AGENT=id` | Run an agent for 100 episodes, headless, into `runs/` |
+| `make train AGENT=id` | Train an agent for one phase with `trainers/default.json` (1M decisions, about 3.5 min). Checkpoints go to `agents/<id>/checkpoints/`, the learning curve to a `runs/` folder. Ctrl+C stops and keeps the weights. Another trainer: `python app.py -train <id> --trainer <name>` |
 | `make test` | Run all tests |
 | `make test_file FILE=path` | Run one test file |
 | `make fixtures` | Regenerate the behavior fixtures (only for an intended behavior change) |
@@ -53,7 +54,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 

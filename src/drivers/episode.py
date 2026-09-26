@@ -20,8 +20,6 @@ def run_episode(
     """Plays one game with `driver`, headless. The runner (4h) and the
     evaluation suite (5a) build on this.
     """
-    from src.sim.components import Score
-
     observation, _ = env.reset(seed=seed)
     driver.reset(seed)
     steps = 0
@@ -34,6 +32,15 @@ def run_episode(
         steps += 1
         if max_steps is not None and steps >= max_steps:
             break
+    return episode_result(env, seed, steps, truncated, info)
+
+
+def episode_result(
+    env, seed: int | None, steps: int, truncated: bool, info: dict
+) -> EpisodeResult:
+    """The result of the env's current game, after `steps` steps."""
+    from src.sim.components import Score
+
     score = env.world.component(env.car, Score)
     ended_by = info.get("eliminated") or ("time" if truncated else None)
     return EpisodeResult(

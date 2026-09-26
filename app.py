@@ -36,6 +36,8 @@ def _dispatch(cl_args) -> None:
         print(f"Created agent {cl_args.new_agent!r} ({cl_args.model})")
         print(f"  {folder}")
         print(f"Watch it: make maze_car_agent AGENT={cl_args.new_agent}")
+    elif cl_args.train:
+        _train(cl_args, config)
     elif cl_args.list_recordings:
         from src.replay.recordings import format_recordings, list_recordings
 
@@ -84,6 +86,66 @@ def _dispatch(cl_args) -> None:
                 pass
     else:
         Main()
+
+
+def _train(cl_args, config) -> None:
+    import torch
+
+    from src.agents.store import AgentError
+    from src.agents.trainer import TrainerError, load_trainer_spec
+    from src.experiments.training import train_agent
+    from src.sim.rules import load_rules
+
+    torch.set_num_threads(1)  # as fast at this size, and reproducible
+    rules = load_rules(config.rules)
+    if cl_args.round_seconds > 0:
+        rules = rules.with_round_seconds(cl_args.round_seconds)
+
+    def progress(report):
+        if report.update % 10 and not report.saved:
+            if report.decisions < report.total:
+                return
+        score = (
+            "" if report.score_mean is None else f"{report.score_mean:,.0f}"
+        )
+        line = (
+            f"  {report.decisions:>9,}/{report.total:,} decisions  "
+            f"{report.episodes:>4} episodes  score {score:>6}  "
+            f"entropy {report.stats.entropy:.2f}  {report.seconds:,.0f} s"
+        )
+        print(line + (f"  saved {report.saved}" if report.saved else ""))
+
+    try:
+        trainer = load_trainer_spec(cl_args.trainer)
+        print(
+            f"Training {cl_args.train!r} with trainer {trainer.name!r} "
+            f"(Ctrl+C stops and keeps the weights)"
+        )
+        summary = train_agent(
+            cl_args.train,
+            trainer,
+            config,
+            first_seed=cl_args.seed,
+            reward=cl_args.reward,
+            rules=rules,
+            on_update=progress,
+        )
+    except AgentError as error:
+        raise SystemExit(
+            f"{error}\nCreate it with: make new_agent AGENT={cl_args.train}"
+        )
+    except TrainerError as error:
+        raise SystemExit(str(error))
+    state = "interrupted, " if summary.interrupted else ""
+    print(
+        f"Done ({state}{summary.decisions:,} decisions, "
+        f"{summary.episodes} episodes, {summary.seconds:,.0f} s): "
+        f"last {min(summary.episodes, 100)} episodes mean score "
+        f"{summary.mean_score:,.0f}, survived {summary.survival_rate:.0%}"
+    )
+    print(f"Checkpoints: {', '.join(summary.checkpoints) or 'none'}")
+    print(f"Saved in {summary.folder}")
+    print(f"Watch it: make maze_car_agent AGENT={cl_args.train}")
 
 
 def _experiment_run(cl_args, config) -> None:

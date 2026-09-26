@@ -13,8 +13,9 @@ src/drivers/           Who drives: keyboard, baselines, agents (one interface)
 src/agents/            Learned agents: model files, policy network, agents/
 src/experiments/       Experiment runs: many headless episodes into runs/
 stages/, rules/,       Data files: stages (where), rules (how the game is
-rewards/, models/      played and scored), reward profiles (what agents
-                       learn), models (an agent's network shape)
+rewards/, models/,     played and scored), reward profiles (what agents
+trainers/              learn), models (an agent's network shape), and
+                       trainers (how it learns)
 ```
 
 Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks. `agents` uses `drivers` and `replay` (for its driver record), and only `drivers/registry.py` imports `agents`, lazily, so torch loads only when an agent drives.
@@ -105,6 +106,8 @@ agents/<id>/                (gitignored: local data)
 | `model.py` | `ModelSpec` (from/to dict, validated) and `load_model_spec(name or path)` |
 | `network.py` | `PolicyNetwork(spec, obs_size, actions)`: separate policy and value MLPs (multilayer perceptrons). `forward(obs)` returns (action logits, values) |
 | `store.py` | `create_agent(id, spec, seed)`: seeded weights, without touching global torch randomness. `load_agent(id or path, checkpoint)`: the newest checkpoint by default. `save_checkpoint` |
+| `trainer.py` | `TrainerSpec` (unknown or missing keys refused) and `load_trainer_spec(name or path)` |
+| `ppo.py` | PPO math: `Rollout`, `advantages()` (GAE, no value across an episode end), `update()` (clipped policy loss, value loss, entropy bonus, gradient clipping), `UpdateStats` |
 | `driver.py` | `AgentDriver`: decides every `action_repeat` steps and holds the action in between. Deterministic (highest-scoring action) by default, or seeded sampling. Record `{"type": "agent", "id", "checkpoint"}`, label `<id> (agent)` |
 
 **Safety:** loading is refused when the checkpoint was saved for another model, the model uses another action set, or its observation version isn't the env's. Checkpoints load with `torch.load(weights_only=True)`, so a file can't run code.
@@ -132,6 +135,28 @@ runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
 - `runs.py`: `list_runs()` / `format_runs()` for `make runs`, and `best_replay(folder)` for `make run_best`.
 - Speed: about 0.17 s per 60 s heuristic episode (5 episodes in 0.85 s), replay recording included.
 - The keyboard driver is refused: runs are headless.
+
+### Training runs (`src/experiments/training.py`)
+
+`train_agent(agent, trainer, config, first_seed, reward, rules)` runs one **training phase**: it continues the agent's newest checkpoint for `total_decisions` decisions, with episode *i* on seed `first_seed + i`.
+
+```
+runs/<date>_<time>_train-<id>_seed<N>/
+  config.json    kind "training", agent (model, start checkpoint and
+                 decisions), trainer, stage, rules, reward, game config
+  metrics.csv    one row per training episode (same columns as runs)
+  learning.csv   one row per update: decisions, episodes, mean score and
+                 reward of the last 20 episodes, losses, entropy, KL, clip
+  replays/       each new best training episode
+  summary.json   decisions, updates, last 100 episodes, checkpoints written
+agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
+```
+
+- Each decision samples the policy, holds it `action_repeat` steps, and its reward is the reward profile summed over them. A crash or time up ends the value chain. That's right for time up too, because `time_left` is in the observation.
+- Checkpoints are named by the agent's total decisions at the mark they passed (`d0100k` holds the weights after the first update past 100,000; the exact count is inside). A second phase continues the count.
+- Ctrl+C stops after saving the weights learned so far. Exact resume (optimizer and random states) is 5a3.
+- Reproducible: the same agent, trainer, seeds, and files give the same `learning.csv` and weights. `app.py` sets torch to one thread.
+- Training replays record `{"type": "agent", "id", "training": {"run", "decisions"}}` as their driver.
 
 ## Replays (`src/replay/`)
 
@@ -199,4 +224,4 @@ every drawn frame:
 
 ## Not built yet
 
-Training (PPO, trainer files), full checkpoints with resume, the evaluation suite, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).
+Full checkpoints with exact resume, the evaluation suite, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).

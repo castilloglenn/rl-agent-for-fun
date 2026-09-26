@@ -1,6 +1,6 @@
 # 014: Agent models and training profiles as files
 
-**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files: planned for 5a2.
+**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation intervals moved to 5a4, with the evaluation suite.
 
 ## Context
 
@@ -37,7 +37,24 @@ Two new file types, like stages, rules, and reward profiles:
 
 ### Trainers: `trainers/<name>.json`, changeable per training phase
 
-Learning rate, discount (gamma: how far ahead the agent cares), exploration bonus (entropy), rollout and batch sizes, update epochs, total steps, checkpoint and evaluation intervals, and seeds. Defined in detail in 5a2.
+`trainers/default.json`:
+
+| Key | Default | Means |
+|---|---|---|
+| `algorithm` | `ppo` | Only PPO (Proximal Policy Optimization) for now |
+| `learning_rate` | 0.0003 | Step size of each update |
+| `gamma` | 0.99 | Discount: how far ahead the agent cares (about 100 decisions, 3 s) |
+| `gae_lambda` | 0.95 | Smoothing of the advantage estimate (GAE: Generalized Advantage Estimation) |
+| `clip` | 0.2 | How far one update may move the policy |
+| `entropy` | 0.01 | Exploration bonus |
+| `value_coef`, `max_grad_norm` | 0.5, 0.5 | Standard PPO stability terms |
+| `rollout` | 2048 | Decisions collected per update |
+| `minibatch`, `epochs` | 64, 10 | How each rollout is learned from |
+| `total_decisions` | 1,000,000 | Length of the training phase |
+| `checkpoint_every` | 100,000 | Decisions between saved weights |
+| `seed` | 0 | Action sampling and minibatch order |
+
+Unknown or missing keys are refused, so a typo can't silently fall back to a default.
 
 - Picked per training phase. The agent's lineage records every phase's trainer, next to its reward profile, stage, and rules.
 
