@@ -58,7 +58,7 @@ Geometry and physics rules: [conventions](conventions.md).
 - `step(action)` returns `(observation, reward, terminated, truncated, info)`:
   - `terminated`: the car is out (a crash).
   - `truncated`: the round ran out of time.
-  - `reward`: from the env's **reward profile** (`MazeCarEnv(config, reward="default")`: a name in `rewards/`, a path, or a `RewardProfile`). The profile is a weighted sum of per-step terms (points, distance points, checkpoints, checkpoint speed, crash, time up, per step, distance, speed, steering change, closest wall; some take parameters), and never changes the game score. `rewards/default.json` equals the game points gained. It's 0 once the game is over. See [decision 011](decisions/011-reward-profiles.md).
+  - `reward`: from the env's **reward profile** (`MazeCarEnv(config, reward="default")`: a name in `rewards/`, a path, or a `RewardProfile`). The profile is a weighted sum of per-step terms (points, distance points, checkpoints, checkpoint speed, crash, time up, per step, distance, speed, steering change, closest wall; some take parameters), and never changes the game score. `rewards/default.json` is the game points gained, and -500 for crashing. It's 0 once the game is over. See [decision 011](decisions/011-reward-profiles.md).
 - `info` has `score`, `points` (game points this step), `checkpoints`, `step`, and `eliminated`.
 - `get_state()` returns the observation: 14 float32 values from `observe()` (`src/sim/observation.py`). The names are in `observation_names`, and the version is in `observation_version`. See [game design](game-design.md#observation-what-the-agent-sees).
 - An action is 5 bools, in `action_names` order: `(turn_left, turn_right, gas, reverse, brake)`.

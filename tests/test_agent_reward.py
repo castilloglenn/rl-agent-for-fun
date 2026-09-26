@@ -56,11 +56,12 @@ def _events(**overrides) -> StepEvents:
 # Profiles
 
 
-def test_default_profile_is_points_only():
+def test_default_profile_is_points_and_a_crash_penalty():
     profile = load_reward_profile("default")
     assert profile.name == "default"
-    assert dict(profile.terms) == {"points": 1.0}
+    assert dict(profile.terms) == {"points": 1.0, "crash": -500.0}
     assert profile(_events(points=3)) == 3
+    assert profile(_events(points=1, crashed=True)) == 1 - 500
 
 
 def test_round_trip_matches_the_file():
@@ -124,14 +125,14 @@ def test_env_uses_the_default_profile():
     env.reset()
     for _ in range(200):
         _, reward, terminated, truncated, info = env.step(GAS)
-        assert reward == info["points"]
+        assert reward == info["points"] - (500 if terminated else 0)
         if terminated or truncated:
             break
 
 
 def test_a_crash_penalty_never_changes_the_game_score():
     penalized = _env(reward=_profile(points=1.0, crash=-1000))
-    plain = _env()
+    plain = _env(reward=_profile(points=1.0))
     penalized.reset(seed=1)
     plain.reset(seed=1)
 

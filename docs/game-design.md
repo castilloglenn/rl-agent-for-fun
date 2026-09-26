@@ -36,7 +36,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 | Driving forward | **+1 per 10 px** driven. The distance accumulates across frames, so slow driving still earns |
 | Stopped or reversing | 0 (so reversing back and forth can't farm points) |
 | Checkpoint collected | **+100** |
-| Crash | Ends the round, so all future reward is lost |
+| Crash | Ends the round, so all future points are lost. (The agent's default reward profile also gives -500; the game score doesn't) |
 
 ### Checkpoints
 

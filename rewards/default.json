@@ -1,6 +1,6 @@
 {
   "format": 1,
   "name": "default",
-  "description": "Game points only: the agent reward equals the game score gained.",
-  "terms": {"points": 1.0}
+  "description": "Game points (+1 per 10 px, +100 per checkpoint), and -500 for crashing.",
+  "terms": {"points": 1.0, "crash": -500}
 }

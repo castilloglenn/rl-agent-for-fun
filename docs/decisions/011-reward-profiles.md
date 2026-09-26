@@ -20,7 +20,7 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
 ```
 
 - `description` is optional, in plain words: what the profile is for. It'll show on agent profile pages.
-- Profiles live in `rewards/<name>.json`. `rewards/default.json` is `{"points": 1.0}`, exactly today's reward.
+- Profiles live in `rewards/<name>.json`. `rewards/default.json` was `{"points": 1.0}`, exactly the reward before profiles. After 5a2 it became `{"points": 1.0, "crash": -500}` (see Consequences).
 - **reward = Σ weight × term.** Each term is one number measured over a single step:
 
   | Term | Value per step |
@@ -39,7 +39,7 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
 
 - **Terms with parameters:** a term is either a weight (`"points": 1.0`) or a weight plus parameters (`"checkpoint_speed": {"weight": 100, "window": 10}`). Each term declares its parameters and their defaults. Parameters are positive numbers. Plain weights keep working, so the format version stays 1.
 - Unknown term names, unknown parameters, non-number weights, or a wrong `format` fail early with a clear error. New terms can be added later, and old profiles keep working.
-- Shipped profiles: `default` (points only) and `time_bonus` (`distance_points`, plus `checkpoint_speed` weight 100, window 10 s: a checkpoint is worth up to +100 when reached instantly, 0 after 10 s). `time_bonus` first used `points`, which already includes the game's +100 per checkpoint, so slow pickups still paid +100. Fixed by the `distance_points` term.
+- Shipped profiles: `default` (game points, and -500 for crashing) and `time_bonus` (`distance_points`, plus `checkpoint_speed` weight 100, window 10 s: a checkpoint is worth up to +100 when reached instantly, 0 after 10 s). `time_bonus` first used `points`, which already includes the game's +100 per checkpoint, so slow pickups still paid +100. Fixed by the `distance_points` term.
 - The env takes a profile by name or path. The profile's **full content** is recorded in replays and run configs, so an edited or deleted profile file doesn't lose the record.
 
 ### Examples (ideas for experiments, not shipped)
@@ -57,3 +57,4 @@ The agent reward is a **weighted sum of terms**, defined in a **profile file**, 
 - Agents can exploit weights in unexpected ways. A crash penalty that's too large can teach "never move", the classic loophole. Replays make such behavior visible.
 - The agent profile page (step 6) shows which reward profile trained the agent, next to its skills.
 - **Shown in the window:** the top bar has `REWARD <profile name>`, and the side panel's AGENT REWARD section shows the last step's reward and the total this game. The reward is computed in the human demo too, so you can see how a profile would judge your own driving. The panel's SCORE section keeps showing game points.
+- **Crash penalty in `default` (2026-09-26, after 5a2):** the first 1M-decision training with points only learned to hunt checkpoints but crashed in 83 % of rounds. A crash ends the round, but with gamma 0.99 the agent only looks about 3 s ahead, where the lost points are worth only about 100 to 200. So `default` adds `"crash": -500` (about 5 checkpoints). Game points and leaderboards are unchanged. Measured on 30 unseen seeds after 1M decisions each: points only scored a mean of 1,750 and survived 17 %; with the penalty, 3,420 and 27 % (the heuristic: 2,402 and 83 %).
