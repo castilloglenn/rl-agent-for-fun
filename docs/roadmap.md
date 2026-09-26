@@ -47,7 +47,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
-| Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills | Idea |
+| Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills, grip and drift physics (see [below](#later-grip-and-drift-physics)) | Idea |
 
 ## Step details
 
@@ -433,6 +433,20 @@ One network (one set of weights) drives N copies of the environment at once, one
 - **Live grid:** a window with one small view per env. Workers send lightweight snapshots (car position and angle, checkpoint, score) every few steps, and the GUI process draws them. Workers never render. Cars look sped up, since training runs faster than real time.
 - **Spectate one:** click a tile to enlarge that env's game, with its full info panel.
 - The game leaderboard ranks the parallel games by score.
+
+### Later: grip and drift physics
+
+**Why:** today a car turns at 240°/s at any speed from 120 px/s up, with no speed loss. At 300 px/s that's a turn only 72 px in radius, which would need twice the braking grip (1,250 px/s² sideways) and would skid in reality. The trained agent exploits it: it rarely drives straight (wheel centered 10 % of the time), orbits counterclockwise at nearly full speed (290 px/s on average), never brakes, and sweeps through checkpoints on the arc (36 per round, against the heuristic's 17). Measured 2026-09-27 on the box suite. Chosen for now: leave it, since it's a legitimate strategy under the current physics.
+
+**Options, in order of size:**
+
+| Option | What changes | Drift? |
+|---|---|---|
+| Grip limit (`car.grip`, for example 600 px/s²) | The tightest turn widens with speed (about 150 px radius at full speed); slow turns stay the same. Braking into corners becomes a skill | No: grip is never exceeded |
+| Plus tire scrub | Hard turns also cost speed | No sliding, only the speed loss |
+| Drift physics | The car's movement direction separates from its heading: sideways friction, grip that breaks loose, counter-steering. Touches movement, wall sliding, and the observation (slide angle) | Yes |
+
+Any of these changes the physics: the behavior fixtures for turning at speed change, and agents need retraining.
 
 ## Open questions
 
