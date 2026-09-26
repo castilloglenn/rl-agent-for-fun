@@ -18,8 +18,8 @@ class DriverError(ValueError):
 
 def make_driver(name: str, player: str = "player") -> Driver:
     """A driver by name: "keyboard", a baseline, or "agent:<id>" (an agent
-    in agents/, at its newest checkpoint; "agent:<id>@<checkpoint>" for
-    another one).
+    in agents/, at its best scored checkpoint, else its newest;
+    "agent:<id>@<checkpoint>" or "@best" for a specific one).
     """
     if name.startswith("agent:"):
         from src.agents.driver import AgentDriver

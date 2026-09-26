@@ -23,7 +23,7 @@ class AgentDriver(Driver):
 
     @staticmethod
     def load(agent: str, checkpoint: str | None = None) -> "AgentDriver":
-        return AgentDriver(load_agent(agent, checkpoint))
+        return AgentDriver(load_agent(agent, checkpoint, prefer_best=True))
 
     def reset(self, seed: int | None = None) -> None:
         self._steps = 0

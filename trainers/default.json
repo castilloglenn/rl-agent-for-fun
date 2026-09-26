@@ -16,5 +16,6 @@
   "epochs": 10,
   "total_decisions": 2000000,
   "checkpoint_every": 100000,
-  "seed": 0
+  "seed": 0,
+  "evaluate": true
 }

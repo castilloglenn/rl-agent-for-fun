@@ -1,6 +1,6 @@
 # 014: Agent models and training profiles as files
 
-**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation intervals moved to 5a5, with the evaluation suite.
+**Date:** 2026-09-26. **Status:** Accepted. Model files implemented in roadmap step 5a1 (`src/agents/`, `models/small.json`, `models/medium.json`, `make new_agent`). Trainer files implemented in 5a2 (`src/agents/trainer.py`, `trainers/default.json`, `make train`). Evaluation is the `evaluate` key since 5a5 (at every checkpoint).
 
 ## Context
 
@@ -53,6 +53,7 @@ Two new file types, like stages, rules, and reward profiles:
 | `minibatch`, `epochs` | 64, 10 | How each rollout is learned from |
 | `total_decisions` | 2,000,000 | Length of the training phase (1M until 5a4: with sliding walls, learning starts later) |
 | `checkpoint_every` | 100,000 | Decisions between saved weights |
+| `evaluate` | true | Score each saved checkpoint with the evaluation suite (5a5, [decision 017](017-evaluation-suite.md)) |
 | `seed` | 0 | Action sampling and minibatch order |
 
 Unknown or missing keys are refused, so a typo can't silently fall back to a default.

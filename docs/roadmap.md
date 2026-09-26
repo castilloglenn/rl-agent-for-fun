@@ -39,8 +39,8 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5a2 | PPO training loop, with trainer files (`trainers/`), as a run folder with learning metrics | Done |
 | 5a3 | Full checkpoints (optimizer and random states too), exact resume (`make resume`, `make resume_last`), branch into a new agent ([decision 015](decisions/015-exact-resume-by-resimulation.md)) | Done |
 | 5a4 | Car health: wall hits cost health by impact speed (speed into the wall), the car stops on contact, wrecked at 0. Collisions in the rules file, health in the observation, `damage` reward term, HEALTH gauge and hit blink ([decision 016](decisions/016-car-health-and-wall-hits.md)) | Done |
-| 5a5 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint | Next |
-| 5a6 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Planned |
+| 5a5 | Evaluation suite: fixed scenarios for survival, checkpoint hunting, braking; scored at each checkpoint, best checkpoint picked (`make eval`, [decision 017](decisions/017-evaluation-suite.md)) | Done |
+| 5a6 | Agent storage and history (`agents/<id>/`: profile, history, milestone checkpoints), `agent summary`. **Milestone: the first skilled agent** | Next |
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL | Planned |
 | 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
@@ -251,7 +251,7 @@ How agents are trained is flexible: imitation only, RL only, or both in either o
 **Milestone bar:** the agent survives most 60 s rounds and beats the heuristic's mean score (2,502) on the same seeds.
 
 - A torch neural network drives the car through the env, and learns by trial and error over many episodes.
-- **Output of training:** the weights go to the agent (`agents/<id>/checkpoints/d0100k.pt`, ...), so watching the agent always picks up its newest ones. The run folder holds the config, metrics, learning curve (`learning.csv`), and best replays, and records which checkpoints it wrote.
+- **Output of training:** the weights go to the agent (`agents/<id>/checkpoints/d0100k.pt`, ...), so watching the agent picks up its newest ones (its best scored one since 5a5). The run folder holds the config, metrics, learning curve (`learning.csv`), and best replays, and records which checkpoints it wrote.
 - **Pause in place:** moved to step 6 (control center), which has a window to pause from. In the terminal, Ctrl+C plus exact resume covers it.
 - **Stop and resume later** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md)): Ctrl+C, then `make resume_last`. The resumed run ends exactly as an uninterrupted one would.
 - **A full checkpoint** (`runs/<run>/resume.pt`, rewritten after every update) **holds:**
@@ -280,14 +280,15 @@ To compare agents fairly, every agent runs the same **fixed evaluation suite**: 
 
 | Skill | Measured by | Available from |
 |---|---|---|
-| Survival | Share of the round survived | Step 5a |
-| Checkpoint hunting | Checkpoints per minute | Step 5a |
-| Braking | Stopping before walls at high speed | Step 5a |
+| Survival | Share of the round survived | Step 5a5 |
+| Checkpoint hunting | Checkpoints per minute | Step 5a5 |
+| Braking | Stopping before walls at high speed | Step 5a5 |
 | Wall control | Survival in narrow corridors | Step 7 (needs inner walls) |
 | Generalization | Score on stages it has never trained on | Step 7 (needs more stages, with walls) |
 
 - The suite runs automatically at each saved checkpoint, so skill history builds up over training.
 - Changing a scenario creates a new suite version, and scores from different versions are never mixed.
+- **Built in 5a5** ([decision 017](decisions/017-evaluation-suite.md)): `suites/box.json` (v1: `round` and `braking`), `make eval AGENT=id`, `make eval_baselines`. Results in `agents/<id>/evaluations/`, and the best checkpoint is what `agent:<id>` loads.
 
 #### Agent history and storage
 

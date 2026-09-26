@@ -51,6 +51,8 @@ def _dispatch(cl_args) -> None:
         _train(cl_args, config)
     elif cl_args.resume or cl_args.resume_last:
         _resume(cl_args, config)
+    elif cl_args.eval or cl_args.eval_baselines:
+        _evaluate(cl_args, config)
     elif cl_args.list_recordings:
         from src.replay.recordings import format_recordings, list_recordings
 
@@ -160,6 +162,46 @@ def _resume(cl_args, config) -> None:
     _training_done(summary)
 
 
+def _evaluate(cl_args, config) -> None:
+    import torch
+
+    from src.agents.store import AgentError
+    from src.drivers.heuristic import CompassDriver
+    from src.drivers.random_driver import RandomDriver
+    from src.experiments.evaluation import (
+        SuiteError,
+        evaluate,
+        evaluate_agent,
+        format_results,
+        load_suite,
+    )
+
+    torch.set_num_threads(1)
+    try:
+        suite = load_suite(cl_args.suite)
+        print(f"Suite {suite.label}: {suite.description}")
+        baselines = {
+            name: evaluate(driver, suite, config)
+            for name, driver in (
+                ("heuristic", CompassDriver()),
+                ("random", RandomDriver()),
+            )
+        }
+        rows = []
+        if cl_args.eval:
+            rows = evaluate_agent(
+                cl_args.eval,
+                suite,
+                base_config=config,
+                on_checkpoint=lambda row: print(
+                    f"  scored {row['checkpoint']}"
+                ),
+            )
+    except (AgentError, SuiteError) as error:
+        raise SystemExit(str(error))
+    print(format_results(rows, baselines))
+
+
 def _training_progress(report) -> None:
     if report.update % 10 and not report.saved:
         if report.decisions < report.total:
@@ -171,6 +213,13 @@ def _training_progress(report) -> None:
         f"entropy {report.stats.entropy:.2f}  {report.seconds:,.0f} s"
     )
     print(line + (f"  saved {report.saved}" if report.saved else ""))
+    if report.evaluation:
+        r = report.evaluation
+        print(
+            f"      scored {report.saved}: score {r['score_mean']:,.0f}, "
+            f"survival {r['survival']:.0%}, wrecks {r['wreck_rate']:.0%}, "
+            f"braking {r['braking']:.0%}"
+        )
 
 
 def _training_done(summary) -> None:

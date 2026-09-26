@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "box",
+  "version": 1,
+  "description": "Box stage skills: full rounds (score, survival, checkpoint hunting), and braking at walls (from 300 px/s, 80 to 140 px away: pure braking takes 75 px).",
+  "scenarios": [
+    {
+      "name": "round",
+      "kind": "round",
+      "stage": "box",
+      "rules": "standard",
+      "first_seed": 1000000,
+      "episodes": 20
+    },
+    {
+      "name": "braking",
+      "kind": "braking",
+      "stage": "box",
+      "rules": "standard",
+      "round_seconds": 3,
+      "first_seed": 2000000,
+      "episodes": 20,
+      "start": {
+        "speed": 300,
+        "min_distance": 80,
+        "max_distance": 140,
+        "max_angle": 30
+      }
+    }
+  ]
+}

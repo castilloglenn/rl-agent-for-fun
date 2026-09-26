@@ -42,6 +42,11 @@ from src.drivers.actions import CANONICAL_ACTIONS
 from src.drivers.episode import EpisodeResult, episode_result
 from src.envs.maze_car.env import MazeCarEnv
 from src.envs.maze_car.rewards import RewardProfile
+from src.experiments.evaluation import (
+    DEFAULT_SUITE,
+    evaluate_checkpoint,
+    load_suite,
+)
 from src.experiments.runner import (
     METRICS_COLUMNS,
     RUN_FORMAT,
@@ -88,6 +93,7 @@ class UpdateReport:
     stats: UpdateStats
     seconds: float
     saved: str | None  # checkpoint written after this update
+    evaluation: dict | None = None  # its suite scores, if evaluated
 
 
 @dataclass(frozen=True)
@@ -126,6 +132,7 @@ def train_agent(
     runs_dir: Path | None = None,
     agents_root: Path | None = None,
     on_update: Callable[[UpdateReport], None] | None = None,
+    suite: str = DEFAULT_SUITE,
 ) -> TrainingSummary:
     """One training phase: continues the agent's newest checkpoint for
     `trainer.total_decisions` decisions. Episode i uses seed first_seed + i.
@@ -148,6 +155,7 @@ def train_agent(
         start_checkpoint=loaded.checkpoint,
         start_decisions=loaded.decisions,
         branched_from=loaded.branched_from,
+        suite=suite,
     )
     training.write_config()
     (folder / "notes.md").write_text(
@@ -162,6 +170,7 @@ def resume_training(
     agents_root: Path | None = None,
     base_config: ConfigDict | None = None,
     on_update: Callable[[UpdateReport], None] | None = None,
+    suite: str = DEFAULT_SUITE,
 ) -> TrainingSummary:
     """Continues a stopped training run exactly where its last update
     left it, with the run's own trainer, stage, rules, and reward. It ends
@@ -214,6 +223,7 @@ def resume_training(
         start_checkpoint=agent_info["start_checkpoint"],
         start_decisions=agent_info["start_decisions"],
         branched_from=agent_info.get("branched_from"),
+        suite=(run_config.get("suite") or {}).get("name", suite),
     )
     training.restore(state)
     return training.run(on_update)
@@ -281,8 +291,12 @@ class _Training:
         start_checkpoint: str,
         start_decisions: int,
         branched_from: dict | None,
+        suite: str = DEFAULT_SUITE,
     ) -> None:
         self.agent = agent
+        # Scoring checkpoints plays separate games with its own driver, so
+        # it never changes the training (exact resume still holds).
+        self.suite = load_suite(suite) if trainer.evaluate else None
         self.trainer = trainer
         self.env = env
         self.recorder = env.recorder
@@ -373,6 +387,11 @@ class _Training:
             self.updates += 1
             self.learned = self.decisions
             saved = self._maybe_save()
+            evaluation = None
+            if saved and self.suite:
+                evaluation = evaluate_checkpoint(
+                    self.agent.folder, saved, self.suite, self.env.config
+                )
             seconds = self._seconds(started)
             learning.writerow(self._learning_row(stats, seconds))
             learn_file.flush()
@@ -388,6 +407,7 @@ class _Training:
                         stats,
                         seconds,
                         saved,
+                        evaluation,
                     )
                 )
 
@@ -625,6 +645,11 @@ class _Training:
                 "branched_from": self.branched_from,
             },
             "trainer": self.trainer.to_dict(),
+            "suite": (
+                {"name": self.suite.name, "version": self.suite.version}
+                if self.suite
+                else None
+            ),
             "first_seed": self.first_seed,
             "stage": world.resource(Stage).to_dict(),
             "rules": world.resource(Rules).to_dict(),

@@ -20,6 +20,7 @@ from src.sim.observation import OBSERVATION_NAMES, OBSERVATION_VERSION
 
 AGENTS_DIR = Path(__file__).resolve().parents[2] / "agents"
 CHECKPOINT_FORMAT = 1
+BEST_FILE = "evaluations/best.json"  # the best checkpoint, from 5a5
 _ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
@@ -128,10 +129,15 @@ def checkpoint_run(path: Path) -> str | None:
 
 
 def load_agent(
-    agent: str | Path, checkpoint: str | None = None, root: Path | None = None
+    agent: str | Path,
+    checkpoint: str | None = None,
+    root: Path | None = None,
+    prefer_best: bool = False,
 ) -> LoadedAgent:
     """An agent by id (agents/<id>) or folder path, at a checkpoint
-    (default: the newest).
+    (default: the newest). "best" is the best scored checkpoint (the
+    evaluation suite). prefer_best: default to the best one if scored
+    (for watching; training always continues the newest).
     """
     folder = Path(agent)
     if not (folder / "model.json").exists():
@@ -142,6 +148,16 @@ def load_agent(
     _check_compatible(spec)
 
     checkpoints = folder / "checkpoints"
+    best = _best_checkpoint(folder)
+    if checkpoint == "best":
+        if best is None:
+            raise AgentError(
+                f"agent {folder.name!r} has no scored checkpoints yet: "
+                f"make eval AGENT={folder.name}"
+            )
+        checkpoint = best
+    elif checkpoint is None and prefer_best and best is not None:
+        checkpoint = best
     if checkpoint is None:
         files = sorted(
             checkpoints.glob("*.pt"), key=lambda p: p.stat().st_mtime_ns
@@ -180,6 +196,14 @@ def load_agent(
         data.get("branched_from"),
         data.get("run"),
     )
+
+
+def _best_checkpoint(folder: Path) -> str | None:
+    path = folder / BEST_FILE
+    if not path.exists():
+        return None
+    name = json.loads(path.read_text())["checkpoint"]
+    return name if (folder / "checkpoints" / f"{name}.pt").exists() else None
 
 
 def _check_compatible(spec: ModelSpec) -> None:

@@ -36,6 +36,7 @@ class TrainerSpec:
     # way doesn't change the best driving, but keeps the value head's
     # error from crowding out the policy in the shared gradient limit.
     reward_scale: float
+    evaluate: bool  # score each checkpoint with the evaluation suite
     description: str = ""
     format: int = TRAINER_FORMAT
 
@@ -90,6 +91,8 @@ class TrainerSpec:
             value = getattr(self, name)
             if not isinstance(value, int) or value < 1:
                 raise TrainerError(f"{name} must be a whole number, at least 1")
+        if not isinstance(self.evaluate, bool):
+            raise TrainerError("evaluate must be true or false")
         if self.minibatch > self.rollout:
             raise TrainerError("minibatch can't be larger than rollout")
 

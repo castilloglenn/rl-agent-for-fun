@@ -80,7 +80,7 @@ Everything that decides a car's actions implements **`Driver`** (`base.py`): `re
 | `random_driver.py` | `RandomDriver`: a random canonical action every 4 steps (30/s, like agents), seeded. The floor |
 | `heuristic.py` | `CompassDriver`: rules on the observation only (steer to the checkpoint, turn away from close walls, brake within stopping range, slow down near an off-center checkpoint so it doesn't orbit it). The bar agents must beat |
 | `episode.py` | `run_episode(env, driver, seed)`: plays one game headless, returns an `EpisodeResult` (score, checkpoints, reward, how it ended) |
-| `registry.py` | `make_driver(name)`: `keyboard`, `random`, `heuristic`, or `agent:<id>` (newest checkpoint) / `agent:<id>@<checkpoint>`. An unknown driver or a missing or incompatible agent raises `DriverError`, which `app.py` prints as a clean message |
+| `registry.py` | `make_driver(name)`: `keyboard`, `random`, `heuristic`, or `agent:<id>` (best scored checkpoint, else newest) / `agent:<id>@<checkpoint>` / `@best`. An unknown driver or a missing or incompatible agent raises `DriverError`, which `app.py` prints as a clean message |
 
 Baseline results on 30 unseen seeds (box stage, 60 s rounds):
 
@@ -105,7 +105,7 @@ agents/<id>/                (gitignored: local data)
 |---|---|
 | `model.py` | `ModelSpec` (from/to dict, validated) and `load_model_spec(name or path)` |
 | `network.py` | `PolicyNetwork(spec, obs_size, actions)`: separate policy and value MLPs (multilayer perceptrons). `forward(obs)` returns (action logits, values) |
-| `store.py` | `create_agent(id, spec, seed)`: seeded weights, without touching global torch randomness. `load_agent(id or path, checkpoint)`: the newest checkpoint by default. `save_checkpoint` |
+| `store.py` | `create_agent(id, spec, seed)`: seeded weights, without touching global torch randomness. `load_agent(id or path, checkpoint)`: the newest checkpoint by default (`prefer_best` or `"best"`: the best scored one). `save_checkpoint` |
 | `trainer.py` | `TrainerSpec` (unknown or missing keys refused) and `load_trainer_spec(name or path)` |
 | `ppo.py` | PPO math: `Rollout`, `advantages()` (GAE, no value across an episode end), `update()` (clipped policy loss, value loss, entropy bonus, gradient clipping), `UpdateStats` |
 | `driver.py` | `AgentDriver`: decides every `action_repeat` steps and holds the action in between. Deterministic (highest-scoring action) by default, or seeded sampling. Record `{"type": "agent", "id", "checkpoint"}`, label `<id> (agent)` |
@@ -161,6 +161,13 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 - **Branch:** `branch_agent(new_id, source, checkpoint)` (`store.py`) copies the model and a checkpoint into a new agent's `initial`, with `branched_from` and the decision count.
 - Reproducible: the same agent, trainer, seeds, and files give the same `learning.csv` and weights. `app.py` sets torch to one thread.
 - Training replays record `{"type": "agent", "id", "training": {"run", "decisions"}}` as their driver.
+
+### Evaluation suite (`src/experiments/evaluation.py`)
+
+`load_suite(name)` reads `suites/<name>.json` (a versioned list of scenarios). `evaluate(driver, suite)` plays every scenario deterministically and returns the metrics: `round` (full rounds on fixed seeds: mean and worst score, checkpoints per minute, survival share, wreck rate, contacts) and `braking` (`place_at_wall` puts the car at speed, aimed at a wall, from the seed; the share with no damage). `evaluate_checkpoint` saves one row per checkpoint in `agents/<id>/evaluations/<suite>-v<version>.csv` and the best in `evaluations/best.json`. `evaluate_agent` scores the checkpoints not yet scored. See [decision 017](decisions/017-evaluation-suite.md).
+
+- Training scores each saved checkpoint when the trainer's `evaluate` is on, with a separate env and driver, so training itself is unchanged.
+- `load_agent(..., prefer_best=True)` (watching) loads the best scored checkpoint, else the newest. `"best"` asks for it explicitly.
 
 ## Replays (`src/replay/`)
 
@@ -228,4 +235,4 @@ every drawn frame:
 
 ## Not built yet
 
-The evaluation suite, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).
+Agent history and profiles, imitation learning, maze walls, and the control center. See [roadmap](roadmap.md).

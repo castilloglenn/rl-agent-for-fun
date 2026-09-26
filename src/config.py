@@ -24,6 +24,9 @@ flags.DEFINE_string("model", "small", "Model for a new agent (models/).")
 flags.DEFINE_string("train", "", "Train this agent (a training phase).")
 flags.DEFINE_string("resume", "", "Resume a stopped training run (folder).")
 flags.DEFINE_boolean("resume_last", False, "Resume the newest stopped run.")
+flags.DEFINE_string("eval", "", "Score an agent's checkpoints (suite).")
+flags.DEFINE_boolean("eval_baselines", False, "Score the baselines (suite).")
+flags.DEFINE_string("suite", "box", "Evaluation suite: suites/<name>.json.")
 flags.DEFINE_string(
     "from", "", "Branch a new agent from <id>[@checkpoint] (-new_agent)."
 )

@@ -38,6 +38,7 @@ TINY = TrainerSpec.from_dict(
         "epochs": 2,
         "total_decisions": 512,
         "checkpoint_every": 256,
+        "evaluate": False,
     }
 )
 SHORT = load_rules("standard").with_round_seconds(3)  # 90 decisions
