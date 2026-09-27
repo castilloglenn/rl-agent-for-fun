@@ -6,6 +6,7 @@ agents/, runs/, or recordings/.
 
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -387,3 +388,68 @@ def test_hints_hide_while_a_dropdown_is_open(window, monkeypatch):
     window._draw_hints()
     assert drawn == []  # nothing drawn over the open list
 
+
+
+# The machine's vital signs
+
+from src.control.stats import (  # noqa: E402
+    CAUTION,
+    DANGER,
+    NORMAL,
+    Snapshot,
+    SystemStats,
+)
+
+
+def _snapshot(**changes):
+    values = dict(
+        cpu=20.0,
+        jobs_cpu=10.0,
+        memory_used=8.0,
+        memory_total=16.0,
+        jobs_memory=0.5,
+        battery=80.0,
+        plugged=True,
+        disk_free=100.0,
+        jobs=1,
+    )
+    return Snapshot(**{**values, **changes})
+
+
+def test_levels():
+    assert set(_snapshot().levels().values()) == {NORMAL}
+    assert _snapshot(cpu=75).levels()["cpu"] == CAUTION
+    assert _snapshot(cpu=90).levels()["cpu"] == DANGER
+    assert _snapshot(memory_used=15.5).levels()["memory"] == DANGER
+    assert _snapshot(disk_free=3).levels()["disk"] == DANGER
+    # Unplugged always gets noticed; a low battery is a danger.
+    assert _snapshot(plugged=False).levels()["battery"] == CAUTION
+    low = _snapshot(plugged=False, battery=15)
+    assert low.levels()["battery"] == DANGER
+    assert _snapshot(battery=None, plugged=None).levels()["battery"] == NORMAL
+
+
+def test_a_jobs_cpu_is_its_share_of_the_machine():
+    stats = SystemStats()
+    busy = subprocess.Popen([sys.executable, "-c", "while True: pass"])
+    try:
+        stats.sample([busy.pid], force=True)  # the baseline
+        time.sleep(0.6)
+        snap = stats.sample([busy.pid], force=True)
+    finally:
+        busy.kill()
+    one_core = 100 / stats.cores
+    assert 0.5 * one_core < snap.jobs_cpu < 1.5 * one_core
+    assert snap.jobs == 1 and snap.jobs_memory > 0
+    assert 0 < snap.memory_used <= snap.memory_total
+
+
+def test_samples_are_reused_within_a_second():
+    stats = SystemStats()
+    first = stats.sample([])
+    assert stats.sample([]) is first
+
+
+def test_the_strip_draws(window):
+    window.draw()
+    assert window.stats.snapshot is not None

@@ -15,6 +15,7 @@ numpy
 packaging
 Pillow
 pluggy
+psutil
 pygame-ce
 pygame_gui
 pytest

@@ -25,6 +25,7 @@ from pygame_gui.elements import (
 
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
+from src.control.stats import CAUTION, DANGER, SystemStats
 from src.render import theme
 from src.utils.ui import draw_text, get_font
 
@@ -39,6 +40,7 @@ CONSOLE_HEIGHT = 288  # about 35 % of the window
 SCROLL_STEP = 40  # px per mouse wheel notch
 PREVIEW_LINES = 4  # of the command, beside Run
 TAB_HEIGHT = 36
+STATS_HEIGHT = 32  # the machine's vital signs, above the tabs
 TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
     ("Training", "6b"),
@@ -182,6 +184,7 @@ class ControlCenter:
         self.confirm_quit = False  # the quit box is open
         self.quit_buttons: dict[str, Rect] = {}  # its buttons, when drawn
         self.tab = "Commands"
+        self.stats = SystemStats()
         self.message: tuple[str, tuple] | None = None  # next to Run
         self.selected_job = None
         self._refreshed = 0.0
@@ -190,7 +193,10 @@ class ControlCenter:
 
         # The boxes: tabs on top, then commands and jobs, then console.
         width = SIZE[0] - 2 * MARGIN
-        self.tab_bar = Rect(MARGIN, MARGIN, width, TAB_HEIGHT)
+        self.stats_bar = Rect(MARGIN, MARGIN, width, STATS_HEIGHT)
+        self.tab_bar = Rect(
+            MARGIN, self.stats_bar.bottom + GAP, width, TAB_HEIGHT
+        )
         top = self.tab_bar.bottom + MARGIN
         # The console: about 35 % of the window's height.
         self.console = Rect(
@@ -494,9 +500,16 @@ class ControlCenter:
 
     def draw(self) -> None:
         self.screen.fill(theme.BACKGROUND)
-        boxes = (self.tab_bar, self.commands_box, self.jobs_box, self.console)
+        boxes = (
+            self.stats_bar,
+            self.tab_bar,
+            self.commands_box,
+            self.jobs_box,
+            self.console,
+        )
         for rect in boxes:
             pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
+        self._draw_stats()
         self._draw_tabs()
         _header(self.screen, self.commands_box, "COMMANDS")
         _header(self.screen, self.jobs_box, "JOBS")
@@ -524,6 +537,56 @@ class ControlCenter:
             and menu.current_state is menu.menu_states["expanded"]
             for menu in menus
         )
+
+    # The machine's vital signs
+
+    def _draw_stats(self) -> None:
+        pids = [job.process.pid for job in self.jobs.running]
+        snap = self.stats.sample(pids)
+        levels = snap.levels()
+        bar = self.stats_bar
+        x, y = bar.x + PAD, bar.centery
+        x = _stat_gauge(
+            self.screen,
+            "CPU",
+            snap.cpu / 100,
+            f"{snap.cpu:.0f}%",
+            f"jobs {snap.jobs_cpu:.0f}%",
+            levels["cpu"],
+            x,
+            y,
+        )
+        x = _stat_gauge(
+            self.screen,
+            "MEMORY",
+            snap.memory_percent / 100,
+            f"{snap.memory_used:.1f} / {snap.memory_total:.0f} GB",
+            f"jobs {snap.jobs_memory:.1f} GB",
+            levels["memory"],
+            x,
+            y,
+        )
+        if snap.battery is not None:
+            where = "on power" if snap.plugged else "ON BATTERY"
+            x = _stat_gauge(
+                self.screen,
+                "BATTERY",
+                snap.battery / 100,
+                f"{snap.battery:.0f}%",
+                where,
+                levels["battery"],
+                x,
+                y,
+            )
+        x = _stat_text(
+            self.screen,
+            "DISK",
+            f"{snap.disk_free:.0f} GB free",
+            levels["disk"],
+            x,
+            y,
+        )
+        _stat_text(self.screen, "JOBS", f"{snap.jobs} running", 0, x, y)
 
     # Tabs and the quit box
 
@@ -746,6 +809,72 @@ class ControlCenter:
             self.draw()
             pygame.display.flip()
         pygame.quit()
+
+
+LEVEL_COLORS = {0: theme.GOOD, CAUTION: theme.WARN, DANGER: theme.BAD}
+
+
+def _stat_gauge(surface, label, share, value, note, level, x, y) -> int:
+    """LABEL ■■■■□□□□ value (note), in the level's color. Returns where
+    the next stat starts.
+    """
+    color = LEVEL_COLORS[level]
+    label_rect = draw_text(
+        surface,
+        label,
+        (x, y),
+        theme.HEADER_SIZE,
+        theme.TEXT_DIM,
+        anchor="midleft",
+    )
+    blocks, size, gap = 8, 8, 2
+    left = label_rect.right + 8
+    filled = max(round(share * blocks), 1 if share > 0 else 0)
+    for i in range(blocks):
+        pygame.draw.rect(
+            surface,
+            color if i < filled else theme.BAR_EMPTY,
+            Rect(left + i * (size + gap), y - size // 2, size, size),
+        )
+    value_rect = draw_text(
+        surface,
+        value,
+        (left + blocks * (size + gap) + 6, y),
+        theme.TEXT_SIZE,
+        color,
+        bold=True,
+        anchor="midleft",
+    )
+    note_rect = draw_text(
+        surface,
+        f"({note})",
+        (value_rect.right + 6, y),
+        theme.TEXT_SIZE,
+        theme.WARN if note.isupper() else theme.TEXT_DIM,
+        anchor="midleft",
+    )
+    return note_rect.right + 26
+
+
+def _stat_text(surface, label, value, level, x, y) -> int:
+    label_rect = draw_text(
+        surface,
+        label,
+        (x, y),
+        theme.HEADER_SIZE,
+        theme.TEXT_DIM,
+        anchor="midleft",
+    )
+    value_rect = draw_text(
+        surface,
+        value,
+        (label_rect.right + 8, y),
+        theme.TEXT_SIZE,
+        LEVEL_COLORS[level] if level else theme.TEXT,
+        bold=True,
+        anchor="midleft",
+    )
+    return value_rect.right + 26
 
 
 def _tab_label(name: str, step: str | None) -> str:

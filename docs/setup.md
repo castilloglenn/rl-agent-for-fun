@@ -19,7 +19,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 | Command | Does |
 |---|---|
-| `make control` | The control center: every command below, consolidated into 19 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console |
+| `make control` | The control center: the machine's vital signs (CPU, memory, battery, disk, our jobs' share), and every command below, consolidated into 19 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console |
 | `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, P pauses, R restarts, H toggles lines, ? shows all shortcuts, Esc asks before quitting (Enter quits). A round starts with your first driving key. **Every round is recorded** to `recordings/<player>/` (REC in the left panel). K keeps the last recording for good |
 | `make maze_car_norecord` | Drive without recording |
 | `make maze_car_heuristic` | Watch the heuristic baseline drive |
