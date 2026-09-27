@@ -25,7 +25,6 @@ from pygame_gui.elements import (
 
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
-from src.control.makefile import read_commands
 from src.render import theme
 from src.utils.ui import draw_text, get_font
 
@@ -36,6 +35,9 @@ ROW = 30  # a row of widgets
 GAP = 8  # between rows
 LABEL = 124  # the width of a field's label
 REFRESH = 0.5  # seconds between job list refreshes
+CONSOLE_HEIGHT = 288  # about 35 % of the window
+SCROLL_STEP = 40  # px per mouse wheel notch
+PREVIEW_LINES = 4  # of the command, beside Run
 TAB_HEIGHT = 36
 TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
@@ -176,7 +178,6 @@ class ControlCenter:
         self.screen = pygame.display.set_mode(SIZE)
         self.gui = pygame_gui.UIManager(SIZE, gui_theme())
         self.jobs = jobs or JobManager()
-        self.make_commands = read_commands()  # for the typed command line
         self.running = True
         self.confirm_quit = False  # the quit box is open
         self.quit_buttons: dict[str, Rect] = {}  # its buttons, when drawn
@@ -191,7 +192,10 @@ class ControlCenter:
         width = SIZE[0] - 2 * MARGIN
         self.tab_bar = Rect(MARGIN, MARGIN, width, TAB_HEIGHT)
         top = self.tab_bar.bottom + MARGIN
-        self.console = Rect(MARGIN, SIZE[1] - MARGIN - 224, width, 224)
+        # The console: about 35 % of the window's height.
+        self.console = Rect(
+            MARGIN, SIZE[1] - MARGIN - CONSOLE_HEIGHT, width, CONSOLE_HEIGHT
+        )
         height = self.console.y - MARGIN - top
         self.jobs_box = Rect(SIZE[0] - MARGIN - 360, top, 360, height)
         self.commands_box = Rect(
@@ -251,21 +255,10 @@ class ControlCenter:
                 console.x + PAD,
                 console.y + 36,
                 console.w - 2 * PAD,
-                console.h - 36 - ROW - 2 * PAD,
+                console.h - 36 - PAD,
             ),
             gui,
             object_id="#console",
-        )
-        self.command_line = UITextEntryLine(
-            Rect(
-                console.x + PAD,
-                console.bottom - PAD - ROW,
-                console.w - 2 * PAD,
-                ROW,
-            ),
-            gui,
-            placeholder_text="Or type a make command, for example: "
-            "train AGENT=rookie",
         )
 
     def _show_group(self, group: str) -> None:
@@ -284,13 +277,22 @@ class ControlCenter:
         self.selected = next((a for a in ACTIONS if a.name == name), None)
         if not self.selected:
             return
-        # The description wraps to the detail area; the fields follow.
+        # The title and description stay put. Below them, the fields, Run,
+        # and the command scroll (the viewport) when they don't fit.
         self.description = wrap(self.selected.description, self.detail_w)
-        y = self.commands_box.y + 40 + 30 + 20 * len(self.description) + 14
-        self.fields_y = y
+        top = self.commands_box.y + 40 + 30 + 20 * len(self.description) + 14
+        self.viewport = Rect(
+            self.detail_x,
+            top,
+            self.detail_w,
+            self.commands_box.bottom - PAD - top,
+        )
+        self.scroll = 0
+        self.offsets: dict[str, int] = {}  # widget -> y inside the content
+        y = 0
         width = self.detail_w - LABEL
         for field in self.selected.fields:
-            rect = Rect(self.detail_x + LABEL, y, width, ROW)
+            rect = Rect(self.detail_x + LABEL, top + y, width, ROW)
             options = field.options() if field.options else None
             if options:
                 shown = [(fit(o, width - 40), o) for o in options]
@@ -307,13 +309,47 @@ class ControlCenter:
                 widget = UITextEntryLine(rect, self.gui)
                 widget.set_text(field.default)
             self.field_widgets[field.name] = widget
+            self.offsets[field.name] = y
             y += ROW + GAP
         # Run under the fields, the command it runs beside it, and
         # messages under Run.
-        self.run_y = y + 10
+        self.run_offset = y + 10
         self.run_button = UIButton(
-            Rect(self.detail_x, self.run_y, 120, ROW), "Run", self.gui
+            Rect(self.detail_x, top + self.run_offset, 120, ROW),
+            "Run",
+            self.gui,
         )
+        self.content_height = self.run_offset + 18 * PREVIEW_LINES + 34
+        self._place()
+
+    @property
+    def max_scroll(self) -> int:
+        return max(self.content_height - self.viewport.h, 0)
+
+    def scroll_by(self, pixels: int) -> None:
+        self.scroll = min(max(self.scroll + pixels, 0), self.max_scroll)
+        self._place()
+
+    def _place(self) -> None:
+        """Moves the widgets to the scroll position. A widget that isn't
+        fully inside the viewport hides.
+        """
+        view = self.viewport
+        placed = [
+            (widget, self.offsets[name])
+            for name, widget in self.field_widgets.items()
+        ] + [(self.run_button, self.run_offset)]
+        for widget, offset in placed:
+            y = view.y + offset - self.scroll
+            widget.set_position((widget.rect.x, y))
+            if view.top <= y and y + ROW <= view.bottom:
+                widget.show()
+            else:
+                widget.hide()
+
+    @property
+    def run_y(self) -> int:
+        return self.viewport.y + self.run_offset - self.scroll
 
     def values(self) -> dict[str, str]:
         found = {}
@@ -350,27 +386,6 @@ class ControlCenter:
         self.message = (f"Started job #{job.number} ({where})", theme.GOOD)
         self._log_seen = -1
         self._refresh(force=True)
-
-    def run_typed(self, text: str) -> None:
-        """A make command, typed: `train AGENT=rookie` (make is optional)."""
-        words = text.split()
-        if words and words[0] == "make":
-            words = words[1:]
-        if not words:
-            return
-        command = next(
-            (c for c in self.make_commands if c.name == words[0]), None
-        )
-        if not command:
-            self.message = (f"No make command {words[0]!r}", theme.BAD)
-            return
-        values = dict(w.split("=", 1) for w in words[1:] if "=" in w)
-        try:
-            argv = command.argv(values)
-        except ValueError as error:
-            self.message = (str(error), theme.BAD)
-            return
-        self._start(command.make_line(values), argv, command.opens_window)
 
     def _job_action(self, name: str) -> None:
         if name == "Clear":
@@ -426,10 +441,10 @@ class ControlCenter:
             for name, button in self.job_buttons.items():
                 if event.ui_element is button:
                     self._job_action(name)
-        elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
-            if event.ui_element is self.command_line:
-                self.run_typed(event.text)
-                self.command_line.set_text("")
+        elif event.type == pygame.MOUSEWHEEL and self.selected:
+            over = self.viewport.collidepoint(pygame.mouse.get_pos())
+            if over and not self._dropdown_open():
+                self.scroll_by(-event.y * SCROLL_STEP)
 
     def _handle_quit_box(self, event) -> None:
         """Esc (or Cancel) goes back, Enter (or Confirm) quits. Closing the
@@ -643,8 +658,8 @@ class ControlCenter:
             widget = self.field_widgets.get(field.name)
             if not field.hint or not isinstance(widget, UITextEntryLine):
                 continue
-            if widget.get_text() or widget.is_focused:
-                continue
+            if widget.get_text() or widget.is_focused or not widget.visible:
+                continue  # typed in, being typed in, or scrolled away
             rect = widget.rect
             draw_text(
                 self.screen,
@@ -681,8 +696,10 @@ class ControlCenter:
                 self.screen, line, (x, y), theme.TEXT_SIZE, theme.TEXT_DIM
             )
             y += 20
-        fy = self.fields_y
+        view = self.viewport
+        self.screen.set_clip(view)  # what scrolled out isn't drawn
         for field in action.fields:
+            fy = view.y + self.offsets[field.name] - self.scroll
             draw_text(
                 self.screen,
                 fit(field.name, LABEL - 12),
@@ -690,12 +707,11 @@ class ControlCenter:
                 theme.TEXT_SIZE,
                 theme.TEXT,
             )
-            fy += ROW + GAP
         # The command it runs, beside Run, wrapped to the space left.
         side = x + 120 + PAD
         py = self.run_y
         command = action.command_line(self.values())
-        for line in wrap(command, x + width - side)[:4]:
+        for line in wrap(command, x + width - side)[:PREVIEW_LINES]:
             draw_text(
                 self.screen, line, (side, py), theme.TEXT_SIZE, theme.TEXT_DIM
             )
@@ -708,6 +724,15 @@ class ControlCenter:
                 (x, max(py, self.run_y + ROW) + 10),
                 theme.TEXT_SIZE,
                 color,
+            )
+        self.screen.set_clip(None)
+        if self.max_scroll:  # a thin scroll indicator at the right
+            track = Rect(self.commands_box.right - 7, view.y, 3, view.h)
+            pygame.draw.rect(self.screen, theme.BAR_EMPTY, track)
+            thumb = max(view.h * view.h // self.content_height, 24)
+            y = view.y + (view.h - thumb) * self.scroll // self.max_scroll
+            pygame.draw.rect(
+                self.screen, theme.TEXT_DIM, Rect(track.x, y, 3, thumb)
             )
 
     def run(self) -> None:

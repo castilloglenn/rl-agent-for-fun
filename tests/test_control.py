@@ -302,21 +302,26 @@ def test_an_action_runs_as_a_job(window):
     assert _wait(lambda: job.status == "done")
 
 
-def test_a_typed_command_runs_as_a_job(window):
-    window.run_typed("make runs")
-    job = window.jobs.jobs[-1]
-    assert job.label == "make runs"
-    assert _wait(lambda: job.status == "done")
-    _frames(window)
-    assert window.job_list.item_list  # listed
+def test_the_fields_scroll_when_they_dont_fit(window):
+    window._select("Run episodes")  # 8 fields
+    assert window.max_scroll > 0
+    run = window.run_button
+    assert not run.visible  # below the viewport, until scrolled
+    wheel = pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-10)
+    pygame.mouse.set_pos(window.viewport.center)
+    window.scroll_by(10_000)  # as far as it goes
+    assert window.scroll == window.max_scroll
+    assert run.visible and window.viewport.contains(run.rect)
+    first = window.field_widgets["Driver"]
+    assert not first.visible  # scrolled away at the top
+    window.scroll_by(-10_000)
+    assert window.scroll == 0 and first.visible
+    assert wheel.type == pygame.MOUSEWHEEL
 
 
-def test_a_typed_command_needs_a_real_name(window):
-    window.run_typed("nonsense X=1")
-    assert window.message[0] == "No make command 'nonsense'"
-    window.run_typed("train")  # AGENT is missing
-    assert "needs AGENT" in window.message[0]
-    assert window.jobs.jobs == []
+def test_short_actions_dont_scroll(window):
+    window._select("List runs")
+    assert window.max_scroll == 0 and window.run_button.visible
 
 
 def _key(window, key):

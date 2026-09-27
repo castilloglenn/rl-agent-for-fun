@@ -190,10 +190,10 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | File | Contents |
 |---|---|
 | `actions.py` | `ACTIONS`: every command, consolidated into 19 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
-| `makefile.py` | `read_commands()`: every make target, read from the Makefile, for the console's typed make commands and the coverage test |
+| `makefile.py` | `read_commands()`: every make target, read from the Makefile, so a test can check that the actions cover them all |
 | `choices.py` | `options(command, param)`: dropdown choices from the files on disk (agents, drivers, rules, rewards, stages, runs, recordings, test files), or None for typed values |
 | `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window (tabs on top, actions with their fields and the command they run, jobs, console with a command line for make commands, and a QUIT? box with Cancel (Esc) and Confirm (Enter)), themed like the game window |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window (tabs on top, actions with their fields (scrolling when they don't fit) and the command they run, jobs, a big console, and a QUIT? box with Cancel (Esc) and Confirm (Enter)), themed like the game window |
 
 ## Replays (`src/replay/`)
 
