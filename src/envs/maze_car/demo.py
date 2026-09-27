@@ -79,8 +79,11 @@ class MazeCarDemo:
     def run(self) -> None:
         """Fixed-rate simulation steps, drawn at the display's rate."""
         elapsed = self.env.render(mode=self.mode())
-        while self.env.running:
-            elapsed = self.frame(elapsed)
+        try:
+            while self.env.running:
+                elapsed = self.frame(elapsed)
+        except KeyboardInterrupt:  # Stop in the control center, or Ctrl+C
+            print("(stopped)", flush=True)
         self.env.finish_recording()  # a round cut short by quitting
 
     def frame(self, elapsed: float) -> float:

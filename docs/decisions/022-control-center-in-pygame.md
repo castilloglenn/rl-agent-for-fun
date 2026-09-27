@@ -23,5 +23,5 @@ Step 6 is a control center: every command, training setup, runs, agents, and fil
 
 - 6a gives every command in a window, with live output. The tabs for training (6b), runs (6b), agents (6c), and files (6d) show dimmed until built.
 - Two new dependencies: `pygame_gui` and `python-i18n`.
-- Commands that open a game window (play, replay, showcase) still open their own window, as a separate process.
+- Commands that open a game window (play, replay, showcase) still open their own window, as a separate process. That window **prints its events** as they happen (hits, scrapes, checkpoints, wrecks, round over, clicks), so the job's console is the round's live feed. Stop (Ctrl+C) ends a game window cleanly, and a drive in progress still saves its recording.
 - **Open dropdowns stand out:** their list is nearly black with an accent border, darker than the fields behind it. The dimmed hints of blank fields hide while a list is open (they were drawn over it).

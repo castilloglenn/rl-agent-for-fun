@@ -53,7 +53,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
-| Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills, grip and drift physics (see [below](#later-grip-and-drift-physics)) | Idea |
+| Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills, grip and drift physics (see [below](#later-grip-and-drift-physics)), a **colosseum mode**: car-vs-car battles (last car standing, health as hit points, damage from rams and weapons) instead of only collecting points, with the event log as its match feed | Idea |
 
 ## Step details
 

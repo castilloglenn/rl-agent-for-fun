@@ -22,6 +22,7 @@ from src.sim.stage import Stage, load_stage
 from src.sim.resources import (
     EventLog,
     Field,
+    Rng,
     RoundState,
     SimClock,
     SimConfig,
@@ -76,6 +77,8 @@ class Renderer:
         self.show_lines = True
         self.show_shortcuts = False  # "?" toggles the shortcuts box
         self.show_trail = False  # T toggles a replay's trail
+        self._logged_world = None  # the game whose events were printed
+        self._logged = 0  # how many of its events
         self.confirm_quit = False  # Esc asks first, Enter confirms
         self.keys_pressed: list[int] = []  # this frame's keys, for modes
         # The playback state last drawn (speed, paused), and when it
@@ -125,7 +128,7 @@ class Renderer:
                 if event.button == 1:
                     x = event.pos[0] - self.offset[0]
                     y = event.pos[1] - self.offset[1]
-                    print(f"left click at world ({x}, {y})")
+                    print(f"click at world ({x}, {y})", flush=True)
         return commands
 
     def _key(self, key: int, game_over: bool, commands: set) -> None:
@@ -168,6 +171,7 @@ class Renderer:
         mode: a window mode other than live play, such as a replay.
         """
         self.display.fill(theme.BACKGROUND)
+        self._print_events(world)
         self._draw_field(world, alpha, mode.trail if mode else None)
         if mode and mode.playback:
             self._draw_playback(mode.playback)
@@ -313,6 +317,22 @@ class Renderer:
             ),
         ]
         self._draw_centered_lines(lines)
+
+    def _print_events(self, world: World) -> None:
+        """Prints the game's new events (hits, scrapes, checkpoints,
+        wrecks, round over) as they happen: the control center's console
+        shows them, and so does the terminal.
+        """
+        if world is not self._logged_world:
+            self._logged_world, self._logged = world, 0
+            seed = world.resource(Rng).seed
+            print(f"--- new round (seed {seed}) ---", flush=True)
+        events = world.resource(EventLog).events
+        sps = world.resource(SimConfig).steps_per_second
+        for event in events[self._logged :]:
+            time = panels.format_time(event.step / sps)
+            print(f"{time}  {event.text}", flush=True)
+        self._logged = len(events)
 
     # A replay's trail: bright for the last seconds, fading to gray.
 

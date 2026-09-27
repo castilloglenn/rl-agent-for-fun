@@ -290,3 +290,25 @@ def test_replays_get_a_playback_box_under_the_field():
     assert replay.left_panel.bottom == bar.bottom  # the panels match
     assert replay.window.contains(bar)
 
+
+def test_the_window_prints_its_events_once(capsys):
+    from src.sim.resources import EventLog, SimClock
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    create_start_car(world, label="Tester")
+    renderer.draw(world)
+    log = world.resource(EventLog)
+    log.add(240, "Tester hit the wall at 180 px/s: -67 health", kind="hit")
+    renderer.draw(world)
+    renderer.draw(world)  # nothing new: printed once
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].startswith("--- new round (seed")
+    assert out[1:] == ["00:02.0  Tester hit the wall at 180 px/s: -67 health"]
+    assert world.resource(SimClock)  # (the world is unchanged)
+    fresh = create_world(config)  # a restart: a new round, new events
+    create_start_car(fresh)
+    renderer.draw(fresh)
+    assert capsys.readouterr().out.startswith("--- new round")
+

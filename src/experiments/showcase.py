@@ -394,6 +394,12 @@ class Showcase:
         return tuple(lines)
 
     def run(self) -> None:
+        try:
+            self._run()
+        except KeyboardInterrupt:  # Stop, or Ctrl+C
+            print("(stopped)", flush=True)
+
+    def _run(self) -> None:
         elapsed = 0.0
         while True:
             commands = self.renderer.poll_events(game_over=self.finished)
