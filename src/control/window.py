@@ -28,6 +28,7 @@ from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
+from src.control.vitals import VitalsLog
 from src.render import theme
 from src.utils.ui import draw_text, get_font
 
@@ -182,17 +183,26 @@ class ControlCenter:
         jobs: JobManager | None = None,
         runs_dir: Path | None = None,
         agents_dir: Path | None = None,
+        logs_dir: Path | None = None,
     ) -> None:
+        """`logs_dir`: where the vitals log goes (app.py passes logs/).
+        None keeps no log, for tests.
+        """
         pygame.init()
         pygame.display.set_caption("Maze Car · Control Center")
         self.screen = pygame.display.set_mode(SIZE)
         self.gui = pygame_gui.UIManager(SIZE, gui_theme())
+        self.vitals = VitalsLog(logs_dir) if logs_dir else None
         self.jobs = jobs or JobManager()
+        if self.vitals:
+            self.jobs.on_event = self.vitals.note
         self.running = True
         self.confirm_quit = False  # the quit box is open
         self.quit_buttons: dict[str, Rect] = {}  # its buttons, when drawn
         self.tab = "Commands"
         self.stats = SystemStats()
+        if self.vitals:
+            self.vitals.note("open", self.stats.sample([], force=True))
         self.message: tuple[str, tuple] | None = None  # next to Run
         self.selected_job = None
         self._refreshed = 0.0
@@ -465,6 +475,8 @@ class ControlCenter:
 
     def quit(self) -> None:
         self.jobs.stop_all()
+        if self.vitals:
+            self.vitals.note("quit")
         self.running = False
 
     # The loop
@@ -538,6 +550,9 @@ class ControlCenter:
         if not force and now - self._refreshed < REFRESH:
             return
         self._refreshed = now
+        if self.vitals:
+            pids = [job.process.pid for job in self.jobs.running]
+            self.vitals.record(self.stats.sample(pids), now)
         rows = [
             f"#{j.number}  {j.status:<8} {_clock(j.seconds):>5}  {j.label}"
             for j in reversed(self.jobs.jobs)

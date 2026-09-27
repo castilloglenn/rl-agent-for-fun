@@ -19,7 +19,8 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 | Command | Does |
 |---|---|
-| `make control` | The control center: the machine's vital signs (CPU, memory, battery, disk, our jobs' share), and every command below, consolidated into 19 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console. The Runs tab lists every run with its status and live learning curves |
+| `make control` | The control center: the machine's vital signs (CPU, memory, battery, disk, our jobs' share), and every command below, consolidated into 20 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console. The Runs tab lists every run with its status and live learning curves |
+| `make vitals` | The last 30 rows of the vitals log (`logs/vitals.csv`): the machine's readings and job events while the control center was open, kept under about 200 KB, for looking into a crash ([decision 024](decisions/024-vitals-log.md)) |
 | `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, P pauses, R restarts, H toggles lines, ? shows all shortcuts, Esc asks before quitting (Enter quits). A round starts with your first driving key. **Every round is recorded** to `recordings/<player>/` (REC in the left panel). K keeps the last recording for good |
 | `make maze_car_norecord` | Drive without recording |
 | `make maze_car_heuristic` | Watch the heuristic baseline drive |

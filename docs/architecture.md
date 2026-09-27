@@ -189,7 +189,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 | File | Contents |
 |---|---|
-| `actions.py` | `ACTIONS`: every command, consolidated into 19 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
+| `actions.py` | `ACTIONS`: every command, consolidated into 20 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
 | `makefile.py` | `read_commands()`: every make target, read from the Makefile, so a test can check that the actions cover them all |
 | `choices.py` | `options(command, param)`: dropdown choices from the files on disk (agents, drivers, rules, rewards, stages, runs, recordings, test files), or None for typed values |
 | `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it. A job remembers the run folder it writes, from its `Run: <folder>` line |
@@ -197,6 +197,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `charts.py` | `draw_chart()`: hand-drawn line charts (lines, dots, rings, dashed levels) with round ticks and a hover readout |
 | `runs_tab.py` | `RunsTab`: the run list, the selected run's header, two charts (the second picked from a dropdown), and its buttons |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
+| `vitals.py` | `VitalsLog`: those readings as a row every 10 s (and on a level change) in `logs/vitals.csv`, with job and window events as notes, rotated at 100 KB ([decision 024](decisions/024-vitals-log.md)); `tail()` for `make vitals` |
 | `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: the machine's vital signs and tabs on top, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Runs tab, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
 
 ## Replays (`src/replay/`)

@@ -385,6 +385,14 @@ ACTIONS = (
         program=("-m", "pytest"),
     ),
     Action(
+        "Vitals log",
+        "Develop",
+        "The machine's readings while the control center was open (the "
+        "last 30 rows of logs/vitals.csv), for looking into a crash.",
+        (),
+        lambda v: ["-vitals"],
+    ),
+    Action(
         "Regenerate fixtures",
         "Develop",
         "Rewrite the behavior fixtures. Only for an intended behavior "
@@ -440,5 +448,6 @@ MAKE_TARGETS = {
     "test": "Run tests",
     "test_file": "Run tests",
     "fixtures": "Regenerate fixtures",
+    "vitals": "Vitals log",
     "main": None,  # the agent entry point stub: nothing to run here
 }

@@ -28,6 +28,7 @@ make agent AGENT=rookie            # its digest: lineage, scores, milestone
 make imitate AGENT=clone           # clone your recorded driving
 make showcase AGENT=rookie         # watch its progression, checkpoint by checkpoint
 make recordings    # your recorded rounds (every demo round is recorded)
+make vitals        # the machine's readings while the control center was open
 make test
 ```
 

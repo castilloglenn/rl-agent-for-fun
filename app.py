@@ -71,9 +71,14 @@ def _dispatch(cl_args) -> None:
     elif cl_args.imitate:
         _imitate(cl_args, config)
     elif cl_args.control:
+        from src.control.vitals import LOGS_DIR
         from src.control.window import ControlCenter
 
-        ControlCenter().run()
+        ControlCenter(logs_dir=LOGS_DIR).run()
+    elif cl_args.vitals:
+        from src.control.vitals import tail
+
+        print(tail())
     elif cl_args.showcase:
         from src.agents.store import AgentError
         from src.experiments.showcase import Showcase, plan
