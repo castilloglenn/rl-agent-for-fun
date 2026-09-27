@@ -7,8 +7,8 @@ checkpoint, in the simulation window (roadmap step 5c).
 Every checkpoint plays the same round (the suite's first round seed), so
 you watch the same situation handled better and better. Play is
 deterministic, so each round is exactly what the evaluation saw. A title
-card with the checkpoint's suite scores comes first, and the next
-checkpoint starts when a round ends.
+card with the checkpoint's suite scores comes first, and the round's
+result stays until Enter, then the next checkpoint's card.
 
 Enter start the round, SPACE/P pause, 1-4 speed, N one step while
 paused, R restart this checkpoint, Left/Right previous/next checkpoint,
@@ -44,11 +44,10 @@ from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.utils.timing import FixedStepClock
 
-AFTER_SECONDS = 2.0  # the pause after a round, before the next card
 DEFAULT_SPEED = 2  # index in the viewer's speeds: 2x
 HIGHLIGHTS = 8
 SHORTCUTS = (
-    ("Enter", "start the round (after its card)"),
+    ("Enter", "start the round, or go on after it ends"),
     ("SPACE / P", "pause / resume"),
     ("1-4", "speed: 0.5x, 1x, 2x, 4x"),
     ("N", "one step while paused"),
@@ -221,7 +220,6 @@ class Showcase:
         self.driver.reset(self.seed)
         self.trail: list[tuple[float, float]] = [self._car_position()]
         self.card = True  # the title card stays until Enter
-        self.after = AFTER_SECONDS  # pause after the round ends
         self.finished = False
 
     def next(self) -> None:
@@ -240,7 +238,10 @@ class Showcase:
 
     def handle_key(self, key: int) -> None:
         if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-            self.card = False  # start the round
+            if self.card:
+                self.card = False  # start the round
+            elif self.env.is_game_over and not self.finished:
+                self.next()  # after reading how the round ended
         elif key == pygame.K_RIGHT:
             self.next()
         elif key == pygame.K_LEFT:
@@ -269,10 +270,7 @@ class Showcase:
             self.clock.advance(0)
             return
         if self.env.is_game_over:
-            self.after -= elapsed
-            if self.after <= 0:
-                self.next()
-            return
+            return  # the round's end stays until Enter
         for _ in range(self.clock.advance(elapsed * control.speed)):
             self._step()
             if self.env.is_game_over:
@@ -358,9 +356,7 @@ class Showcase:
                 theme.TEXT,
             ),
             (
-                "the summary is next"
-                if last
-                else "the next checkpoint follows",
+                "Enter: the summary" if last else "Enter: the next checkpoint",
                 theme.TEXT_DIM,
             ),
         )

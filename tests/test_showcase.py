@@ -122,8 +122,11 @@ def test_it_moves_on_and_ends_with_a_summary(trained):
     show = _show(trained)
     show.handle_key(pygame.K_RETURN)
     _play_to_end(show)
-    assert "the next checkpoint follows" in show.mode().messages[1][0]
-    show.tick(2.1)  # the pause after a round
+    assert show.mode().messages[1][0] == "Enter: the next checkpoint"
+    for _ in range(10):
+        show.tick(1.0)
+    assert show.index == 0  # the result stays until Enter
+    show.handle_key(pygame.K_RETURN)
     assert show.index == 1 and show.card  # the next card waits for Enter
     show.handle_key(pygame.K_RIGHT)
     show.handle_key(pygame.K_RIGHT)

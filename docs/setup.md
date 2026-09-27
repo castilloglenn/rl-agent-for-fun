@@ -54,7 +54,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make agents` | List every agent: model, decisions, best checkpoint and score, milestone, last update |
 | `make dataset` | Preview your recordings as an imitation dataset (`datasets/mine.json`): rounds, samples, your mean score, and skipped recordings with why |
 | `make imitate AGENT=id` | Clone your driving into an agent (created if new) with `trainers/imitate.json`, then score the clone. Continue with RL: `make train AGENT=id` |
-| `make showcase AGENT=id` | Watch an agent's progression: highlight checkpoints on the same round, each after a title card (decisions, training time, suite scores, badges) that stays until Enter. SPACE or P pause, 1-4 speed, Left/Right checkpoint, R restart, Esc quit |
+| `make showcase AGENT=id` | Watch an agent's progression: highlight checkpoints on the same round, each after a title card (decisions, training time, suite scores, badges) that stays until Enter. Each round's result also waits for Enter. SPACE or P pause, 1-4 speed, Left/Right checkpoint, R restart, Esc quit |
 | `make showcase_all AGENT=id` | The same, for every scored checkpoint |
 | `make agent AGENT=id` | An agent's digest: lineage, best scores next to the heuristic, score trend, totals, milestone |
 | `make resume_last` | Resume the newest stopped training run |
