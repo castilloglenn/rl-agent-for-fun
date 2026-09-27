@@ -355,7 +355,31 @@ def test_the_quit_box_has_its_buttons_and_blocks_the_rest(window):
     window.handle(
         pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=cancel)
     )
+    assert window.confirm_quit  # a press alone does nothing yet
+    window.handle(
+        pygame.event.Event(pygame.MOUSEBUTTONUP, button=1, pos=cancel)
+    )
     assert not window.confirm_quit and window.running
+
+
+def test_quit_buttons_act_on_release_over_the_same_button(window):
+    window.ask_to_quit()
+    window.draw()
+    confirm = window.quit_buttons["confirm"].center
+    cancel = window.quit_buttons["cancel"].center
+
+    def mouse(kind, pos):
+        window.handle(pygame.event.Event(kind, button=1, pos=pos))
+
+    mouse(pygame.MOUSEBUTTONDOWN, confirm)
+    mouse(pygame.MOUSEBUTTONUP, (5, 5))  # dragged off: changed your mind
+    assert window.confirm_quit and window.running
+    mouse(pygame.MOUSEBUTTONDOWN, confirm)
+    mouse(pygame.MOUSEBUTTONUP, cancel)  # released on the other button
+    assert window.confirm_quit and window.running
+    mouse(pygame.MOUSEBUTTONDOWN, confirm)
+    mouse(pygame.MOUSEBUTTONUP, confirm)
+    assert not window.running
 
 
 def test_closing_the_window_asks_then_quits(window):

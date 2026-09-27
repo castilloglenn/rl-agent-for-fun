@@ -17,7 +17,7 @@ Step 6 is a control center: every command, training setup, runs, agents, and fil
 - **Job controls are signals:** Stop is Ctrl+C (SIGINT, so training keeps its exact resume state; a second Stop ends it), Pause freezes the process in place (SIGSTOP), and Resume continues it (SIGCONT). That's also the roadmap's "pause training in place".
 - **Fields are dropdowns from the files on disk** (agents, checkpoints, drivers, rules, rewards, stages, models, trainers, datasets, suites, runs, recordings, test files), so a typo can't happen. New names (a new agent, a player) and numbers are typed, and a blank optional field shows what blank means ("blank: the rules' own").
 - **Tabs across the top** (retro: the open tab is a lit box, later ones are dimmed with their step), instead of a sidebar, so the boxes below get the full width.
-- **Quitting asks first**, in the game window's style: a QUIT? box that dims the window, says how many running jobs would be stopped, and has **Cancel (Esc)** and **Confirm (Enter)**. Nothing behind it reacts while it's open, and closing the window again confirms. (pygame_gui's own confirmation dialog was cramped and didn't match.)
+- **Quitting asks first**, in the game window's style: a QUIT? box that dims the window, says how many running jobs would be stopped, and has **Cancel (Esc)** and **Confirm (Enter)**. Nothing behind it reacts while it's open, and closing the window again confirms. Its buttons act on release, like any button: pressing Confirm and dragging off it does nothing. (pygame_gui's own confirmation dialog was cramped and didn't match.)
 
 ## Consequences
 

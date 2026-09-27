@@ -180,6 +180,7 @@ class ControlCenter:
         self.running = True
         self.confirm_quit = False  # the quit box is open
         self.quit_buttons: dict[str, Rect] = {}  # its buttons, when drawn
+        self.quit_pressed: str | None = None  # the button the mouse is on
         self.tab = "Commands"
         self.stats = SystemStats()
         if self.vitals:
@@ -498,6 +499,7 @@ class ControlCenter:
 
     def ask_to_quit(self) -> None:
         self.confirm_quit = True
+        self.quit_pressed = None
 
     def quit(self) -> None:
         self.jobs.stop_all()
@@ -553,7 +555,8 @@ class ControlCenter:
 
     def _handle_quit_box(self, event) -> None:
         """Esc (or Cancel) goes back, Enter (or Confirm) quits. Closing the
-        window again while it's open quits too.
+        window again while it's open quits too. A button acts like any
+        button: on release, if the mouse is still on the one it pressed.
         """
         if event.type == pygame.QUIT:
             self.quit()
@@ -563,15 +566,19 @@ class ControlCenter:
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.quit()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            nowhere = Rect(0, 0, 0, 0)
-            if self.quit_buttons.get("cancel", nowhere).collidepoint(
-                event.pos
-            ):
+            self.quit_pressed = self._quit_button_at(event.pos)
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            pressed, self.quit_pressed = self.quit_pressed, None
+            if pressed is None or self._quit_button_at(event.pos) != pressed:
+                return  # released somewhere else: nothing
+            if pressed == "cancel":
                 self.confirm_quit = False
-            elif self.quit_buttons.get("confirm", nowhere).collidepoint(
-                event.pos
-            ):
+            else:
                 self.quit()
+
+    def _quit_button_at(self, pos) -> str | None:
+        buttons = self.quit_buttons.items()
+        return next((k for k, r in buttons if r.collidepoint(pos)), None)
 
     def _refresh(self, force: bool = False) -> None:
         now = time.monotonic()
