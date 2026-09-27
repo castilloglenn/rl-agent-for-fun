@@ -193,7 +193,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `makefile.py` | `read_commands()`: every make target, read from the Makefile, for the console's typed make commands and the coverage test |
 | `choices.py` | `options(command, param)`: dropdown choices from the files on disk (agents, drivers, rules, rewards, stages, runs, recordings, test files), or None for typed values |
 | `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window (sidebar, actions with their fields and the command they run, jobs, console with a command line for make commands), themed like the game window |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window (tabs on top, actions with their fields and the command they run, jobs, console with a command line for make commands, and a QUIT? box with Cancel (Esc) and Confirm (Enter)), themed like the game window |
 
 ## Replays (`src/replay/`)
 

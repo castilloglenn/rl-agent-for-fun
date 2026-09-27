@@ -319,14 +319,50 @@ def test_a_typed_command_needs_a_real_name(window):
     assert window.jobs.jobs == []
 
 
-def test_esc_asks_before_quitting(window):
-    event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE)
-    window.handle(event)
-    assert window.quit_dialog is not None and window.running
-    window.handle(
-        pygame.event.Event(
-            pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED,
-            ui_element=window.quit_dialog,
-        )
-    )
+def _key(window, key):
+    window.handle(pygame.event.Event(pygame.KEYDOWN, key=key))
+
+
+def test_esc_asks_before_quitting_and_enter_confirms(window):
+    _key(window, pygame.K_ESCAPE)
+    assert window.confirm_quit and window.running
+    _key(window, pygame.K_RETURN)
     assert not window.running
+
+
+def test_esc_again_cancels(window):
+    _key(window, pygame.K_ESCAPE)
+    _key(window, pygame.K_ESCAPE)
+    assert not window.confirm_quit and window.running
+
+
+def test_the_quit_box_has_its_buttons_and_blocks_the_rest(window):
+    window.ask_to_quit()
+    window.draw()
+    assert set(window.quit_buttons) == {"cancel", "confirm"}
+    click = pygame.event.Event(
+        pygame.MOUSEBUTTONDOWN, button=1, pos=window.run_button.rect.center
+    )
+    window.handle(click)  # behind the box: nothing happens
+    assert window.jobs.jobs == [] and window.confirm_quit
+    cancel = window.quit_buttons["cancel"].center
+    window.handle(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=cancel)
+    )
+    assert not window.confirm_quit and window.running
+
+
+def test_closing_the_window_asks_then_quits(window):
+    window.handle(pygame.event.Event(pygame.QUIT))
+    assert window.confirm_quit and window.running
+    window.handle(pygame.event.Event(pygame.QUIT))
+    assert not window.running
+
+
+def test_only_built_tabs_open(window):
+    assert window.tab == "Commands"
+    training = window.tab_rects["Training"].center
+    window.handle(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=training)
+    )
+    assert window.tab == "Commands"  # arrives in 6b

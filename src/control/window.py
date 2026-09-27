@@ -22,7 +22,6 @@ from pygame_gui.elements import (
     UITextBox,
     UITextEntryLine,
 )
-from pygame_gui.windows import UIConfirmationDialog
 
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
@@ -37,7 +36,8 @@ ROW = 30  # a row of widgets
 GAP = 8  # between rows
 LABEL = 124  # the width of a field's label
 REFRESH = 0.5  # seconds between job list refreshes
-SECTIONS = (
+TAB_HEIGHT = 36
+TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
     ("Training", "6b"),
     ("Runs", "6b"),
@@ -166,41 +166,32 @@ class ControlCenter:
         self.jobs = jobs or JobManager()
         self.make_commands = read_commands()  # for the typed command line
         self.running = True
-        self.quit_dialog = None
+        self.confirm_quit = False  # the quit box is open
+        self.quit_buttons: dict[str, Rect] = {}  # its buttons, when drawn
+        self.tab = "Commands"
         self.message: tuple[str, tuple] | None = None  # next to Run
         self.selected_job = None
         self._refreshed = 0.0
         self._log_seen = -1
         self._rows = None
 
-        # The boxes: sidebar, commands, jobs, console.
-        height = SIZE[1] - 2 * MARGIN
-        self.sidebar = Rect(MARGIN, MARGIN, 180, height)
-        left = self.sidebar.right + MARGIN
-        self.console = Rect(left, 560, SIZE[0] - left - MARGIN, 244)
-        top = self.console.y - 2 * MARGIN
-        self.jobs_box = Rect(SIZE[0] - MARGIN - 360, MARGIN, 360, top)
+        # The boxes: tabs on top, then commands and jobs, then console.
+        width = SIZE[0] - 2 * MARGIN
+        self.tab_bar = Rect(MARGIN, MARGIN, width, TAB_HEIGHT)
+        top = self.tab_bar.bottom + MARGIN
+        self.console = Rect(MARGIN, SIZE[1] - MARGIN - 224, width, 224)
+        height = self.console.y - MARGIN - top
+        self.jobs_box = Rect(SIZE[0] - MARGIN - 360, top, 360, height)
         self.commands_box = Rect(
-            left, MARGIN, self.jobs_box.x - MARGIN - left, top
+            MARGIN, top, self.jobs_box.x - 2 * MARGIN, height
         )
+        self.tab_rects = self._tab_rects()
         self._build()
 
     # Widgets
 
     def _build(self) -> None:
         gui = self.gui
-        y = self.sidebar.y + 44
-        for name, step in SECTIONS:
-            label = name if step is None else f"{name}  ({step})"
-            button = UIButton(
-                Rect(self.sidebar.x + PAD, y, self.sidebar.w - 2 * PAD, ROW),
-                label,
-                gui,
-            )
-            if step is not None:
-                button.disable()  # arrives in a later step
-            y += ROW + GAP
-
         box = self.commands_box
         self.group_menu = UIDropDownMenu(
             list(GROUPS),
@@ -384,40 +375,27 @@ class ControlCenter:
         self._refresh(force=True)
 
     def ask_to_quit(self) -> None:
-        if self.quit_dialog:
-            return
-        running = len(self.jobs.running)
-        detail = "Quit the control center?"
-        if running:
-            detail += (
-                f"<br>{running} running job{'s' if running > 1 else ''} will"
-                " be stopped (training keeps its resume state)."
-            )
-        rect = Rect(0, 0, 420, 200)
-        rect.center = (SIZE[0] // 2, SIZE[1] // 2)
-        self.quit_dialog = UIConfirmationDialog(
-            rect,
-            detail,
-            self.gui,
-            window_title="Quit",
-            action_short_name="Quit",
-        )
+        self.confirm_quit = True
+
+    def quit(self) -> None:
+        self.jobs.stop_all()
+        self.running = False
 
     # The loop
 
     def handle(self, event) -> None:
+        if self.confirm_quit:  # the quit box takes every key and click
+            self._handle_quit_box(event)
+            return
         self.gui.process_events(event)
         if event.type == pygame.QUIT:
             self.ask_to_quit()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            if not self.quit_dialog:
-                self.ask_to_quit()
-        elif event.type == pygame_gui.UI_CONFIRMATION_DIALOG_CONFIRMED:
-            self.jobs.stop_all()
-            self.running = False
-        elif event.type == pygame_gui.UI_WINDOW_CLOSE:
-            if event.ui_element is self.quit_dialog:
-                self.quit_dialog = None
+            self.ask_to_quit()
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for name, rect in self.tab_rects.items():
+                if rect.collidepoint(event.pos) and _available(name):
+                    self.tab = name
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element is self.group_menu:
                 self._show_group(event.text)
@@ -440,6 +418,28 @@ class ControlCenter:
             if event.ui_element is self.command_line:
                 self.run_typed(event.text)
                 self.command_line.set_text("")
+
+    def _handle_quit_box(self, event) -> None:
+        """Esc (or Cancel) goes back, Enter (or Confirm) quits. Closing the
+        window again while it's open quits too.
+        """
+        if event.type == pygame.QUIT:
+            self.quit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self.confirm_quit = False
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self.quit()
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            nowhere = Rect(0, 0, 0, 0)
+            if self.quit_buttons.get("cancel", nowhere).collidepoint(
+                event.pos
+            ):
+                self.confirm_quit = False
+            elif self.quit_buttons.get("confirm", nowhere).collidepoint(
+                event.pos
+            ):
+                self.quit()
 
     def _refresh(self, force: bool = False) -> None:
         now = time.monotonic()
@@ -467,10 +467,10 @@ class ControlCenter:
 
     def draw(self) -> None:
         self.screen.fill(theme.BACKGROUND)
-        boxes = (self.sidebar, self.commands_box, self.jobs_box, self.console)
+        boxes = (self.tab_bar, self.commands_box, self.jobs_box, self.console)
         for rect in boxes:
             pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
-        _header(self.screen, self.sidebar, "CONTROL CENTER")
+        self._draw_tabs()
         _header(self.screen, self.commands_box, "COMMANDS")
         _header(self.screen, self.jobs_box, "JOBS")
         job = getattr(self, "_log_job", None)
@@ -487,6 +487,131 @@ class ControlCenter:
         self.gui.draw_ui(self.screen)
         if self.selected:
             self._draw_hints()
+        if self.confirm_quit:
+            self._draw_quit_box()
+
+    # Tabs and the quit box
+
+    def _tab_rects(self) -> dict[str, Rect]:
+        """Each tab's area in the tab bar, after the title."""
+        title = get_font(theme.HEADER_SIZE, True).size("CONTROL CENTER")[0]
+        x = self.tab_bar.x + PAD + title + 28
+        rects = {}
+        font = get_font(theme.TEXT_SIZE, True)
+        for name, step in TABS:
+            label = _tab_label(name, step)
+            width = font.size(label)[0] + 2 * 16
+            rects[name] = Rect(x, self.tab_bar.y + 5, width, TAB_HEIGHT - 10)
+            x += width + GAP
+        return rects
+
+    def _draw_tabs(self) -> None:
+        bar = self.tab_bar
+        draw_text(
+            self.screen,
+            "CONTROL CENTER",
+            (bar.x + PAD, bar.centery),
+            theme.HEADER_SIZE,
+            theme.ACCENT,
+            bold=True,
+            anchor="midleft",
+        )
+        for name, step in TABS:
+            rect = self.tab_rects[name]
+            active = name == self.tab
+            if active:  # the open tab: a lit box
+                pygame.draw.rect(self.screen, (20, 60, 95), rect)
+                pygame.draw.rect(self.screen, theme.ACCENT, rect, 1)
+            elif step is None:
+                pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
+            color = theme.TEXT if active else (
+                theme.TEXT_DIM if step else theme.TEXT
+            )
+            draw_text(
+                self.screen,
+                _tab_label(name, step),
+                rect.center,
+                theme.TEXT_SIZE,
+                color,
+                bold=active,
+                anchor="center",
+            )
+
+    def _draw_quit_box(self) -> None:
+        """Like the game window's: dims the window, then asks."""
+        shade = pygame.Surface(SIZE, pygame.SRCALPHA)
+        shade.fill((*theme.BACKGROUND, 170))
+        self.screen.blit(shade, (0, 0))
+        running = len(self.jobs.running)
+        lines = [("Quit the control center?", theme.TEXT)]
+        if running:
+            lines.append(
+                (
+                    f"{running} running job{'s' if running > 1 else ''} will "
+                    "be stopped (training keeps its resume state).",
+                    theme.TEXT_DIM,
+                )
+            )
+        font = get_font(theme.TEXT_SIZE)
+        bold = get_font(theme.TEXT_SIZE, True)
+        labels = {"cancel": "Cancel (Esc)", "confirm": "Confirm (Enter)"}
+        buttons = {k: bold.size(v)[0] + 2 * 18 for k, v in labels.items()}
+        width = max(
+            [font.size(text)[0] for text, _ in lines]
+            + [sum(buttons.values()) + GAP]
+        ) + 2 * 28
+        box = Rect(0, 0, width, 64 + 22 * len(lines) + 20 + ROW + 24)
+        box.center = (SIZE[0] // 2, SIZE[1] // 2)
+        pygame.draw.rect(self.screen, theme.BACKGROUND, box)
+        pygame.draw.rect(self.screen, theme.PANEL_BORDER, box, 1)
+        y = box.y + 24
+        draw_text(
+            self.screen,
+            "QUIT?",
+            (box.centerx, y),
+            theme.BIG_SIZE,
+            theme.WARN,
+            bold=True,
+            anchor="midtop",
+        )
+        y += 40
+        for text, color in lines:
+            draw_text(
+                self.screen,
+                text,
+                (box.centerx, y),
+                theme.TEXT_SIZE,
+                color,
+                anchor="midtop",
+            )
+            y += 22
+        # The buttons, right-aligned: Cancel, then Confirm.
+        x = box.right - 28
+        top = box.bottom - 24 - ROW
+        for key in ("confirm", "cancel"):
+            rect = Rect(0, top, buttons[key], ROW)
+            rect.right = x
+            lit = key == "confirm"
+            pygame.draw.rect(
+                self.screen, (20, 60, 95) if lit else (24, 25, 30), rect
+            )
+            pygame.draw.rect(
+                self.screen,
+                theme.ACCENT if lit else theme.PANEL_BORDER,
+                rect,
+                1,
+            )
+            draw_text(
+                self.screen,
+                labels[key],
+                rect.center,
+                theme.TEXT_SIZE,
+                theme.TEXT,
+                bold=True,
+                anchor="center",
+            )
+            self.quit_buttons[key] = rect
+            x = rect.left - GAP
 
     def _draw_hints(self) -> None:
         """What a blank field means, dimmed, in empty fields you're not
@@ -574,6 +699,14 @@ class ControlCenter:
             self.draw()
             pygame.display.flip()
         pygame.quit()
+
+
+def _tab_label(name: str, step: str | None) -> str:
+    return name.upper() if step is None else f"{name.upper()} · {step}"
+
+
+def _available(tab: str) -> bool:
+    return dict(TABS)[tab] is None
 
 
 def _header(surface, rect: Rect, text: str) -> None:

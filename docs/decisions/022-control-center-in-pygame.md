@@ -15,10 +15,11 @@ Step 6 is a control center: every command, training setup, runs, agents, and fil
 - **No messaging layer: files and processes.** All state is already in files (runs, agents, recordings), so the control center reads files to show state and starts processes to act. Every command runs as its own process (`python app.py ...`, like make), so a closed or crashed game window never takes down the control center or a training run.
 - **Job controls are signals:** Stop is Ctrl+C (SIGINT, so training keeps its exact resume state; a second Stop ends it), Pause freezes the process in place (SIGSTOP), and Resume continues it (SIGCONT). That's also the roadmap's "pause training in place".
 - **Fields are dropdowns from the files on disk** (agents, checkpoints, drivers, rules, rewards, stages, models, trainers, datasets, suites, runs, recordings, test files), so a typo can't happen. New names (a new agent, a player) and numbers are typed, and a blank optional field shows what blank means ("blank: the rules' own").
-- **Quitting asks first**, and says how many running jobs would be stopped.
+- **Tabs across the top** (retro: the open tab is a lit box, later ones are dimmed with their step), instead of a sidebar, so the boxes below get the full width.
+- **Quitting asks first**, in the game window's style: a QUIT? box that dims the window, says how many running jobs would be stopped, and has **Cancel (Esc)** and **Confirm (Enter)**. Nothing behind it reacts while it's open, and closing the window again confirms. (pygame_gui's own confirmation dialog was cramped and didn't match.)
 
 ## Consequences
 
-- 6a gives every command in a window, with live output. The sections for training (6b), runs (6b), agents (6c), and files (6d) show greyed until built.
+- 6a gives every command in a window, with live output. The tabs for training (6b), runs (6b), agents (6c), and files (6d) show dimmed until built.
 - Two new dependencies: `pygame_gui` and `python-i18n`.
 - Commands that open a game window (play, replay, showcase) still open their own window, as a separate process.
