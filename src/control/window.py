@@ -51,7 +51,7 @@ CONSOLE_HEIGHT = 288  # about 35 % of the window
 SCROLL_STEP = 40  # px per mouse wheel notch
 PREVIEW_LINES = 4  # of the command, beside Run
 TAB_HEIGHT = 36
-STATS_HEIGHT = 32  # the machine's vital signs, above the tabs
+STATS_HEIGHT = 32  # the machine's vital signs, at the bottom
 TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
     ("Training", None),
@@ -192,16 +192,19 @@ class ControlCenter:
         self._log_seen = -1
         self._rows = None
 
-        # The boxes: tabs on top, then commands and jobs, then console.
+        # The boxes: tabs on top, then the tab's boxes (for Commands:
+        # commands and jobs, then the console), then the machine's vital
+        # signs at the bottom.
         width = SIZE[0] - 2 * MARGIN
-        self.stats_bar = Rect(MARGIN, MARGIN, width, STATS_HEIGHT)
-        self.tab_bar = Rect(
-            MARGIN, self.stats_bar.bottom + GAP, width, TAB_HEIGHT
+        self.tab_bar = Rect(MARGIN, MARGIN, width, TAB_HEIGHT)
+        self.stats_bar = Rect(
+            MARGIN, SIZE[1] - MARGIN - STATS_HEIGHT, width, STATS_HEIGHT
         )
         top = self.tab_bar.bottom + MARGIN
+        bottom = self.stats_bar.y - MARGIN
         # The console: about 35 % of the window's height.
         self.console = Rect(
-            MARGIN, SIZE[1] - MARGIN - CONSOLE_HEIGHT, width, CONSOLE_HEIGHT
+            MARGIN, bottom - CONSOLE_HEIGHT, width, CONSOLE_HEIGHT
         )
         height = self.console.y - MARGIN - top
         self.jobs_box = Rect(SIZE[0] - MARGIN - 360, top, 360, height)
@@ -213,7 +216,7 @@ class ControlCenter:
         # The Runs tab: the full height, for its charts.
         self.runs_tab = RunsTab(
             self.gui,
-            Rect(MARGIN, top, width, SIZE[1] - MARGIN - top),
+            Rect(MARGIN, top, width, bottom - top),
             self.jobs,
             self.run_named,
             runs_dir=runs_dir,
@@ -224,7 +227,7 @@ class ControlCenter:
         self.chains: list[Chain] = []  # the Training tab's plans
         self.training_tab = TrainingTab(
             self.gui,
-            Rect(MARGIN, top, width, SIZE[1] - MARGIN - top),
+            Rect(MARGIN, top, width, bottom - top),
             self.jobs,
             self.start_plan,
             on_battery=self._on_battery,
@@ -235,7 +238,7 @@ class ControlCenter:
         self.training_tab.hide()
         self.agents_tab = AgentsTab(
             self.gui,
-            Rect(MARGIN, top, width, SIZE[1] - MARGIN - top),
+            Rect(MARGIN, top, width, bottom - top),
             self.jobs,
             self.run_named,
             train_more=self.train_more,

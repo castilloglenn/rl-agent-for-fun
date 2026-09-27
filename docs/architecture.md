@@ -208,7 +208,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
 | `vitals.py` | `VitalsLog`: those readings as a row every 10 s (and on a level change) in `logs/vitals.csv`, with job and window events as notes, rotated at 100 KB ([decision 024](decisions/024-vitals-log.md)); `tail()` for `make vitals` |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: the machine's vital signs and tabs on top, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training, Runs, and Agents tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: tabs on top and the machine's vital signs along the bottom, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training, Runs, and Agents tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
 
 ## Replays (`src/replay/`)
 
