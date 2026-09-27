@@ -31,7 +31,7 @@ from src.control.jobs import JobManager
 from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
 from src.control.text import fit, header
 from src.render import theme
-from src.utils.ui import draw_text
+from src.utils.ui import draw_text, get_font
 
 LIST_WIDTH = 400
 PAD = 14
@@ -52,7 +52,8 @@ COMPARE_WIDTH = 300
 NO_COMPARE = "(none)"
 COMPARE_COLORS = ((205, 150, 90), (150, 150, 160))  # muted, apart
 HIT = 9  # px: how close a click must be to a suite dot
-POPOVER = (250, 96)
+POPOVER = (250, 96)  # the smallest size; it widens to fit its text
+POPOVER_PAD = 12
 POPOVER_BUTTONS = (("watch", "Watch it drive"), ("branch", "Branch from it"))
 KIND_TITLES = {
     runs.TRAINING: "TRAINING RUN",
@@ -532,37 +533,55 @@ class RunsTab:
         if not (self.picked and self._plot):
             return Rect(0, 0, 0, 0)
         x, y = self._plot.to_screen(self.picked[1], self.picked[2])
-        rect = Rect(0, 0, *POPOVER)
+        title, detail = self._popover_texts()
+        needed = max(
+            get_font(theme.TEXT_SIZE, True).size(title)[0],
+            get_font(theme.TEXT_SIZE).size(detail)[0],
+        )
+        width = min(
+            max(POPOVER[0], needed + 2 * POPOVER_PAD),
+            self.main_rect.w - 16,  # a longer name is cut with "…"
+        )
+        rect = Rect(0, 0, width, POPOVER[1])
         rect.midbottom = (int(x), int(y) - 14)  # above the dot
         if rect.top < self.main_rect.y + 4:
             rect.midtop = (int(x), int(y) + 14)  # no room: below it
         rect.clamp_ip(self.main_rect.inflate(-8, -8))
         return rect
 
+    def _popover_texts(self) -> tuple[str, str]:
+        name, decisions, score = self.picked
+        return (
+            f"{self.data.who}@{name}",
+            f"suite {score:,.0f} · {decisions:,.0f} decisions",
+        )
+
     def _draw_popover(self, surface) -> None:
         name, decisions, score = self.picked
+        title, detail = self._popover_texts()
         x, y = self._plot.to_screen(decisions, score)
         pygame.draw.circle(surface, theme.TEXT, (x, y), 8, 2)  # pinned
         box = self._popover_rect()
         pygame.draw.rect(surface, theme.BACKGROUND, box)
         pygame.draw.rect(surface, theme.ACCENT, box, 1)
+        room = box.w - 2 * POPOVER_PAD
         draw_text(
             surface,
-            f"{self.data.who}@{name}",
-            (box.x + 12, box.y + 10),
+            fit(title, room, True),
+            (box.x + POPOVER_PAD, box.y + 10),
             theme.TEXT_SIZE,
             theme.TEXT,
             bold=True,
         )
         draw_text(
             surface,
-            f"suite {score:,.0f} · {decisions:,.0f} decisions",
-            (box.x + 12, box.y + 32),
+            fit(detail, room),
+            (box.x + POPOVER_PAD, box.y + 32),
             theme.TEXT_SIZE,
             theme.TEXT_DIM,
         )
-        bx = box.x + 12
-        width = (box.w - 24 - GAP) // 2
+        bx = box.x + POPOVER_PAD
+        width = (room - GAP) // 2
         for key, label in POPOVER_BUTTONS:
             rect = Rect(bx, box.bottom - 12 - 28, width, 28)
             lit = key == self._pressed

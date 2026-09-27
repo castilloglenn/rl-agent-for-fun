@@ -238,3 +238,18 @@ def test_a_compared_run_adds_muted_lines(window):
     tags = [s.label for s in chart.series]
     assert "pupil 01:48" in tags
     window.draw()
+
+
+def test_the_box_widens_for_a_long_name(window):
+    tab = _open_box(window)
+    short = tab._popover_rect().w
+    tab.data.who = "rookie-started-at-d1700k"
+    wide = tab._popover_rect()
+    title, _ = tab._popover_texts()
+    from src.utils.ui import get_font
+    from src.render import theme
+
+    assert wide.w > short
+    assert get_font(theme.TEXT_SIZE, True).size(title)[0] <= wide.w - 24
+    assert tab.main_rect.contains(wide)
+    window.draw()
