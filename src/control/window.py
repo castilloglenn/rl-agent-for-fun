@@ -28,6 +28,7 @@ from pygame_gui.elements import (
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
 from src.control.chains import Chain
+from src.control.confirm import Confirm
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
 from src.control.text import fit, header, wrap
@@ -178,9 +179,7 @@ class ControlCenter:
         if self.vitals:
             self.jobs.on_event = self.vitals.note
         self.running = True
-        self.confirm_quit = False  # the quit box is open
-        self.quit_buttons: dict[str, Rect] = {}  # its buttons, when drawn
-        self.quit_pressed: str | None = None  # the button the mouse is on
+        self.box: Confirm | None = None  # an open confirmation box
         self.tab = "Commands"
         self.stats = SystemStats()
         if self.vitals:
@@ -217,6 +216,7 @@ class ControlCenter:
             self.run_named,
             runs_dir=runs_dir,
             agents_dir=agents_dir,
+            branch=self.branch_from,
         )
         self.runs_tab.hide()
         self.chains: list[Chain] = []  # the Training tab's plans
@@ -390,9 +390,16 @@ class ControlCenter:
 
     # Actions
 
-    def run_action(self, action: Action, values: dict, label: str = ""):
+    def run_action(
+        self,
+        action: Action,
+        values: dict,
+        label: str = "",
+        confirmed: bool = False,
+    ):
         """Runs an action, unless a field it needs is empty. Returns its
-        job, or None.
+        job, or None. An action that asks first (deleting) opens its
+        confirmation box, and runs once you confirm.
         """
         empty = []
         for field in action.fields:
@@ -402,6 +409,19 @@ class ControlCenter:
                 empty.append(field.name)
         if empty:
             self.message = (f"Needs: {', '.join(empty)}", theme.BAD)
+            return None
+        if action.confirm and not confirmed:
+            texts = action.confirm(values)
+            self.ask(
+                Confirm(
+                    f"{action.name.upper()}?",
+                    [(texts[0], theme.TEXT)]
+                    + [(t, theme.TEXT_DIM) for t in texts[1:]],
+                    lambda: self.run_action(action, values, label, True),
+                    confirm_label="Delete (Enter)",
+                    title_color=theme.BAD,
+                )
+            )
             return None
         if not label:
             label = action.name
@@ -434,6 +454,13 @@ class ControlCenter:
         self.runs_tab.follow = chain
         self.open_tab("Runs")
         return chain
+
+    def branch_from(self, start: str) -> None:
+        """The Training tab, set to branch a new agent from `start`
+        (agent@checkpoint), waiting for its name.
+        """
+        self.open_tab("Training")
+        self.training_tab.branch_from(start)
 
     def _chain_agents(self) -> dict[str, str]:
         """Agents a running chain here is working on."""
@@ -497,9 +524,32 @@ class ControlCenter:
             if self.selected:
                 self._place()  # hides the fields scrolled out of view
 
+    def ask(self, box: Confirm) -> None:
+        """Opens a confirmation box: nothing else reacts until it's
+        answered.
+        """
+        self.box = box
+
+    @property
+    def confirm_quit(self) -> bool:
+        return bool(self.box and self.box.title == "QUIT?")
+
+    @property
+    def quit_buttons(self) -> dict[str, Rect]:
+        return self.box.buttons if self.box else {}
+
     def ask_to_quit(self) -> None:
-        self.confirm_quit = True
-        self.quit_pressed = None
+        lines = [("Quit the control center?", theme.TEXT)]
+        running = len(self.jobs.running)
+        if running:
+            lines.append(
+                (
+                    f"{running} running job{'s' if running > 1 else ''} will "
+                    "be stopped (training keeps its resume state).",
+                    theme.TEXT_DIM,
+                )
+            )
+        self.ask(Confirm("QUIT?", lines, self.quit))
 
     def quit(self) -> None:
         self.jobs.stop_all()
@@ -510,14 +560,16 @@ class ControlCenter:
     # The loop
 
     def handle(self, event) -> None:
-        if self.confirm_quit:  # the quit box takes every key and click
-            self._handle_quit_box(event)
+        if self.box:  # an open box takes every key and click
+            self._handle_box(event)
             return
         self.gui.process_events(event)
         if event.type == pygame.QUIT:
             self.ask_to_quit()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            self.ask_to_quit()
+            # A tab's own box (the checkpoint box) closes first.
+            if not (self.tab == "Runs" and self.runs_tab.escape()):
+                self.ask_to_quit()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for name, rect in self.tab_rects.items():
                 if rect.collidepoint(event.pos) and _available(name):
@@ -553,32 +605,23 @@ class ControlCenter:
             if over and not self._dropdown_open():
                 self.scroll_by(-event.y * SCROLL_STEP)
 
-    def _handle_quit_box(self, event) -> None:
-        """Esc (or Cancel) goes back, Enter (or Confirm) quits. Closing the
-        window again while it's open quits too. A button acts like any
-        button: on release, if the mouse is still on the one it pressed.
+    def _handle_box(self, event) -> None:
+        """Esc (or Cancel) goes back, Enter (or the confirm button) goes
+        ahead. Closing the window while the quit box is open quits; while
+        another box is open, it asks to quit instead.
         """
+        box = self.box
         if event.type == pygame.QUIT:
-            self.quit()
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                self.confirm_quit = False
-            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            if self.confirm_quit:
                 self.quit()
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self.quit_pressed = self._quit_button_at(event.pos)
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            pressed, self.quit_pressed = self.quit_pressed, None
-            if pressed is None or self._quit_button_at(event.pos) != pressed:
-                return  # released somewhere else: nothing
-            if pressed == "cancel":
-                self.confirm_quit = False
             else:
-                self.quit()
-
-    def _quit_button_at(self, pos) -> str | None:
-        buttons = self.quit_buttons.items()
-        return next((k for k, r in buttons if r.collidepoint(pos)), None)
+                self.ask_to_quit()
+            return
+        answer = box.handle(event)
+        if answer:
+            self.box = None
+        if answer == "confirm":
+            box.on_confirm()
 
     def _refresh(self, force: bool = False) -> None:
         now = time.monotonic()
@@ -618,14 +661,15 @@ class ControlCenter:
         if self.tab == "Runs":
             self.runs_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
+            self.runs_tab.draw_after(self.screen)
         elif self.tab == "Training":
             self.training_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
             self.training_tab.draw_after(self.screen)
         else:
             self._draw_commands()
-        if self.confirm_quit:
-            self._draw_quit_box()
+        if self.box:
+            self.box.draw(self.screen)
 
     def _draw_commands(self) -> None:
         for rect in (self.commands_box, self.jobs_box, self.console):
@@ -751,82 +795,6 @@ class ControlCenter:
                 bold=active,
                 anchor="center",
             )
-
-    def _draw_quit_box(self) -> None:
-        """Like the game window's: dims the window, then asks."""
-        shade = pygame.Surface(SIZE, pygame.SRCALPHA)
-        shade.fill((*theme.BACKGROUND, 170))
-        self.screen.blit(shade, (0, 0))
-        running = len(self.jobs.running)
-        lines = [("Quit the control center?", theme.TEXT)]
-        if running:
-            lines.append(
-                (
-                    f"{running} running job{'s' if running > 1 else ''} will "
-                    "be stopped (training keeps its resume state).",
-                    theme.TEXT_DIM,
-                )
-            )
-        font = get_font(theme.TEXT_SIZE)
-        bold = get_font(theme.TEXT_SIZE, True)
-        labels = {"cancel": "Cancel (Esc)", "confirm": "Confirm (Enter)"}
-        buttons = {k: bold.size(v)[0] + 2 * 18 for k, v in labels.items()}
-        width = max(
-            [font.size(text)[0] for text, _ in lines]
-            + [sum(buttons.values()) + GAP]
-        ) + 2 * 28
-        box = Rect(0, 0, width, 64 + 22 * len(lines) + 20 + ROW + 24)
-        box.center = (SIZE[0] // 2, SIZE[1] // 2)
-        pygame.draw.rect(self.screen, theme.BACKGROUND, box)
-        pygame.draw.rect(self.screen, theme.PANEL_BORDER, box, 1)
-        y = box.y + 24
-        draw_text(
-            self.screen,
-            "QUIT?",
-            (box.centerx, y),
-            theme.BIG_SIZE,
-            theme.WARN,
-            bold=True,
-            anchor="midtop",
-        )
-        y += 40
-        for text, color in lines:
-            draw_text(
-                self.screen,
-                text,
-                (box.centerx, y),
-                theme.TEXT_SIZE,
-                color,
-                anchor="midtop",
-            )
-            y += 22
-        # The buttons, right-aligned: Cancel, then Confirm.
-        x = box.right - 28
-        top = box.bottom - 24 - ROW
-        for key in ("confirm", "cancel"):
-            rect = Rect(0, top, buttons[key], ROW)
-            rect.right = x
-            lit = key == "confirm"
-            pygame.draw.rect(
-                self.screen, (20, 60, 95) if lit else (24, 25, 30), rect
-            )
-            pygame.draw.rect(
-                self.screen,
-                theme.ACCENT if lit else theme.PANEL_BORDER,
-                rect,
-                1,
-            )
-            draw_text(
-                self.screen,
-                labels[key],
-                rect.center,
-                theme.TEXT_SIZE,
-                theme.TEXT,
-                bold=True,
-                anchor="center",
-            )
-            self.quit_buttons[key] = rect
-            x = rect.left - GAP
 
     def _draw_hints(self) -> None:
         """What a blank field means, dimmed, in empty fields you're not

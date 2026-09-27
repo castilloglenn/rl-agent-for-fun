@@ -55,9 +55,12 @@ DESCRIPTION = (
 MAX_STEPS = 6  # plan steps shown
 
 
-def _starts() -> list[str]:
-    """A new agent starts fresh, or branches from any checkpoint."""
-    return [FRESH, *actions._checkpoints()[1:]]  # without "(none)"
+def _starts(also: str = "") -> list[str]:
+    """A new agent starts fresh, or branches from any checkpoint (and
+    `also`, a start picked elsewhere, if the list doesn't have it).
+    """
+    found = [FRESH, *actions._checkpoints()[1:]]  # without "(none)"
+    return found + ([also] if also and also not in found else [])
 
 
 def form_fields(mode: str, agent: str, start: str) -> list[Field]:
@@ -69,7 +72,7 @@ def form_fields(mode: str, agent: str, start: str) -> list[Field]:
     if new:
         fields += [
             Field("Name", None, "", "a new name, for example rookie2"),
-            Field("Start", _starts, FRESH),
+            Field("Start", lambda: _starts(start), FRESH),
         ]
         if start == FRESH:
             fields.append(Field("Model", actions._files("models"), "small"))
@@ -182,6 +185,19 @@ class TrainingTab:
         )
         if not self.visible:
             self.form.hide()
+        self.refresh(force=True)
+
+    def branch_from(self, start: str) -> None:
+        """RL for a new agent branched from `start` (agent@checkpoint),
+        with the name to type.
+        """
+        values = {**self.values(), "Mode": RL, "Agent": NEW_AGENT}
+        values.update(Start=start, Name="")
+        self.form.build(form_fields(RL, NEW_AGENT, start), values)
+        if not self.visible:
+            self.form.hide()
+        self.form.widgets["Name"].focus()
+        self.message = (f"Branching from {start}: name it.", theme.ACCENT)
         self.refresh(force=True)
 
     def refresh(self, force: bool = False) -> None:

@@ -489,12 +489,18 @@ class RunData:
             if self.best:
                 name, d, s = self.best
                 series.append(
-                    Series(f"best {name}", [(d, s)], theme.WARN, RING)
+                    Series(
+                        f"best {name}", [(d, s)], theme.WARN, RING, priority=2
+                    )
                 )
             if self.baseline is not None:
                 series.append(
                     Series(
-                        "heuristic", [(0, self.baseline)], theme.TEXT_DIM, LEVEL
+                        "heuristic",
+                        [(0, self.baseline)],
+                        theme.TEXT_DIM,
+                        LEVEL,
+                        priority=1,
                     )
                 )
             return Chart("SCORE (game points)", series, "{} decisions")

@@ -34,6 +34,15 @@ class Series:
     points: list[tuple[float, float]]  # (x, y), sorted by x
     color: tuple
     style: str = LINE
+    priority: int = 0  # the legend drops the highest first when it's full
+
+
+@dataclass(frozen=True)
+class Plot:
+    """Where a chart drew: for finding what a click landed on."""
+
+    area: Rect
+    to_screen: Callable[[float, float], tuple[float, float]]
 
 
 @dataclass
@@ -108,23 +117,27 @@ def draw_chart(
     chart: Chart,
     mouse: tuple[int, int] | None = None,
     title: bool = True,
-) -> None:
-    """The chart inside `rect` (its box border included). `title` False
-    leaves the title's place free, for a dropdown over it.
+    reserved: int = 0,
+) -> Plot | None:
+    """The chart inside `rect` (its box border included), and where it
+    drew (None without data). `title` False leaves `reserved` pixels of
+    the title's place free, for a dropdown over it.
     """
     pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
+    title_width = reserved
     if title:
-        draw_text(
+        title_width = draw_text(
             surface,
             chart.title,
             (rect.x + 12, rect.y + 10),
             theme.HEADER_SIZE,
             theme.ACCENT,
             bold=True,
-        )
+        ).w
+    left = rect.x + 12 + title_width + 16  # where the legend must stop
     area = plot_area(rect)
     if chart.empty:
-        _legend(surface, rect, chart, None)
+        _legend(surface, rect, chart, None, left)
         draw_text(
             surface,
             "No data yet",
@@ -133,7 +146,7 @@ def draw_chart(
             theme.TEXT_DIM,
             anchor="center",
         )
-        return
+        return None
     xs = [x for s in chart.series if s.style != LEVEL for x, _ in s.points]
     ys = [y for s in chart.series for _, y in s.points]
     x_low, x_high = min(xs), max(xs)
@@ -203,7 +216,8 @@ def draw_chart(
                     surface, theme.TEXT, to_screen(*point), DOT + 1, 1
                 )
         hovered["_x"] = x_value
-    _legend(surface, rect, chart, hovered)
+    _legend(surface, rect, chart, hovered, left)
+    return Plot(area, to_screen)
 
 
 def nearest(series: Series, x: float) -> tuple[float, float] | None:
@@ -243,9 +257,12 @@ def _draw_series(surface, series: Series, to_screen, area: Rect) -> None:
             pygame.draw.circle(surface, series.color, point, DOT + 3, 2)
 
 
-def _legend(surface, rect: Rect, chart: Chart, hovered: dict | None) -> None:
+def _legend(
+    surface, rect: Rect, chart: Chart, hovered: dict | None, left: int
+) -> None:
     """Right-aligned in the header row: each series with its latest value,
-    or the hovered one. Hovering also shows the x value first.
+    or the hovered one. Hovering also shows the x value first. Past
+    `left` there's no room: the highest-priority-number items go first.
     """
     items = []
     if hovered:
@@ -262,6 +279,16 @@ def _legend(surface, rect: Rect, chart: Chart, hovered: dict | None) -> None:
         value = "" if point is None else f" {chart.value_format(point[1])}"
         items.append((series, series.label + value))
     font = get_font(theme.HEADER_SIZE)
+
+    def width(item) -> int:
+        series, text = item
+        return font.size(text)[0] + (18 if series else 0) + 16
+
+    while sum(width(i) for i in items) > rect.right - 12 - left:
+        droppable = [i for i in items if i[0] and i[0].priority > 0]
+        if not droppable:
+            break
+        items.remove(max(droppable, key=lambda i: i[0].priority))
     x = rect.right - 12
     y = rect.y + 10 + font.get_height() // 2
     for series, text in reversed(items):

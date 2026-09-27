@@ -79,6 +79,30 @@ def _dispatch(cl_args) -> None:
         from src.control.vitals import tail
 
         print(tail())
+    elif cl_args.delete_run or cl_args.restore:
+        from src.control.trash import Trash, TrashError
+
+        try:
+            if cl_args.delete_run:
+                entry = Trash().delete_run(cl_args.delete_run)
+                print(f"Moved {', '.join(entry.paths)} into the trash:")
+                print(f"  trash/{entry.name}")
+                print(f"Restore it: make restore TRASH={entry.name}")
+            else:
+                entry = Trash().restore(cl_args.restore)
+                print(f"Restored {', '.join(entry.paths)}")
+        except TrashError as error:
+            raise SystemExit(str(error))
+    elif cl_args.list_trash:
+        from src.control.trash import Trash, format_entries
+
+        print(format_entries(Trash().entries()))
+    elif cl_args.empty_trash:
+        from src.control.trash import Trash
+
+        gone = Trash().empty()
+        noun = "entry" if len(gone) == 1 else "entries"
+        print(f"Deleted {len(gone)} trash {noun} for good.")
     elif cl_args.showcase:
         from src.agents.store import AgentError
         from src.experiments.showcase import Showcase, plan

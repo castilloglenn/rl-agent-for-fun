@@ -7,7 +7,8 @@
 	run_rules run_stage run_seconds run_best recordings replay_last \
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
 	resume_last eval eval_baselines agents agent dataset imitate \
-	showcase showcase_all control vitals
+	showcase showcase_all control vitals delete_run trash restore \
+	empty_trash
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -57,6 +58,11 @@ help:
 	@echo "  make showcase_all AGENT=id           watch every scored checkpoint"
 	@echo "  make dataset                         preview your recordings as an imitation dataset"
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
+	@echo "Files"
+	@echo "  make delete_run RUN=folder           move a run into the trash (its checkpoints stay)"
+	@echo "  make trash                           list what's in the trash"
+	@echo "  make restore TRASH=entry             put a trash entry back where it was"
+	@echo "  make empty_trash                     delete the trash for good"
 	@echo "Develop"
 	@echo "  make test                            run all tests"
 	@echo "  make test_file FILE=path             run one test file"
@@ -240,3 +246,17 @@ control:
 
 vitals:
 	python app.py -vitals
+
+delete_run:
+	$(call require,RUN,2026-09-27_003302_train-rookie_seed0)
+	python app.py -delete_run $(RUN)
+
+trash:
+	python app.py -list_trash
+
+restore:
+	$(call require,TRASH,2026-09-27_120000_run-2026-09-27_003302_train-rookie_seed0)
+	python app.py -restore $(TRASH)
+
+empty_trash:
+	python app.py -empty_trash

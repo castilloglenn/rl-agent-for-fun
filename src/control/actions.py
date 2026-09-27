@@ -44,6 +44,8 @@ class Action:
     build: Callable[[dict], list[str]]  # values -> app.py arguments
     opens_window: bool = False
     program: tuple[str, ...] = ("app.py",)  # or ("-m", "pytest")
+    # Asks first: values -> the confirmation box's lines (6b3).
+    confirm: Callable[[dict], list[str]] | None = None
 
     def argv(self, values: dict[str, str]) -> list[str]:
         filled = {f.name: values.get(f.name, f.default) for f in self.fields}
@@ -185,6 +187,25 @@ def _showcase(v: dict) -> list[str]:
 
 def _tests(v: dict) -> list[str]:
     return [] if v["File"] == ALL_TESTS else [v["File"]]
+
+
+def _trash_entries() -> list[str]:
+    from src.control.trash import Trash
+
+    return [entry.name for entry in Trash().entries()]
+
+
+def _confirm_delete_run(v: dict) -> list[str]:
+    return [
+        f"runs/{v['Run']} moves into the trash.",
+        "Its checkpoints stay in its agent. You can restore it later.",
+    ]
+
+
+def _confirm_empty(v: dict) -> list[str]:
+    count = len(_trash_entries())
+    noun = "entry is" if count == 1 else "entries are"
+    return [f"{count} trash {noun} deleted for good. This can't be undone."]
 
 
 def _agents_or_baselines() -> list[str]:
@@ -375,6 +396,38 @@ ACTIONS = (
         (),
         lambda v: ["-list_agents"],
     ),
+    # Files
+    Action(
+        "Delete a run",
+        "Files",
+        "Move a run folder into the trash. The checkpoints it saved stay "
+        "in its agent. A run still running is refused.",
+        (Field("Run", choices.runs),),
+        lambda v: ["-delete_run", v["Run"]],
+        confirm=_confirm_delete_run,
+    ),
+    Action(
+        "Trash",
+        "Files",
+        "What's in the trash: one entry per delete, newest first.",
+        (),
+        lambda v: ["-list_trash"],
+    ),
+    Action(
+        "Restore from the trash",
+        "Files",
+        "Put a trash entry's folders back where they were.",
+        (Field("Entry", _trash_entries),),
+        lambda v: ["-restore", v["Entry"]],
+    ),
+    Action(
+        "Empty the trash",
+        "Files",
+        "Delete everything in the trash for good.",
+        (),
+        lambda v: ["-empty_trash"],
+        confirm=_confirm_empty,
+    ),
     # Develop
     Action(
         "Run tests",
@@ -449,5 +502,9 @@ MAKE_TARGETS = {
     "test_file": "Run tests",
     "fixtures": "Regenerate fixtures",
     "vitals": "Vitals log",
+    "delete_run": "Delete a run",
+    "trash": "Trash",
+    "restore": "Restore from the trash",
+    "empty_trash": "Empty the trash",
     "main": None,  # the agent entry point stub: nothing to run here
 }

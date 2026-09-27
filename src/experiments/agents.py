@@ -5,6 +5,7 @@ from pathlib import Path
 
 from src.agents.history import read_profile
 from src.agents.store import AGENTS_DIR, AgentError, load_agent
+from src.experiments.runner import RUNS_DIR
 from src.experiments.evaluation import (
     DEFAULT_SUITE,
     load_suite,
@@ -45,10 +46,14 @@ def format_agents(profiles: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def agent_summary(agent: str, root: Path | None = None) -> str:
+def agent_summary(
+    agent: str, root: Path | None = None, runs_dir: Path | None = None
+) -> str:
     """A compact digest: lineage, best scores next to the heuristic, the
-    score trend over scored checkpoints, totals, and the milestone.
+    score trend over scored checkpoints, totals, and the milestone. A
+    phase whose run folder was deleted says so.
     """
+    runs_dir = runs_dir or RUNS_DIR
     folder = load_agent(agent, "initial", root=root).folder
     profile = read_profile(folder)
     suite = load_suite(DEFAULT_SUITE)
@@ -73,11 +78,14 @@ def agent_summary(agent: str, root: Path | None = None) -> str:
     if profile["phases"]:
         lines.append("  phases:")
     for i, phase in enumerate(profile["phases"], 1):
+        run = phase["run"]
+        if not (runs_dir / run).exists():
+            run += " (run deleted)"
         if phase["kind"] == "imitation":
             data = phase["dataset"]
             accuracy = phase.get("accuracy")
             lines.append(
-                f"    {i}. {phase['run']}: cloned from {data['player']} "
+                f"    {i}. {run}: cloned from {data['player']} "
                 f"({data['rounds']} rounds, {data['samples']:,} samples, "
                 f"dataset {data['dataset']})"
                 + (f", accuracy {accuracy:.0%}" if accuracy else "")
@@ -85,7 +93,7 @@ def agent_summary(agent: str, root: Path | None = None) -> str:
             )
             continue
         lines.append(
-            f"    {i}. {phase['run']}: trainer {phase['trainer']}, "
+            f"    {i}. {run}: trainer {phase['trainer']}, "
             f"reward {phase['reward']}, {phase['stage']}/{phase['rules']}, "
             f"{phase['start_decisions']:,} -> {phase['end_decisions']:,} "
             f"({phase['status']})"

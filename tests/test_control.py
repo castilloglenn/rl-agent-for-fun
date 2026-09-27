@@ -193,7 +193,12 @@ def test_every_make_target_is_covered_by_an_action():
 
 
 def test_fewer_actions_than_make_targets():
-    assert len(ACTIONS) < len(COMMANDS) / 2  # consolidated
+    # Most make targets are variants that share one action with fields.
+    # (File commands like delete_run and restore are one to one.)
+    covers = list(MAKE_TARGETS.values())
+    shared = [t for t, a in MAKE_TARGETS.items() if a and covers.count(a) > 1]
+    assert len(shared) > len(COMMANDS) / 2
+    assert len(ACTIONS) < len(COMMANDS) * 0.6
 
 
 def test_every_action_uses_real_flags():

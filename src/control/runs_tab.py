@@ -1,5 +1,7 @@
 """The control center's Runs tab (roadmap step 6b1): every run, and the
-selected run's progress and live learning curves.
+selected run's progress and live learning curves. Step 6b3 adds clicking
+a checkpoint's suite dot (watch it drive, or branch from it), comparing
+with another run of the same kind, and deleting a run into the trash.
 
     ┌ RUNS ──────────┐ ┌ TRAINING RUN ───────────────────────────┐
     │ newest first   │ │ name, settings, status and progress     │
@@ -24,7 +26,7 @@ from pygame import Rect
 from pygame_gui.elements import UIButton, UIDropDownMenu, UISelectionList
 
 from src.control import runs
-from src.control.charts import draw_chart
+from src.control.charts import DOTS, LINE, Plot, Series, draw_chart
 from src.control.jobs import JobManager
 from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
 from src.control.text import fit, header
@@ -45,6 +47,13 @@ BUTTONS = (  # (name, width)
     ("Resume training", 150),
     ("Watch best replay", 164),
 )
+DELETE_WIDTH = 110
+COMPARE_WIDTH = 300
+NO_COMPARE = "(none)"
+COMPARE_COLORS = ((205, 150, 90), (150, 150, 160))  # muted, apart
+HIT = 9  # px: how close a click must be to a suite dot
+POPOVER = (250, 96)
+POPOVER_BUTTONS = (("watch", "Watch it drive"), ("branch", "Branch from it"))
 KIND_TITLES = {
     runs.TRAINING: "TRAINING RUN",
     runs.IMITATION: "IMITATION RUN",
@@ -61,13 +70,16 @@ class RunsTab:
         run_action: Callable[[str, dict], object],
         runs_dir: Path | None = None,
         agents_dir: Path | None = None,
+        branch: Callable[[str], None] = lambda start: None,
     ) -> None:
         """`run_action(name, values)` runs a Commands tab action and
-        returns its job (or None).
+        returns its job (or None). `branch("agent@checkpoint")` opens the
+        Training tab to branch a new agent from it.
         """
         self.gui = gui
         self.jobs = jobs
         self.run_action = run_action
+        self.branch = branch
         self.runs_dir = runs_dir or runs.RUNS_DIR
         self.agents_dir = agents_dir
         self.list_box = Rect(area.x, area.y, LIST_WIDTH, area.h)
@@ -100,6 +112,15 @@ class RunsTab:
         self.message: tuple[str, tuple] | None = None
         self._refreshed = 0.0
         self.visible = True
+        self.compare: RunData | None = None  # another run, drawn muted
+        self.compare_menu: UIDropDownMenu | None = None
+        self._compare_options: list | None = None
+        # The suite dot you clicked: (checkpoint, decisions, score), and
+        # its box's buttons (drawn by hand, acting on release).
+        self.picked: tuple[str, float, float] | None = None
+        self.popover_buttons: dict[str, Rect] = {}
+        self._pressed: str | None = None
+        self._plot: Plot | None = None  # where the score chart drew
 
         box = self.list_box
         self.run_list = UISelectionList(
@@ -118,14 +139,24 @@ class RunsTab:
             if name == "Resume":
                 x += 2 * GAP  # the job's controls, then the run's
         self.message_x = x + GAP
+        # Deleting stays apart from the rest, at the right.
+        self.buttons["Delete run"] = UIButton(
+            Rect(
+                d.right - PAD - DELETE_WIDTH,
+                self.buttons_y,
+                DELETE_WIDTH,
+                ROW,
+            ),
+            "Delete run",
+            gui,
+        )
         self.refresh(force=True)
 
     # Showing and hiding with the tab
 
     def widgets(self) -> list:
-        return [self.run_list, *self.buttons.values()] + (
-            [self.menu] if self.menu else []
-        )
+        menus = [m for m in (self.menu, self.compare_menu) if m]
+        return [self.run_list, *self.buttons.values(), *menus]
 
     def show(self) -> None:
         self.visible = True
@@ -159,6 +190,12 @@ class RunsTab:
             self.select(names[0] if names else None)
         elif self.data:
             self.data.refresh()
+        if self.compare:
+            if self.compare.folder.name in names:
+                self.compare.refresh()
+            else:  # deleted meanwhile
+                self.compare = None
+        self._build_compare_menu()
         self._update_buttons()
 
     def _set_lines(self, lines: list[str]) -> None:
@@ -188,6 +225,7 @@ class RunsTab:
         self.selected = name
         self._highlight()
         self.message = None
+        self.picked = None
         previous = self.data.kind if self.data else None
         self.data = (
             RunData(self.runs_dir / name, self.agents_dir) if name else None
@@ -195,6 +233,12 @@ class RunsTab:
         kind = self.data.kind if self.data else None
         if kind != previous or self.menu is None:
             self._build_menu()
+        if self.compare and (
+            self.compare.kind != kind or self.compare.folder.name == name
+        ):
+            self.compare = None
+        self._compare_options = None  # rebuilt for this run
+        self._build_compare_menu()
         self._update_buttons()
 
     def _build_menu(self) -> None:
@@ -215,6 +259,48 @@ class RunsTab:
         if not self.visible:
             self.menu.hide()
 
+    def _build_compare_menu(self) -> None:
+        """Runs of the same kind to compare with. Rebuilt when they change,
+        but never while its list is open.
+        """
+        if not self.data:
+            options = None
+        else:
+            options = [NO_COMPARE] + [
+                (fit(r.line, COMPARE_WIDTH - 40), r.name)
+                for r in self.rows
+                if r.kind == self.data.kind and r.name != self.selected
+            ]
+        if options == self._compare_options or _expanded(self.compare_menu):
+            return
+        self._compare_options = options
+        if self.compare_menu:
+            self.compare_menu.kill()
+            self.compare_menu = None
+        if not options:
+            return
+        chosen = self.compare.folder.name if self.compare else None
+        start = next(
+            (o for o in options[1:] if o[1] == chosen), NO_COMPARE
+        )
+        d = self.detail
+        self.compare_menu = UIDropDownMenu(
+            options,
+            start,
+            Rect(d.right - PAD - COMPARE_WIDTH, d.y + 6, COMPARE_WIDTH, 26),
+            self.gui,
+        )
+        if len(options) == 1:
+            self.compare_menu.disable()  # nothing of this kind to compare
+        if not self.visible:
+            self.compare_menu.hide()
+
+    def _set_compare(self, option) -> None:
+        name = option[1] if isinstance(option, tuple) else None
+        self.compare = (
+            RunData(self.runs_dir / name, self.agents_dir) if name else None
+        )
+
     @property
     def row(self) -> RunRow | None:
         return next((r for r in self.rows if r.name == self.selected), None)
@@ -229,6 +315,7 @@ class RunsTab:
             "Resume": running and job.paused,
             "Resume training": bool(row and row.resumable),
             "Watch best replay": bool(row and row.has_replays),
+            "Delete run": bool(row and row.status not in LIVE),
         }
         for name, on in wanted.items():
             button = self.buttons[name]
@@ -247,10 +334,71 @@ class RunsTab:
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element is self.menu and self.data:
                 self.choice[self.data.kind] = event.text
+            elif event.ui_element is self.compare_menu:
+                self._set_compare(self.compare_menu.selected_option)
         elif event.type == pygame_gui.UI_BUTTON_PRESSED:
             for name, button in self.buttons.items():
                 if event.ui_element is button:
                     self.press(name)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self._pressed = self._popover_button_at(event.pos)
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.click(event.pos)
+
+    def click(self, pos) -> None:
+        """A release: a popover button (if it was pressed there too), a
+        suite dot (opens its box), or anywhere else (closes it).
+        """
+        pressed, self._pressed = self._pressed, None
+        if self.picked and pressed:
+            if self._popover_button_at(pos) == pressed:
+                self._act(pressed)
+            return
+        if self.dropdown_open():
+            return
+        dot = self._dot_at(pos)
+        if dot:
+            self.picked = dot
+        elif self.picked and not self._popover_rect().collidepoint(pos):
+            self.picked = None
+
+    def _dot_at(self, pos) -> tuple[str, float, float] | None:
+        plot, data = self._plot, self.data
+        if not plot or not data or data.kind != runs.TRAINING:
+            return None
+        if not plot.area.inflate(2 * HIT, 2 * HIT).collidepoint(pos):
+            return None
+        best, distance = None, HIT
+        for point in data.suite_points:
+            x, y = plot.to_screen(point[1], point[2])
+            d = ((x - pos[0]) ** 2 + (y - pos[1]) ** 2) ** 0.5
+            if d <= distance:
+                best, distance = point, d
+        return best
+
+    def _popover_button_at(self, pos) -> str | None:
+        if not self.picked:
+            return None
+        found = self.popover_buttons.items()
+        return next((k for k, r in found if r.collidepoint(pos)), None)
+
+    def _act(self, key: str) -> None:
+        name = self.picked[0]
+        start = f"{self.data.who}@{name}"
+        self.picked = None
+        if key == "watch":
+            self._started(
+                self.run_action("Watch a driver", {"Driver": f"agent:{start}"})
+            )
+        else:
+            self.branch(start)
+
+    def escape(self) -> bool:
+        """Esc closes the checkpoint box first. True if it did."""
+        if self.picked:
+            self.picked = None
+            return True
+        return False
 
     def press(self, name: str) -> None:
         row = self.row
@@ -268,6 +416,9 @@ class RunsTab:
             self._started(
                 self.run_action("Watch a run's best replay", {"Run": row.name})
             )
+        elif name == "Delete run":
+            # It asks first (the Commands tab's action has its own box).
+            self.run_action("Delete a run", {"Run": row.name})
         self.refresh(force=True)
 
     def _started(self, job) -> None:
@@ -275,10 +426,7 @@ class RunsTab:
             self.message = (f"Started job #{job.number}", theme.GOOD)
 
     def dropdown_open(self) -> bool:
-        menu = self.menu
-        return bool(
-            menu and menu.current_state is menu.menu_states["expanded"]
-        )
+        return _expanded(self.menu) or _expanded(self.compare_menu)
 
     # Drawing
 
@@ -316,17 +464,36 @@ class RunsTab:
             theme.TEXT_DIM,
         )
         self._draw_status(surface, data, row, x, d.y + 86, width)
+        if self.compare_menu:
+            draw_text(
+                surface,
+                "COMPARE WITH",
+                (self.compare_menu.rect.x - 10, d.y + 19),
+                theme.HEADER_SIZE,
+                theme.TEXT_DIM,
+                bold=True,
+                anchor="midright",
+            )
         mouse = pygame.mouse.get_pos()
-        if self.dropdown_open():
-            mouse = None  # the open list covers the chart
-        draw_chart(surface, self.main_rect, data.main_chart(), mouse)
+        if self.dropdown_open() or self.picked:
+            mouse = None  # an open list or box covers the chart
+        main = self._with_compare(
+            data.main_chart(), lambda c: c.main_chart(), (LINE,)
+        )
+        self._plot = draw_chart(surface, self.main_rect, main, mouse)
         option = self.choice.get(data.kind, data.options()[0])
+        second = self._with_compare(
+            data.second_chart(option),
+            lambda c: c.second_chart(option),
+            (LINE, DOTS),
+        )
         draw_chart(
             surface,
             self.second_rect,
-            data.second_chart(option),
+            second,
             mouse,
             title=False,
+            reserved=MENU_WIDTH,
         )
         if self.message:
             text, color = self.message
@@ -338,6 +505,80 @@ class RunsTab:
                 color,
                 anchor="midleft",
             )
+
+    def draw_after(self, surface) -> None:
+        """After the GUI: the checkpoint box, on top of everything."""
+        if self.picked and self._plot and self.data:
+            self._draw_popover(surface)
+
+    def _with_compare(self, chart, of, styles):
+        """`chart` plus the compared run's series of `styles`, muted and
+        tagged with that run's agent and time.
+        """
+        other = self.compare
+        if not other:
+            return chart
+        clock = (other.folder.name.split("_") + ["", ""])[1]
+        tag = f"{other.who} {clock[:2]}:{clock[2:4]}"  # rookie 00:33
+        extra = [s for s in of(other).series if s.style in styles]
+        for series, color in zip(extra, COMPARE_COLORS):
+            label = tag if len(extra) == 1 else f"{tag} {series.label}"
+            chart.series.append(
+                Series(label, series.points, color, series.style)
+            )
+        return chart
+
+    def _popover_rect(self) -> Rect:
+        if not (self.picked and self._plot):
+            return Rect(0, 0, 0, 0)
+        x, y = self._plot.to_screen(self.picked[1], self.picked[2])
+        rect = Rect(0, 0, *POPOVER)
+        rect.midbottom = (int(x), int(y) - 14)  # above the dot
+        if rect.top < self.main_rect.y + 4:
+            rect.midtop = (int(x), int(y) + 14)  # no room: below it
+        rect.clamp_ip(self.main_rect.inflate(-8, -8))
+        return rect
+
+    def _draw_popover(self, surface) -> None:
+        name, decisions, score = self.picked
+        x, y = self._plot.to_screen(decisions, score)
+        pygame.draw.circle(surface, theme.TEXT, (x, y), 8, 2)  # pinned
+        box = self._popover_rect()
+        pygame.draw.rect(surface, theme.BACKGROUND, box)
+        pygame.draw.rect(surface, theme.ACCENT, box, 1)
+        draw_text(
+            surface,
+            f"{self.data.who}@{name}",
+            (box.x + 12, box.y + 10),
+            theme.TEXT_SIZE,
+            theme.TEXT,
+            bold=True,
+        )
+        draw_text(
+            surface,
+            f"suite {score:,.0f} · {decisions:,.0f} decisions",
+            (box.x + 12, box.y + 32),
+            theme.TEXT_SIZE,
+            theme.TEXT_DIM,
+        )
+        bx = box.x + 12
+        width = (box.w - 24 - GAP) // 2
+        for key, label in POPOVER_BUTTONS:
+            rect = Rect(bx, box.bottom - 12 - 28, width, 28)
+            lit = key == self._pressed
+            fill = (20, 60, 95) if lit else (24, 25, 30)
+            pygame.draw.rect(surface, fill, rect)
+            pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
+            draw_text(
+                surface,
+                label,
+                rect.center,
+                theme.TEXT_SIZE,
+                theme.TEXT,
+                anchor="center",
+            )
+            self.popover_buttons[key] = rect
+            bx += width + GAP
 
     def _draw_status(self, surface, data, row, x, y, width) -> None:
         """RUNNING ▰▰▰▱▱ 1,340,000 / 2,000,000 decisions · 3 min left."""
@@ -382,6 +623,10 @@ class RunsTab:
                 theme.WARN if data.best else theme.TEXT_DIM,
                 anchor="topright",
             )
+
+
+def _expanded(menu) -> bool:
+    return bool(menu and menu.current_state is menu.menu_states["expanded"])
 
 
 def _duration(seconds: float) -> str:

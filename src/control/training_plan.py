@@ -99,7 +99,7 @@ def make_plan(
             )
         start = values.get("Start", FRESH)
         if start == FRESH:
-            text = f"Create {shown} with the {values['Model']} model"
+            text = f"Create {shown} with the {values.get('Model')} model"
             branch = NONE
         else:
             text = f"Create {shown}, branched from {start}"

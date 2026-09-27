@@ -166,5 +166,7 @@ cython_debug/
 runs/
 recordings/
 /agents/
+# Deleted agents and runs, until the trash is emptied (docs/decisions/027)
+trash/
 # The control center's vitals log (size-capped, for crash investigation)
 logs/
