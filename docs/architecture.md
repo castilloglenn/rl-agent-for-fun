@@ -183,6 +183,18 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 `list_agents()` and `format_agents()` for `make agents`, and `agent_summary(id)` for `make agent`: the profile, the score trend over scored checkpoints (a sparkline), and the heuristic's score from the baseline cache. Scoring a checkpoint (`evaluation.py`) records `scored`, `new_best`, and, once, the `milestone`.
 
+## Control center (`src/control/`)
+
+`make control` opens it ([decision 022](decisions/022-control-center-in-pygame.md)). It never runs a command itself: every command is its own process.
+
+| File | Contents |
+|---|---|
+| `actions.py` | `ACTIONS`: every command, consolidated into 19 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
+| `makefile.py` | `read_commands()`: every make target, read from the Makefile, for the console's typed make commands and the coverage test |
+| `choices.py` | `options(command, param)`: dropdown choices from the files on disk (agents, drivers, rules, rewards, stages, runs, recordings, test files), or None for typed values |
+| `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window (sidebar, actions with their fields and the command they run, jobs, console with a command line for make commands), themed like the game window |
+
 ## Replays (`src/replay/`)
 
 Details: [decision 003](decisions/003-replay-over-multi-window.md).

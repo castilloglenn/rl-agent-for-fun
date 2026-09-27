@@ -304,11 +304,14 @@ class Renderer:
         right-aligned in one column, what they do in the next.
         """
         shortcuts = mode.shortcuts if mode else panels.LIVE_SHORTCUTS
+        # Keys are drawn bold, so they're measured bold.
+        key_font = get_font(theme.TEXT_SIZE, True)
+        keys = max(key_font.size(key)[0] for key, _ in shortcuts)
         font = get_font(theme.TEXT_SIZE)
-        keys = max(font.size(key)[0] for key, _ in shortcuts)
         actions = max(font.size(action)[0] for _, action in shortcuts)
         title = get_font(theme.BIG_SIZE, True)
-        width = max(keys + 16 + actions, title.size("SHORTCUTS")[0]) + 32
+        pad = 24
+        width = max(keys + 16 + actions, title.size("SHORTCUTS")[0]) + 2 * pad
         rows = len(shortcuts) + 2  # the title, and the closing hint
         backdrop = pygame.Rect(0, 0, width, 26 * rows + 16)
         backdrop.center = self.layout.field_view.center
@@ -323,7 +326,7 @@ class Renderer:
             bold=True,
             anchor="center",
         )
-        key_right = backdrop.x + 16 + keys
+        key_right = backdrop.x + pad + keys
         for key, action in shortcuts:
             y += 26
             draw_text(

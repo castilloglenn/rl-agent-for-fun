@@ -1,0 +1,24 @@
+# 022: The control center, in pygame, over files and processes
+
+**Date:** 2026-09-27. **Status:** Accepted. Step 6a implemented (`src/control/`, `make control`). 6b to 6d planned.
+
+## Context
+
+Step 6 is a control center: every command, training setup, runs, agents, and file editing in one window. The roadmap assumed a messaging layer (IPC) between the control center, training, and game windows, and left the UI library open (`pygame_gui`, NOT VERIFIED with pygame-ce).
+
+## Decision
+
+- **All pygame** (your choice, over a local web page or Qt), with **`pygame_gui` 0.6.14** for widgets: buttons, text fields, dropdowns, and scrolling lists. It requires pygame-ce 2.5.3 or newer (verified). Charts and cards are hand-drawn, like the game HUD.
+- **The same look** as the game window: dark flat boxes, gray borders, the accent color, and Helvetica Neue. pygame_gui only uses a font set on each element type, so the theme sets it per element. The console and job list use Menlo (monospace), so command output lines up.
+- **Its own consolidated actions, grouped by the natural steps** (Play, Replays, Experiments, Agents, Develop). A terminal command takes at most one parameter, so the Makefile has one target per variant (42). In a window an action has fields instead, so 19 actions cover them all: for example one **Run episodes** (driver, name, episodes, seed, stage, rules, round seconds, reward) replaces `run_heuristic`, `run_random`, `run_driver`, `run_episodes`, `run_reward`, `run_rules`, `run_stage`, `run_seconds`, and `run_agent`. A test maps every make target to the action that covers it, so nothing is lost. (The first 6a version listed the make targets themselves; too many near-duplicates.)
+- **The Makefile stays for the terminal**, unchanged. The console's command line takes make commands too (read from the Makefile), and every action shows the exact `python app.py …` command it runs.
+- **No messaging layer: files and processes.** All state is already in files (runs, agents, recordings), so the control center reads files to show state and starts processes to act. Every command runs as its own process (`python app.py ...`, like make), so a closed or crashed game window never takes down the control center or a training run.
+- **Job controls are signals:** Stop is Ctrl+C (SIGINT, so training keeps its exact resume state; a second Stop ends it), Pause freezes the process in place (SIGSTOP), and Resume continues it (SIGCONT). That's also the roadmap's "pause training in place".
+- **Fields are dropdowns from the files on disk** (agents, checkpoints, drivers, rules, rewards, stages, models, trainers, datasets, suites, runs, recordings, test files), so a typo can't happen. New names (a new agent, a player) and numbers are typed, and a blank optional field shows what blank means ("blank: the rules' own").
+- **Quitting asks first**, and says how many running jobs would be stopped.
+
+## Consequences
+
+- 6a gives every command in a window, with live output. The sections for training (6b), runs (6b), agents (6c), and files (6d) show greyed until built.
+- Two new dependencies: `pygame_gui` and `python-i18n`.
+- Commands that open a game window (play, replay, showcase) still open their own window, as a separate process.

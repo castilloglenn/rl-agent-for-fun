@@ -7,11 +7,13 @@
 	run_rules run_stage run_seconds run_best recordings replay_last \
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
 	resume_last eval eval_baselines agents agent dataset imitate \
-	showcase showcase_all
+	showcase showcase_all control
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
 help:
+	@echo "Control center"
+	@echo "  make control                         every command below, in a window"
 	@echo "Play"
 	@echo "  make maze_car                        drive with the keyboard (recorded)"
 	@echo "  make maze_car_norecord               drive without recording"
@@ -231,3 +233,6 @@ showcase_all:
 imitate:
 	$(call require,AGENT,my_clone)
 	python app.py -imitate $(AGENT)
+
+control:
+	python app.py -control

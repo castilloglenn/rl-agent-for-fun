@@ -16,7 +16,9 @@ packaging
 Pillow
 pluggy
 pygame-ce
+pygame_gui
 pytest
+python-i18n
 PyYAML
 requests
 six

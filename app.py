@@ -70,6 +70,10 @@ def _dispatch(cl_args) -> None:
         print(format_dataset(build_dataset(spec, repeat)))
     elif cl_args.imitate:
         _imitate(cl_args, config)
+    elif cl_args.control:
+        from src.control.window import ControlCenter
+
+        ControlCenter().run()
     elif cl_args.showcase:
         from src.agents.store import AgentError
         from src.experiments.showcase import Showcase, plan

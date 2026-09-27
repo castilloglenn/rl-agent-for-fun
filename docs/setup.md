@@ -19,6 +19,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 | Command | Does |
 |---|---|
+| `make control` | The control center: every command below, consolidated into 19 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console that also takes make commands |
 | `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, P pauses, R restarts, H toggles lines, ? shows all shortcuts, Esc asks before quitting (Enter quits). A round starts with your first driving key. **Every round is recorded** to `recordings/<player>/` (REC in the left panel). K keeps the last recording for good |
 | `make maze_car_norecord` | Drive without recording |
 | `make maze_car_heuristic` | Watch the heuristic baseline drive |
@@ -64,7 +65,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 A missing parameter stops with an example, for example `make replay` → "FILE is required, e.g. make replay FILE=path/to/replay.jsonl". Play commands run `clear` first.
 
-Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `-resume <folder>`, `-resume_last`, `--from <agent>@<checkpoint>` (with `-new_agent`: branch a new agent from a checkpoint), `-eval <id>`, `-eval_baselines`, `--suite` (default `box`), `-list_agents`, `-show_agent <id>`, `-preview_dataset`, `-imitate <id>`, `-showcase <id>`, `--showcase_all`, `--dataset` (default `mine`), `--imitation_trainer` (default `imitate`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
+Behind them, `app.py` takes these flags: `-demo maze_car`, `-replay <file>`, `-run <name>`, `-list_runs`, `-best_replay <folder>`, `-list_recordings`, `-replay_last`, `-new_agent <id>`, `--model` (for a new agent, default `small`), `-train <id>`, `--trainer` (default `default`), `-resume <folder>`, `-resume_last`, `--from <agent>@<checkpoint>` (with `-new_agent`: branch a new agent from a checkpoint), `-eval <id>`, `-eval_baselines`, `--suite` (default `box`), `-list_agents`, `-show_agent <id>`, `-preview_dataset`, `-imitate <id>`, `-showcase <id>`, `--showcase_all`, `-control`, `--dataset` (default `mine`), `--imitation_trainer` (default `imitate`), `--norecord`, `--driver`, `--player`, `--reward`, `--stage`, `--rules`, `--episodes`, `--seed` (first seed of a run), `--round_seconds`, plus any config key (below, for example `--maze_car.rules=sprint`).
 
 ## Config overrides
 

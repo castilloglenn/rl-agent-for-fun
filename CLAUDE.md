@@ -6,13 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal reinforcement learning playground. The first environment is **Maze Car**: a top-down pygame car with distance-sensing rays. The goal is for an agent to learn to drive it, and to make that learning visible.
 
-The simulation is an ECS (Entity Component System), built to support walls, replay, multiple cars, and parallel envs. The first game rules (box map, car health and wall hits, timer, rewards, checkpoints) and a Gymnasium-style env API for agents are built. Stages, rules, reward profiles, replays, recordings, experiment runs, the agent core (model files, policy network, agent driver), PPO training with trainer files, exact resume, car health, the evaluation suite, and agent history are built too. The first skilled agent (the 5a milestone) is trained, and agents can also learn from your recordings (imitation). Next: roadmap step 6 (control center GUI). See [roadmap](docs/roadmap.md).
+The simulation is an ECS (Entity Component System), built to support walls, replay, multiple cars, and parallel envs. The first game rules (box map, car health and wall hits, timer, rewards, checkpoints) and a Gymnasium-style env API for agents are built. Stages, rules, reward profiles, replays, recordings, experiment runs, the agent core (model files, policy network, agent driver), PPO training with trainer files, exact resume, car health, the evaluation suite, and agent history are built too. The first skilled agent (the 5a milestone) is trained, and agents can also learn from your recordings (imitation). The control center (step 6a: every command in a window) is started. Next: roadmap step 6b (training and runs in the control center). See [roadmap](docs/roadmap.md).
 
 ## Core commands
 
 ```
 source venv/bin/activate
 make help          # every command: one word, at most one parameter
+make control       # the control center: every command in a window
 make maze_car      # drive with the keyboard
 make maze_car_heuristic
 make replay FILE=path/to/replay.jsonl

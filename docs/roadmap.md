@@ -44,7 +44,11 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5b | Imitation agents: learn from your recorded runs (behavioral cloning), then optionally keep improving with RL (`make imitate`, [decision 019](decisions/019-imitation-agents.md)) | Done |
 | 5c | Showcase mode: watch an agent's progression checkpoint by checkpoint, on the same round, with title cards (decisions, training time, suite scores, BEST / MILESTONE badges) and replay controls (`make showcase`, [decision 020](decisions/020-showcase-mode.md)) | Done |
 | 5d | Window layout of modular boxes: a one-row top bar, the game on the left (driver and mode, game, score, leaderboard, agent), the car on the right (instruments, sensors, objective, display), `?` for a shortcuts box, a quit prompt on Esc, P to pause, and your round starting with your first driving key ([decision 021](decisions/021-window-layout-on-four-sides.md)) | Done |
-| 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Next |
+| 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Next ([decision 022](decisions/022-control-center-in-pygame.md)) |
+| 6a | Shell and commands: `make control`, every command consolidated into 19 actions grouped by the natural steps, with fields (dropdowns from the files on disk), background jobs (stop = Ctrl+C, pause, resume), live console | Done |
+| 6b | Training and runs: a training form (RL or imitation), runs list, live learning curves, stop / pause / resume / branch | Next |
+| 6c | Agents: roster cards, profile page (lineage, skill history, suite scores against the heuristic, milestone), leaderboard by suite score | Planned |
+| 6d | Files: editors for reward profiles, rules, trainers, models, datasets, and suites (with the same validators), and a recordings browser | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
@@ -362,9 +366,9 @@ Control center window        Simulation window 1      Simulation window 2
   - **Skill radar chart:** one axis per skill from the evaluation suite, showing current levels.
   - **Skill history:** scores at each checkpoint, so you see skills grow, and sometimes drop. Further training on new environments can make an agent forget old skills ("catastrophic forgetting"), and this view reveals it.
 - **Agent leaderboard:** agents ranked by **evaluation suite score**, the fair comparison (same scenarios, same seeds), plus all-time high scores per stage + rules. Training scores aren't used for ranking, because random seeds and maps make some episodes easier than others.
-- **IPC:** commands go from the control center to the other processes, and metrics and logs come back. Candidates: `multiprocessing` queues, or a local socket.
+- **No IPC layer needed** (6a, [decision 022](decisions/022-control-center-in-pygame.md)): all state is already in files (runs, agents, recordings), so the control center reads files to show state and starts processes to act. Stop, pause, and resume are signals.
 - **Why separate processes:** standard pygame gives one window per process. pygame-ce's multi-window API is NOT VERIFIED. Separate processes also mean a crashed or closed simulation window doesn't stop the control center or training.
-- UI library candidate: `pygame_gui`. NOT YET CHECKED FOR PYGAME-CE COMPATIBILITY.
+- UI library: `pygame_gui` 0.6.14, which requires pygame-ce 2.5.3 or newer (verified in 6a).
 - The control center layout and console could land earlier, to help watch steps 3 to 5.
 - Cost: the IPC layer is extra work, compared to a single window.
 

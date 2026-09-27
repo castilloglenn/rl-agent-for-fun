@@ -37,6 +37,7 @@ flags.DEFINE_string(
 flags.DEFINE_boolean("preview_dataset", False, "Show what a dataset uses.")
 flags.DEFINE_string("showcase", "", "Show an agent's progression (window).")
 flags.DEFINE_boolean("showcase_all", False, "Showcase every checkpoint.")
+flags.DEFINE_boolean("control", False, "Open the control center window.")
 flags.DEFINE_string(
     "from", "", "Branch a new agent from <id>[@checkpoint] (-new_agent)."
 )
