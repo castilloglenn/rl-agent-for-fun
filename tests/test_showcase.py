@@ -93,7 +93,8 @@ def test_the_title_card_stays_until_enter(trained):
     show.handle_key(pygame.K_RETURN)
     show.tick(0.5)
     assert show.mode().messages == ()  # playing
-    assert show.mode().label.startswith("SHOWCASE 1/3 2")
+    assert show.mode().label == "SHOWCASE 1/3"
+    assert show.mode().playback.speed == 2.0  # shown in the playback bar
 
 
 def _play_to_end(show):

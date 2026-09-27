@@ -250,3 +250,43 @@ def test_the_top_bar_doesnt_move_when_the_status_changes():
         )
     assert images[0] == images[1] == images[2]
 
+
+def test_the_playback_bar_and_the_speed_flash():
+    from src.render import panels, theme
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    create_start_car(world)
+
+    def playback(speed, paused=False):
+        speeds = (0.5, 1.0, 2.0, 4.0)
+        info = panels.PlaybackInfo(speed, speeds, paused, 12, 60)
+        return panels.ModeInfo("REPLAY", theme.GOOD, (), (), info)
+
+    view = renderer.layout.field_view
+    renderer.draw(world, 1.0, None, playback(1.0))
+    assert renderer._speed == (1.0, False)
+    assert renderer._speed_changed < 0  # nothing changed yet: no flash
+    bar = renderer.display.subsurface((view.x, view.bottom - 44, view.w, 34))
+    data = pygame.image.tobytes(bar, "RGB")
+    colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+    assert theme.ACCENT in colors  # the lit speed and the progress
+    renderer.draw(world, 1.0, None, playback(4.0))
+    assert renderer._speed_changed >= 0  # a new speed: it flashes
+    renderer._speed_changed = -10_000
+    renderer.draw(world, 1.0, None, playback(4.0, paused=True))
+    assert renderer._speed_changed >= 0  # pausing flashes too
+
+
+def test_replays_get_a_playback_box_under_the_field():
+    live = Layout.for_field(855, 480)
+    replay = Layout.for_field(855, 480, playback=True)
+    assert live.playback_bar is None
+    bar = replay.playback_bar
+    assert bar.top > replay.field_view.bottom and bar.w == 855
+    assert bar.x == replay.field_view.x
+    assert replay.window.h == live.window.h + 60
+    assert replay.left_panel.bottom == bar.bottom  # the panels match
+    assert replay.window.contains(bar)
+

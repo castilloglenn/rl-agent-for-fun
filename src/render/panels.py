@@ -58,6 +58,18 @@ class ModeInfo:
     label_color: ColorValue
     shortcuts: tuple[tuple[str, str], ...]  # (key, what it does), for "?"
     messages: tuple[tuple[str, ColorValue], ...] = ()
+    playback: "PlaybackInfo | None" = None  # replays: the control bar
+
+
+@dataclass(frozen=True)
+class PlaybackInfo:
+    """What the playback control bar shows (replays, the showcase)."""
+
+    speed: float
+    speeds: tuple[float, ...]
+    paused: bool
+    position: float  # seconds into the round
+    length: float  # seconds the round lasts
 
 
 # Live play's keys, shown by "?" when no mode is active.

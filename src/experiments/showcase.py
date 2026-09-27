@@ -35,9 +35,10 @@ from src.experiments.evaluation import (
 )
 from src.experiments.runner import RUNS_DIR
 from src.render import theme
-from src.render.panels import ModeInfo
+from src.render.panels import ModeInfo, PlaybackInfo
 from src.render.renderer import Command
-from src.replay.viewer import PlaybackControl
+from src.replay.viewer import SPEEDS, PlaybackControl
+from src.sim.resources import RoundState
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.utils.timing import FixedStepClock
@@ -192,6 +193,7 @@ class Showcase:
         self.seed = scenario.first_seed
         config = config.copy_and_resolve_references()
         config.show_gui = True
+        config.window.playback_bar = True  # the bar under the field
         rules = load_rules(scenario.rules)
         if scenario.round_seconds:
             rules = rules.with_round_seconds(scenario.round_seconds)
@@ -281,8 +283,7 @@ class Showcase:
     # What the window shows
 
     def mode(self) -> ModeInfo:
-        speed = "PAUSED" if self.control.paused else f"{self.control.speed:g}×"
-        label = f"SHOWCASE {self.index + 1}/{len(self.stops)} {speed}"
+        label = f"SHOWCASE {self.index + 1}/{len(self.stops)}"
         if self.finished:
             return ModeInfo(
                 "SHOWCASE", theme.ACCENT, SHORTCUTS, self._summary()
@@ -293,7 +294,20 @@ class Showcase:
             messages = self._round_end()
         else:
             messages = ()
-        return ModeInfo(label, theme.ACCENT, SHORTCUTS, messages)
+        return ModeInfo(
+            label, theme.ACCENT, SHORTCUTS, messages, self._playback()
+        )
+
+    def _playback(self) -> PlaybackInfo:
+        state = self.env.world.resource(RoundState)
+        sps = self.env.config.sim.steps_per_second
+        return PlaybackInfo(
+            speed=self.control.speed,
+            speeds=SPEEDS,
+            paused=self.control.paused,
+            position=(state.steps_total - state.steps_left) / sps,
+            length=state.steps_total / sps,
+        )
 
     def _title(self) -> tuple:
         stop = self.stops[self.index]

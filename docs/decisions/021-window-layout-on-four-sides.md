@@ -30,3 +30,4 @@ Group information by what you look at, and how often it changes, in **modular bo
 
 - Both side panels have room left for later sections (fuel, more cars).
 - A stage much bigger than the box would make the window too wide: that's step 7's camera.
+- **Playback bar** (replays and the showcase): a video-player-style bar in its own box under the field (the window grows 60 px taller for it; live play keeps its size): play or pause icon, time, progress, and the speeds 0.5× 1× 2× 4× with the current one lit. A speed change, pause, or resume also flashes big in the middle of the field for 0.7 s. The DRIVER card's mode label no longer repeats the speed.

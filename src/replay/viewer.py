@@ -15,7 +15,7 @@ import pygame
 from ml_collections import ConfigDict
 
 from src.render import theme
-from src.render.panels import ModeInfo
+from src.render.panels import ModeInfo, PlaybackInfo
 from src.render.renderer import Command
 from src.replay.format import Replay, read_replay
 from src.replay.replayer import Replayer, Verification
@@ -64,6 +64,8 @@ class ReplayViewer:
         itself always comes from the replay.
         """
         self.verification = Replayer(replay, base_config=config).run()
+        config = config.copy_and_resolve_references()
+        config.window.playback_bar = True  # the bar under the field
         self.replayer = Replayer(replay, show_gui=True, base_config=config)
         self.renderer = self.replayer.env.renderer
         steps_per_second = self.replayer.env.config.sim.steps_per_second
@@ -93,15 +95,22 @@ class ReplayViewer:
                 break
 
     def mode(self) -> ModeInfo:
-        state = "PAUSED" if self.control.paused else f"{self.control.speed:g}×"
         if self.verification.ok:
-            label, color = f"REPLAY {state} · verified", theme.GOOD
+            label, color = "REPLAY · verified", theme.GOOD
         else:
-            label, color = f"REPLAY {state} · OUT OF DATE", theme.BAD
+            label, color = "REPLAY · OUT OF DATE", theme.BAD
         messages = ()
         if self.replayer.done:
             messages = _end_messages(self.verification)
-        return ModeInfo(label, color, SHORTCUTS, messages)
+        sps = self.replayer.env.config.sim.steps_per_second
+        playback = PlaybackInfo(
+            speed=self.control.speed,
+            speeds=SPEEDS,
+            paused=self.control.paused,
+            position=self.replayer.step_index / sps,
+            length=self.replayer.total_steps / sps,
+        )
+        return ModeInfo(label, color, SHORTCUTS, messages, playback)
 
     def run(self) -> None:
         elapsed = 0.0

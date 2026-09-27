@@ -1,6 +1,6 @@
 import pygame
 from ml_collections import ConfigDict
-from pygame import Surface
+from pygame import Rect, Surface
 
 from src.ecs import World
 from src.render import panels, theme, warnings
@@ -62,7 +62,11 @@ class Renderer:
         """
         self.config = config
         field_rect = Field.from_stage(stage or load_stage(config.stage)).rect
-        self.layout = Layout.for_field(field_rect.width, field_rect.height)
+        self.layout = Layout.for_field(
+            field_rect.width,
+            field_rect.height,
+            playback=config.window.playback_bar,
+        )
         self.offset = (
             self.layout.field_view.x - field_rect.x,
             self.layout.field_view.y - field_rect.y,
@@ -73,6 +77,10 @@ class Renderer:
         self.show_shortcuts = False  # "?" toggles the shortcuts box
         self.confirm_quit = False  # Esc asks first, Enter confirms
         self.keys_pressed: list[int] = []  # this frame's keys, for modes
+        # The playback state last drawn (speed, paused), and when it
+        # changed (ms), for the flash.
+        self._speed: tuple | None = None
+        self._speed_changed = -10_000
 
         pygame.init()
         pygame.display.set_caption(config.window.title)
@@ -158,6 +166,8 @@ class Renderer:
         """
         self.display.fill(theme.BACKGROUND)
         self._draw_field(world, alpha)
+        if mode and mode.playback:
+            self._draw_playback(mode.playback)
         cars = panels.car_infos(world)
         panels.draw_top_bar(
             self.display,
@@ -298,6 +308,98 @@ class Renderer:
             ),
         ]
         self._draw_centered_lines(lines)
+
+    # Playback: a video-player-style bar along the bottom of the field.
+
+    FLASH_MS = 700  # how long a speed change shows big in the field
+
+    def _draw_playback(self, playback: panels.PlaybackInfo) -> None:
+        now = pygame.time.get_ticks()
+        state = (playback.speed, playback.paused)
+        if state != self._speed:  # a new speed, a pause, or a resume
+            if self._speed is not None:
+                self._speed_changed = now
+            self._speed = state
+        view = self.layout.field_view
+        if self.layout.playback_bar:  # its own box, under the field
+            box = self.layout.playback_bar
+            pygame.draw.rect(self.display, theme.PANEL_BORDER, box, 1)
+            bar = box.inflate(-8, -10)
+        else:  # no room reserved: over the bottom of the field
+            bar = Rect(view.x + 10, view.bottom - 10 - 34, view.w - 20, 34)
+            self._draw_backdrop(bar)
+
+        # Play or pause, drawn (not a font glyph, so it always shows).
+        icon = Rect(bar.x + 14, bar.centery - 7, 14, 14)
+        if playback.paused:
+            for x in (icon.x + 1, icon.x + 9):
+                pygame.draw.rect(
+                    self.display, theme.WARN, Rect(x, icon.y, 4, 14)
+                )
+        else:
+            pygame.draw.polygon(
+                self.display,
+                theme.GOOD,
+                [icon.topleft, icon.bottomleft, (icon.right, icon.centery)],
+            )
+        clock = (
+            f"{_clock(playback.position)} / {_clock(playback.length)}"
+        )
+        time_rect = draw_text(
+            self.display,
+            clock,
+            (icon.right + 12, bar.centery),
+            theme.TEXT_SIZE,
+            theme.TEXT,
+            anchor="midleft",
+        )
+
+        # The speeds, the current one lit, at the right.
+        font = get_font(theme.TEXT_SIZE, True)
+        right = bar.right - 8
+        boxes = []
+        for speed in reversed(playback.speeds):
+            label = f"{speed:g}×"
+            box = Rect(0, bar.y + 5, font.size(label)[0] + 18, bar.h - 10)
+            box.right = right
+            boxes.append((box, label, speed == playback.speed))
+            right = box.left - 4
+        for box, label, current in boxes:
+            if current:
+                pygame.draw.rect(self.display, (20, 60, 95), box)
+                pygame.draw.rect(self.display, theme.ACCENT, box, 1)
+            draw_text(
+                self.display,
+                label,
+                box.center,
+                theme.TEXT_SIZE,
+                theme.TEXT if current else theme.TEXT_DIM,
+                bold=current,
+                anchor="center",
+            )
+
+        # Progress, between the time and the speeds.
+        left = time_rect.right + 16
+        line = Rect(left, bar.centery - 2, right - 16 - left, 4)
+        pygame.draw.rect(self.display, theme.BAR_EMPTY, line)
+        share = min(max(playback.position / (playback.length or 1), 0), 1)
+        done = Rect(line.x, line.y, int(line.w * share), line.h)
+        pygame.draw.rect(self.display, theme.ACCENT, done)
+        pygame.draw.circle(
+            self.display, theme.TEXT, (done.right, line.centery), 6
+        )
+
+        # A speed change, big in the middle of the field for a moment.
+        age = now - self._speed_changed
+        if 0 <= age < self.FLASH_MS:
+            fade = 1 - age / self.FLASH_MS
+            text = get_font(48, True).render(
+                "PAUSED" if playback.paused else f"{playback.speed:g}×",
+                True,
+                theme.ACCENT,
+            )
+            text.set_alpha(int(255 * fade))
+            self.display.blit(text, text.get_rect(center=view.center))
 
     def _draw_shortcuts(self, mode: panels.ModeInfo | None) -> None:
         """Every key of the current mode, in a box over the field: keys
@@ -453,3 +555,8 @@ class Renderer:
                     start_pos=(ray.start.x + dx, ray.start.y + dy),
                     end_pos=(ray.end.x + dx, ray.end.y + dy),
                 )
+
+
+def _clock(seconds: float) -> str:
+    minutes, seconds = divmod(int(seconds), 60)
+    return f"{minutes}:{seconds:02d}"

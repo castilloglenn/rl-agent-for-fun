@@ -20,6 +20,7 @@
 | `hud.time_caution`, `hud.time_danger` | 10.0, 5.0 s | TIME turns amber / red below these seconds left |
 | `game.seed` | 0 | Seed for the spawn schedules (agents and tests). The demo picks a fresh one per round |
 | `hud.checkpoint_near` | 80.0 px | Checkpoint distance turns green below this |
+| `window.playback_bar` | false | A playback bar under the field (replays and the showcase turn it on). A display setting: never saved |
 | `hud.hit_flash_seconds`, `hud.hit_blink_seconds` | 0.5, 0.1 s | After a hit, the car blinks red this long, switching this often |
 | `rules` | `"standard"` | How the game is played and scored: a rules file in `rules/`, by name or path (round length, rounds per game, scoring, collisions). `standard`: one 60 s round (7,200 steps), +1 per 10 px, +100 per checkpoint, health 100 with hits harmless up to 60 px/s into the wall and lethal from 240 px/s, and scraping along a wall at 1 health per 10 px. Also `sprint` (30 s), `marathon` (120 s), and `classic` (any wall contact wrecks). See [decision 013](decisions/013-game-rules-files.md) |
 | `hud.fps_caution`, `hud.fps_danger` | 0.9, 0.5 | FPS turns amber / red below this share of the target frame rate |
