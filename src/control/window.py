@@ -44,6 +44,7 @@ TABS = (  # (name, the step it arrives in: None if it's here)
     ("Agents", "6c"),
     ("Files", "6d"),
 )
+LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
 CONSOLE_FONT = "menlo"  # monospace, like a terminal: tables line up
 ITEM = {  # list and dropdown rows: left-aligned, with room around the text
     "text_horiz_alignment": "left",
@@ -118,11 +119,22 @@ def gui_theme() -> dict:
         "font": _font(theme.FONT_FAMILY),
         "misc": ITEM,
     }
+    # An open dropdown's list: darker than the fields behind it, with an
+    # accent border, so it clearly sits on top.
     look["drop_down_menu.#drop_down_options_list"] = {
-        "misc": {"list_item_height": "26"}
+        "colours": {
+            "dark_bg": _hex(LIST_BG),
+            "normal_border": _hex(theme.ACCENT),
+        },
+        "misc": {"list_item_height": "26", "border_width": "1"},
     }
     look["drop_down_menu.#drop_down_options_list.@selection_list_item"] = {
         "font": _font(theme.FONT_FAMILY),
+        "colours": {
+            "normal_bg": _hex(LIST_BG),
+            "hovered_bg": _hex((32, 34, 42)),
+            "selected_bg": _hex((20, 60, 95)),
+        },
         "misc": ITEM,
     }
     look["#console"] = {"font": _font(CONSOLE_FONT)}
@@ -490,6 +502,14 @@ class ControlCenter:
         if self.confirm_quit:
             self._draw_quit_box()
 
+    def _dropdown_open(self) -> bool:
+        menus = [self.group_menu, *self.field_widgets.values()]
+        return any(
+            isinstance(menu, UIDropDownMenu)
+            and menu.current_state is menu.menu_states["expanded"]
+            for menu in menus
+        )
+
     # Tabs and the quit box
 
     def _tab_rects(self) -> dict[str, Rect]:
@@ -617,6 +637,8 @@ class ControlCenter:
         """What a blank field means, dimmed, in empty fields you're not
         typing in (pygame_gui draws placeholders like real text).
         """
+        if self._dropdown_open():
+            return  # the open list would get the hint drawn over it
         for field in self.selected.fields:
             widget = self.field_widgets.get(field.name)
             if not field.hint or not isinstance(widget, UITextEntryLine):

@@ -366,3 +366,19 @@ def test_only_built_tabs_open(window):
         pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=training)
     )
     assert window.tab == "Commands"  # arrives in 6b
+
+
+def test_hints_hide_while_a_dropdown_is_open(window, monkeypatch):
+    window._select("Watch a driver")
+    menu = window.field_widgets["Driver"]
+    menu.current_state.should_transition = True
+    menu.current_state.target_state = "expanded"
+    window.gui.update(0.05)
+    assert window._dropdown_open()
+    drawn = []
+    monkeypatch.setattr(
+        "src.control.window.draw_text", lambda *a, **k: drawn.append(a)
+    )
+    window._draw_hints()
+    assert drawn == []  # nothing drawn over the open list
+
