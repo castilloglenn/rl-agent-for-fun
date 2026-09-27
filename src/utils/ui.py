@@ -9,7 +9,9 @@ from src.utils.types import Colors, ColorValue
 @lru_cache
 def get_font(size: int, bold: bool = False) -> pygame.font.Font:
     """Cached, since creating a SysFont is slow. Needs pygame.init()."""
-    return pygame.font.SysFont("monospace", size, bold=bold)
+    from src.render.theme import FONT_FAMILY
+
+    return pygame.font.SysFont(FONT_FAMILY, size, bold=bold)
 
 
 def draw_text(

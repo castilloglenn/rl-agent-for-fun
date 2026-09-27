@@ -24,6 +24,7 @@ Group information by what you look at, and how often it changes, in **modular bo
 - Sized for the laptop screen (1,470 px wide): left panel 250 px, right 260 px, window 1,429 × 572 for the box stage.
 - Every row shortens its label and value with "…" to fit, and the value keeps at least half the row (a long leaderboard name never hides the score).
 - The field border is drawn in the panels' gray (it was white), so the window reads as one set of boxes.
+- **Font: Helvetica Neue** (`theme.FONT_FAMILY`; it was Courier). Crisp at small sizes, compact, and its digits all have the same width, so changing numbers don't wobble. The shortcuts box draws real columns (keys right-aligned, actions left-aligned) instead of lining them up with spaces. SF (the macOS system font) rendered with uneven digit spacing in pygame, and Avenir Next's regular weight came out almost bold.
 
 ## Consequences
 

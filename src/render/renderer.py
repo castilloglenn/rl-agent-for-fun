@@ -300,22 +300,63 @@ class Renderer:
         self._draw_centered_lines(lines)
 
     def _draw_shortcuts(self, mode: panels.ModeInfo | None) -> None:
-        """Every key of the current mode, in a box over the field."""
+        """Every key of the current mode, in a box over the field: keys
+        right-aligned in one column, what they do in the next.
+        """
         shortcuts = mode.shortcuts if mode else panels.LIVE_SHORTCUTS
-        width = max(len(key) for key, _ in shortcuts)
-        actions = max(len(action) for _, action in shortcuts)
-        lines = [("SHORTCUTS", theme.BIG_SIZE, theme.ACCENT, True)]
-        lines += [
-            (
-                f"{key:>{width}}  {action:<{actions}}",
+        font = get_font(theme.TEXT_SIZE)
+        keys = max(font.size(key)[0] for key, _ in shortcuts)
+        actions = max(font.size(action)[0] for _, action in shortcuts)
+        title = get_font(theme.BIG_SIZE, True)
+        width = max(keys + 16 + actions, title.size("SHORTCUTS")[0]) + 32
+        rows = len(shortcuts) + 2  # the title, and the closing hint
+        backdrop = pygame.Rect(0, 0, width, 26 * rows + 16)
+        backdrop.center = self.layout.field_view.center
+        self._draw_backdrop(backdrop)
+        y = backdrop.y + 8 + 13
+        draw_text(
+            self.display,
+            "SHORTCUTS",
+            (backdrop.centerx, y),
+            theme.BIG_SIZE,
+            theme.ACCENT,
+            bold=True,
+            anchor="center",
+        )
+        key_right = backdrop.x + 16 + keys
+        for key, action in shortcuts:
+            y += 26
+            draw_text(
+                self.display,
+                key,
+                (key_right, y),
+                theme.TEXT_SIZE,
+                theme.ACCENT,
+                bold=True,
+                anchor="midright",
+            )
+            draw_text(
+                self.display,
+                action,
+                (key_right + 16, y),
                 theme.TEXT_SIZE,
                 theme.TEXT,
-                False,
+                anchor="midleft",
             )
-            for key, action in shortcuts
-        ]
-        lines.append(("? closes", theme.TEXT_SIZE, theme.TEXT_DIM, False))
-        self._draw_centered_lines(lines)
+        draw_text(
+            self.display,
+            "? closes",
+            (backdrop.centerx, y + 26),
+            theme.TEXT_SIZE,
+            theme.TEXT_DIM,
+            anchor="center",
+        )
+
+    def _draw_backdrop(self, rect: pygame.Rect) -> None:
+        shade = Surface(rect.size, pygame.SRCALPHA)
+        shade.fill((*theme.BACKGROUND, 225))
+        self.display.blit(shade, rect)
+        pygame.draw.rect(self.display, theme.PANEL_BORDER, rect, width=1)
 
     def _draw_centered_lines(self, lines: list[tuple]) -> None:
         center_x, center_y = self.layout.field_view.center
@@ -329,10 +370,7 @@ class Renderer:
         )
         backdrop = pygame.Rect(0, 0, width + 32, 26 * len(lines) + 16)
         backdrop.center = (center_x, center_y)
-        shade = Surface(backdrop.size, pygame.SRCALPHA)
-        shade.fill((*theme.BACKGROUND, 225))
-        self.display.blit(shade, backdrop)
-        pygame.draw.rect(self.display, theme.PANEL_BORDER, backdrop, width=1)
+        self._draw_backdrop(backdrop)
         for text, size, color, bold in lines:
             draw_text(
                 self.display,
