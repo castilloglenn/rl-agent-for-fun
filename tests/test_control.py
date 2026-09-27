@@ -367,11 +367,11 @@ def test_closing_the_window_asks_then_quits(window):
 
 def test_only_built_tabs_open(window):
     assert window.tab == "Commands"
-    training = window.tab_rects["Training"].center
+    agents = window.tab_rects["Agents"].center
     window.handle(
-        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=training)
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=agents)
     )
-    assert window.tab == "Commands"  # arrives in 6b
+    assert window.tab == "Commands"  # arrives in 6c
 
 
 def test_hints_hide_while_a_dropdown_is_open(window, monkeypatch):

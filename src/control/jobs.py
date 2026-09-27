@@ -130,6 +130,10 @@ class JobManager:
             _add(job, "(resumed)")
             self._event(f"resume #{job.number}")
 
+    def say(self, job: Job, line: str) -> None:
+        """A line of our own in the job's console, like "(paused)"."""
+        _add(job, line)
+
     @property
     def running(self) -> list[Job]:
         return [job for job in self.jobs if job.running]

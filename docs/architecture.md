@@ -195,10 +195,15 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it. A job remembers the run folder it writes, from its `Run: <folder>` line |
 | `runs.py` | The Runs tab's data ([decision 023](decisions/023-runs-tab.md)): `scan()` lists every run folder with its status (from our jobs, `training.lock`, the summary, and file times) and progress; `RunData` holds one run's details and chart series, and `CsvTail` reads only the lines a CSV file gained since the last read |
 | `charts.py` | `draw_chart()`: hand-drawn line charts (lines, dots, rings, dashed levels) with round ticks and a hover readout |
-| `runs_tab.py` | `RunsTab`: the run list, the selected run's header, two charts (the second picked from a dropdown), and its buttons |
+| `runs_tab.py` | `RunsTab`: the run list, the selected run's header, two charts (the second picked from a dropdown), and its buttons. It can follow a chain, selecting each run the chain starts |
+| `training_plan.py` | `make_plan(values, ...)`: the Training tab's form turned into steps (each a Commands tab action), an estimate from past runs, warnings, and what blocks starting ([decision 025](decisions/025-training-tab-and-chains.md)) |
+| `chains.py` | `Chain`: jobs run one after another, each only if the one before succeeded; a stop or a failure cancels the rest |
+| `training_tab.py` | `TrainingTab`: the form (its fields follow the mode) and the plan box with Start |
+| `form.py` | `Form`: a scrolling column of labeled fields (dropdowns or typed, with dimmed hints) for the tabs |
+| `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
 | `vitals.py` | `VitalsLog`: those readings as a row every 10 s (and on a level change) in `logs/vitals.csv`, with job and window events as notes, rotated at 100 KB ([decision 024](decisions/024-vitals-log.md)); `tail()` for `make vitals` |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: the machine's vital signs and tabs on top, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Runs tab, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: the machine's vital signs and tabs on top, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training and Runs tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
 
 ## Replays (`src/replay/`)
 

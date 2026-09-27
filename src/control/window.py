@@ -1,6 +1,7 @@
 """The control center window (roadmap step 6): every action, grouped by
 the natural steps (actions.py), the jobs running in the background, and
-their live output (the Commands tab, 6a), and every run with its live
+their live output (the Commands tab, 6a), one form to train an agent
+(the Training tab, 6b2, training_tab.py), and every run with its live
 learning curves (the Runs tab, 6b1, runs_tab.py).
 
     make control
@@ -26,8 +27,12 @@ from pygame_gui.elements import (
 
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
+from src.control.chains import Chain
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
+from src.control.text import fit, header, wrap
+from src.control.training_plan import Plan
+from src.control.training_tab import TrainingTab
 from src.control.vitals import VitalsLog
 from src.render import theme
 from src.utils.ui import draw_text, get_font
@@ -46,7 +51,7 @@ TAB_HEIGHT = 36
 STATS_HEIGHT = 32  # the machine's vital signs, above the tabs
 TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
-    ("Training", "6b"),
+    ("Training", None),
     ("Runs", None),
     ("Agents", "6c"),
     ("Files", "6d"),
@@ -153,30 +158,6 @@ def gui_theme() -> dict:
     return look
 
 
-def fit(text: str, width: float, bold: bool = False) -> str:
-    """`text`, shortened with "…" to fit `width` pixels."""
-    font = get_font(theme.TEXT_SIZE, bold)
-    if font.size(text)[0] <= width:
-        return text
-    while text and font.size(text + "…")[0] > width:
-        text = text[:-1]
-    return text + "…"
-
-
-def wrap(text: str, width: float, size: int = theme.TEXT_SIZE) -> list[str]:
-    """`text` split into lines of at most `width` pixels (at spaces)."""
-    font = get_font(size)
-    lines, line = [], ""
-    for word in text.split():
-        candidate = f"{line} {word}".strip()
-        if line and font.size(candidate)[0] > width:
-            lines.append(line)
-            line = word
-        else:
-            line = candidate
-    return lines + ([line] if line else [])
-
-
 class ControlCenter:
     def __init__(
         self,
@@ -237,6 +218,17 @@ class ControlCenter:
             agents_dir=agents_dir,
         )
         self.runs_tab.hide()
+        self.chains: list[Chain] = []  # the Training tab's plans
+        self.training_tab = TrainingTab(
+            self.gui,
+            Rect(MARGIN, top, width, SIZE[1] - MARGIN - top),
+            self.jobs,
+            self.start_plan,
+            on_battery=self._on_battery,
+            busy=self._chain_agents,
+            runs_dir=runs_dir,
+        )
+        self.training_tab.hide()
 
     # Widgets
 
@@ -397,7 +389,7 @@ class ControlCenter:
 
     # Actions
 
-    def run_action(self, action: Action, values: dict):
+    def run_action(self, action: Action, values: dict, label: str = ""):
         """Runs an action, unless a field it needs is empty. Returns its
         job, or None.
         """
@@ -410,18 +402,49 @@ class ControlCenter:
         if empty:
             self.message = (f"Needs: {', '.join(empty)}", theme.BAD)
             return None
-        label = action.name
-        if action.fields:
-            label += f": {values.get(action.fields[0].name, '')}"
+        if not label:
+            label = action.name
+            if action.fields:
+                label += f": {values.get(action.fields[0].name, '')}"
         return self._start(label, action.argv(values), action.opens_window)
 
-    def run_named(self, name: str, values: dict):
+    def run_named(self, name: str, values: dict, label: str = ""):
         """Runs the action called `name` (for the other tabs), with its
         defaults for the fields `values` leaves out.
         """
         action = next(a for a in ACTIONS if a.name == name)
         filled = {f.name: f.default for f in action.fields}
-        return self.run_action(action, {**filled, **values})
+        return self.run_action(action, {**filled, **values}, label)
+
+    def start_plan(self, plan: Plan) -> Chain | None:
+        """Runs the Training tab's plan as a chain, and has the Runs tab
+        follow it.
+        """
+
+        def start(step, i, n):
+            label = f"{step.action}: {plan.agent} ({i + 1}/{n})"
+            return self.run_named(step.action, step.values, label)
+
+        chain = Chain(plan.steps, start, say=self.jobs.say, agent=plan.agent)
+        chain.tick()
+        if not chain.jobs:
+            return None
+        self.chains.append(chain)
+        self.runs_tab.follow = chain
+        self.open_tab("Runs")
+        return chain
+
+    def _chain_agents(self) -> dict[str, str]:
+        """Agents a running chain here is working on."""
+        return {
+            chain.agent: f"a chain here, job #{chain.job.number}"
+            for chain in self.chains
+            if chain.active and chain.job
+        }
+
+    def _on_battery(self) -> bool:
+        snap = self.stats.snapshot
+        return bool(snap and snap.battery is not None and not snap.plugged)
 
     def _start(self, label: str, argv: list[str], window: bool):
         job = self.jobs.start(label, argv)
@@ -459,12 +482,15 @@ class ControlCenter:
             *self.job_buttons.values(),
             self.log_box,
         ]
-        if name == "Runs":
+        tabs = {"Runs": self.runs_tab, "Training": self.training_tab}
+        for tab_name, tab in tabs.items():
+            if tab_name != name:
+                tab.hide()
+        if name in tabs:
             for widget in commands:
                 widget.hide()
-            self.runs_tab.show()
+            tabs[name].show()
         else:
-            self.runs_tab.hide()
             for widget in commands:
                 widget.show()
             if self.selected:
@@ -496,6 +522,8 @@ class ControlCenter:
                     self.open_tab(name)
         if self.tab == "Runs":
             self.runs_tab.handle(event)
+        elif self.tab == "Training":
+            self.training_tab.handle(event)
         else:
             self._handle_commands(event)
 
@@ -550,6 +578,8 @@ class ControlCenter:
         if not force and now - self._refreshed < REFRESH:
             return
         self._refreshed = now
+        for chain in self.chains:
+            chain.tick()  # the next step, once the last one succeeded
         if self.vitals:
             pids = [job.process.pid for job in self.jobs.running]
             self.vitals.record(self.stats.sample(pids), now)
@@ -581,6 +611,10 @@ class ControlCenter:
         if self.tab == "Runs":
             self.runs_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
+        elif self.tab == "Training":
+            self.training_tab.draw(self.screen)
+            self.gui.draw_ui(self.screen)
+            self.training_tab.draw_after(self.screen)
         else:
             self._draw_commands()
         if self.confirm_quit:
@@ -589,8 +623,8 @@ class ControlCenter:
     def _draw_commands(self) -> None:
         for rect in (self.commands_box, self.jobs_box, self.console):
             pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
-        _header(self.screen, self.commands_box, "COMMANDS")
-        _header(self.screen, self.jobs_box, "JOBS")
+        header(self.screen, self.commands_box, "COMMANDS")
+        header(self.screen, self.jobs_box, "JOBS")
         job = getattr(self, "_log_job", None)
         title = "CONSOLE"
         if job:
@@ -599,7 +633,7 @@ class ControlCenter:
                 self.console.w - 2 * PAD,
                 bold=True,
             )
-        _header(self.screen, self.console, title)
+        header(self.screen, self.console, title)
         if self.selected:
             self._draw_detail()
         self.gui.draw_ui(self.screen)
@@ -883,6 +917,8 @@ class ControlCenter:
             self._refresh()
             if self.tab == "Runs":
                 self.runs_tab.refresh()
+            elif self.tab == "Training":
+                self.training_tab.refresh()
             self.gui.update(elapsed)
             self.draw()
             pygame.display.flip()
@@ -961,17 +997,6 @@ def _tab_label(name: str, step: str | None) -> str:
 
 def _available(tab: str) -> bool:
     return dict(TABS)[tab] is None
-
-
-def _header(surface, rect: Rect, text: str) -> None:
-    draw_text(
-        surface,
-        text,
-        (rect.x + PAD, rect.y + 12),
-        theme.HEADER_SIZE,
-        theme.ACCENT,
-        bold=True,
-    )
 
 
 def _clock(seconds: float) -> str:

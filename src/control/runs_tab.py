@@ -27,8 +27,9 @@ from src.control import runs
 from src.control.charts import draw_chart
 from src.control.jobs import JobManager
 from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
+from src.control.text import fit, header
 from src.render import theme
-from src.utils.ui import draw_text, get_font
+from src.utils.ui import draw_text
 
 LIST_WIDTH = 400
 PAD = 14
@@ -90,6 +91,9 @@ class RunsTab:
         self._by_line: dict[str, str] = {}
         self._configs: dict = {}  # never change: read once
         self.selected: str | None = None  # a run folder's name
+        # A chain the tab follows: it selects each run the chain starts,
+        # until you pick another run yourself.
+        self.follow = None
         self.data: RunData | None = None
         self.choice: dict[str, str] = {}  # the second chart, per kind
         self.menu: UIDropDownMenu | None = None
@@ -148,7 +152,10 @@ class RunsTab:
         if lines != self._lines:
             self._set_lines(lines)
         names = [row.name for row in self.rows]
-        if self.selected not in names:
+        followed = self.follow.run if self.follow else None
+        if followed in names and followed != self.selected:
+            self.select(followed)
+        elif self.selected not in names:
             self.select(names[0] if names else None)
         elif self.data:
             self.data.refresh()
@@ -235,6 +242,7 @@ class RunsTab:
     def handle(self, event) -> None:
         if event.type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
             if event.ui_element is self.run_list:
+                self.follow = None  # you picked one yourself
                 self.select(self._by_line.get(event.text))
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element is self.menu and self.data:
@@ -277,7 +285,7 @@ class RunsTab:
     def draw(self, surface) -> None:
         for rect in (self.list_box, self.detail):
             pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
-        _header(surface, self.list_box, f"RUNS · {len(self.rows)}")
+        header(surface, self.list_box, f"RUNS · {len(self.rows)}")
         if not self.rows:
             draw_text(
                 surface,
@@ -290,11 +298,11 @@ class RunsTab:
         if not data or not row:
             return
         d = self.detail
-        _header(surface, d, KIND_TITLES[data.kind])
+        header(surface, d, KIND_TITLES[data.kind])
         x, width = d.x + PAD, d.w - 2 * PAD
         draw_text(
             surface,
-            _fit(row.name, width, theme.BIG_SIZE),
+            fit(row.name, width, True, theme.BIG_SIZE),
             (x, d.y + 34),
             theme.BIG_SIZE,
             theme.TEXT,
@@ -302,7 +310,7 @@ class RunsTab:
         )
         draw_text(
             surface,
-            _fit(data.description(), width, theme.TEXT_SIZE),
+            fit(data.description(), width),
             (x, d.y + 62),
             theme.TEXT_SIZE,
             theme.TEXT_DIM,
@@ -368,32 +376,12 @@ class RunsTab:
         if notes:
             draw_text(
                 surface,
-                _fit(notes, x + width - right - 16, theme.TEXT_SIZE),
+                fit(notes, x + width - right - 16),
                 (x + width, y),
                 theme.TEXT_SIZE,
                 theme.WARN if data.best else theme.TEXT_DIM,
                 anchor="topright",
             )
-
-
-def _header(surface, rect: Rect, text: str) -> None:
-    draw_text(
-        surface,
-        text,
-        (rect.x + PAD, rect.y + 12),
-        theme.HEADER_SIZE,
-        theme.ACCENT,
-        bold=True,
-    )
-
-
-def _fit(text: str, width: float, size: int) -> str:
-    font = get_font(size, size == theme.BIG_SIZE)
-    if font.size(text)[0] <= width:
-        return text
-    while text and font.size(text + "…")[0] > width:
-        text = text[:-1]
-    return text + "…"
 
 
 def _duration(seconds: float) -> str:
