@@ -337,7 +337,10 @@ def _imitate(cl_args, config) -> None:
         f"Watch it: make maze_car_driver "
         f"DRIVER=agent:{summary.agent}@{summary.checkpoint}"
     )
-    print(f"Improve it with RL: make train AGENT={summary.agent}")
+    print(
+        "Improve it with reinforcement learning: "
+        f"make train AGENT={summary.agent}"
+    )
 
 
 def _announce_run(folder) -> None:

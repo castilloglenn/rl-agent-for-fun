@@ -352,7 +352,8 @@ ACTIONS = (
     Action(
         "Train",
         "Agents",
-        "One RL training phase from the agent's newest checkpoint. "
+        "One reinforcement learning phase from the agent's newest "
+        "checkpoint. "
         "Checkpoints are scored as they're saved.",
         (
             Field("Agent", choices.agents),

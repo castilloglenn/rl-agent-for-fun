@@ -19,7 +19,9 @@ from src.control import runs
 from src.control.actions import ACTIONS, NONE
 
 REPO = Path(__file__).resolve().parents[2]
-RL, IMITATION, BOTH = "RL", "Imitation", "Imitation then RL"
+RL = "Reinforcement learning"
+IMITATION = "Imitation"
+BOTH = "Imitation, then reinforcement learning"
 MODES = (RL, IMITATION, BOTH)
 NEW_AGENT = "(new agent)"
 FRESH = "(fresh from the model)"

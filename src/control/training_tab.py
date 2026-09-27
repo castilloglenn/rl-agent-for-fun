@@ -48,8 +48,9 @@ ROW = 30
 REFRESH = 0.5  # seconds between plan updates
 REBUILD = ("Mode", "Agent", "Start")  # fields that change the form
 DESCRIPTION = (
-    "Train an agent with RL, clone your recorded driving (imitation), or "
-    "clone it first and then improve it with RL. It runs as a chain of "
+    "Train an agent with reinforcement learning, clone your recorded "
+    "driving (imitation), or clone it first and then improve it with "
+    "reinforcement learning. It runs as a chain of "
     "the Commands tab's actions, and the Runs tab follows it."
 )
 MAX_STEPS = 6  # plan steps shown

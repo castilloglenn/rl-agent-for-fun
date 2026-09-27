@@ -239,7 +239,7 @@ def lineage(
             )
         else:
             text = (
-                f"RL, trainer {phase.get('trainer')}, "
+                f"Reinforcement learning, trainer {phase.get('trainer')}, "
                 f"{phase.get('stage')} / {phase.get('rules')}, "
                 f"{phase.get('start_decisions', 0):,.0f} to "
                 f"{phase.get('end_decisions', 0):,.0f} decisions"

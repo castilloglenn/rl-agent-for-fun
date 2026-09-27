@@ -8,7 +8,7 @@ Training an agent took up to three commands in the right order: create it (or br
 
 ## Decision
 
-- **Three modes:** RL, Imitation, and Imitation then RL. The agent is an existing one or "(new agent)", which asks for a name and a start: fresh from a model, or branched from any agent's checkpoint. Only the fields a mode uses show, and the form rebuilds (keeping your values) when Mode, Agent, or Start changes.
+- **Three modes:** Reinforcement learning, Imitation, and Imitation, then reinforcement learning (spelled out in the window, where there's room; RL in code and docs). The agent is an existing one or "(new agent)", which asks for a name and a start: fresh from a model, or branched from any agent's checkpoint. Only the fields a mode uses show, and the form rebuilds (keeping your values) when Mode, Agent, or Start changes.
 - **A plan, not a new command:** the form turns into steps, each one a Commands tab action (Create an agent, Clone your driving, Train). The plan box shows each step in plain words, and the terminal equivalent (`python app.py … && python app.py …`). So there are no new flags or make targets.
 - **Chains** (`chains.py`) run the steps one after another as ordinary jobs, labeled with their place (`Train: rookie2 (2/2)`). The next step starts only if the previous one exited with code 0. Stopping a step, or a step failing, cancels the rest, and the job's console says so.
 - **An estimate from your own runs:** the pace (seconds per decision, or per epoch for imitation) of your last 3 finished runs of the same kind, times the trainer file's total. Without a past run of a kind it says "no estimate" rather than half a number.
