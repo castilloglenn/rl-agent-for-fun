@@ -79,12 +79,15 @@ def _dispatch(cl_args) -> None:
         from src.control.vitals import tail
 
         print(tail())
-    elif cl_args.delete_run or cl_args.restore:
+    elif cl_args.delete_run or cl_args.delete_agent or cl_args.restore:
         from src.control.trash import Trash, TrashError
 
         try:
-            if cl_args.delete_run:
-                entry = Trash().delete_run(cl_args.delete_run)
+            if cl_args.delete_run or cl_args.delete_agent:
+                if cl_args.delete_run:
+                    entry = Trash().delete_run(cl_args.delete_run)
+                else:
+                    entry = Trash().delete_agent(cl_args.delete_agent)
                 print(f"Moved {', '.join(entry.paths)} into the trash:")
                 print(f"  trash/{entry.name}")
                 print(f"Restore it: make restore TRASH={entry.name}")

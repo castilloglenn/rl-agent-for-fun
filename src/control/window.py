@@ -1,8 +1,9 @@
 """The control center window (roadmap step 6): every action, grouped by
 the natural steps (actions.py), the jobs running in the background, and
 their live output (the Commands tab, 6a), one form to train an agent
-(the Training tab, 6b2, training_tab.py), and every run with its live
-learning curves (the Runs tab, 6b1, runs_tab.py).
+(the Training tab, 6b2, training_tab.py), every run with its live
+learning curves (the Runs tab, 6b1 and 6b3, runs_tab.py), and every
+agent with its profile and the leaderboard (the Agents tab, 6c).
 
     make control
 
@@ -26,6 +27,7 @@ from pygame_gui.elements import (
 )
 
 from src.control.actions import ACTIONS, GROUPS, Action
+from src.control.agents_tab import AgentsTab
 from src.control.jobs import JobManager
 from src.control.chains import Chain
 from src.control.confirm import Confirm
@@ -54,7 +56,7 @@ TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
     ("Training", None),
     ("Runs", None),
-    ("Agents", "6c"),
+    ("Agents", None),
     ("Files", "6d"),
 )
 LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
@@ -228,8 +230,22 @@ class ControlCenter:
             on_battery=self._on_battery,
             busy=self._chain_agents,
             runs_dir=runs_dir,
+            agents_dir=agents_dir,
         )
         self.training_tab.hide()
+        self.agents_tab = AgentsTab(
+            self.gui,
+            Rect(MARGIN, top, width, SIZE[1] - MARGIN - top),
+            self.jobs,
+            self.run_named,
+            train_more=self.train_more,
+            branch=self.branch_from,
+            open_run=self.open_run,
+            busy=self._chain_agents,
+            agents_dir=agents_dir,
+            runs_dir=runs_dir,
+        )
+        self.agents_tab.hide()
 
     # Widgets
 
@@ -462,6 +478,18 @@ class ControlCenter:
         self.open_tab("Training")
         self.training_tab.branch_from(start)
 
+    def train_more(self, agent: str) -> None:
+        """The Training tab, set to train `agent` further with RL."""
+        self.open_tab("Training")
+        self.training_tab.train(agent)
+
+    def open_run(self, run: str) -> None:
+        """The Runs tab, with `run` selected."""
+        self.open_tab("Runs")
+        self.runs_tab.follow = None
+        self.runs_tab.refresh(force=True)
+        self.runs_tab.select(run)
+
     def _chain_agents(self) -> dict[str, str]:
         """Agents a running chain here is working on."""
         return {
@@ -510,7 +538,11 @@ class ControlCenter:
             *self.job_buttons.values(),
             self.log_box,
         ]
-        tabs = {"Runs": self.runs_tab, "Training": self.training_tab}
+        tabs = {
+            "Runs": self.runs_tab,
+            "Training": self.training_tab,
+            "Agents": self.agents_tab,
+        }
         for tab_name, tab in tabs.items():
             if tab_name != name:
                 tab.hide()
@@ -578,6 +610,8 @@ class ControlCenter:
             self.runs_tab.handle(event)
         elif self.tab == "Training":
             self.training_tab.handle(event)
+        elif self.tab == "Agents":
+            self.agents_tab.handle(event)
         else:
             self._handle_commands(event)
 
@@ -666,6 +700,9 @@ class ControlCenter:
             self.training_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
             self.training_tab.draw_after(self.screen)
+        elif self.tab == "Agents":
+            self.agents_tab.draw(self.screen)
+            self.gui.draw_ui(self.screen)
         else:
             self._draw_commands()
         if self.box:
@@ -894,6 +931,8 @@ class ControlCenter:
                 self.runs_tab.refresh()
             elif self.tab == "Training":
                 self.training_tab.refresh()
+            elif self.tab == "Agents":
+                self.agents_tab.refresh()
             self.gui.update(elapsed)
             self.draw()
             pygame.display.flip()

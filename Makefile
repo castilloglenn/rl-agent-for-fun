@@ -8,7 +8,7 @@
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
 	resume_last eval eval_baselines agents agent dataset imitate \
 	showcase showcase_all control vitals delete_run trash restore \
-	empty_trash
+	empty_trash delete_agent
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -60,6 +60,7 @@ help:
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
 	@echo "Files"
 	@echo "  make delete_run RUN=folder           move a run into the trash (its checkpoints stay)"
+	@echo "  make delete_agent AGENT=id           move an agent and its runs into the trash"
 	@echo "  make trash                           list what's in the trash"
 	@echo "  make restore TRASH=entry             put a trash entry back where it was"
 	@echo "  make empty_trash                     delete the trash for good"
@@ -250,6 +251,10 @@ vitals:
 delete_run:
 	$(call require,RUN,2026-09-27_003302_train-rookie_seed0)
 	python app.py -delete_run $(RUN)
+
+delete_agent:
+	$(call require,AGENT,rookie)
+	python app.py -delete_agent $(AGENT)
 
 trash:
 	python app.py -list_trash

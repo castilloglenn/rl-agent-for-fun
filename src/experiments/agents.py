@@ -72,8 +72,10 @@ def agent_summary(
     ]
     if profile["branched_from"]:
         source = profile["branched_from"]
+        parent = (root or AGENTS_DIR) / source["agent"]
+        gone = "" if parent.exists() else " (deleted)"
         lines.append(
-            f"  branched from {source['agent']}@{source['checkpoint']}"
+            f"  branched from {source['agent']}@{source['checkpoint']}{gone}"
         )
     if profile["phases"]:
         lines.append("  phases:")

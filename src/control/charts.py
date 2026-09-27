@@ -277,7 +277,7 @@ def _legend(
         else:
             point = series.points[-1]
         value = "" if point is None else f" {chart.value_format(point[1])}"
-        items.append((series, series.label + value))
+        items.append((series, (series.label + value).strip()))
     font = get_font(theme.HEADER_SIZE)
 
     def width(item) -> int:

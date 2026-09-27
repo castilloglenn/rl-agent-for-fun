@@ -63,11 +63,15 @@ def _starts(also: str = "") -> list[str]:
     return found + ([also] if also and also not in found else [])
 
 
-def form_fields(mode: str, agent: str, start: str) -> list[Field]:
+def form_fields(
+    mode: str, agent: str, start: str, agents_dir: Path | None = None
+) -> list[Field]:
     new = agent == NEW_AGENT
     fields = [
         Field("Mode", lambda: list(MODES), RL),
-        Field("Agent", lambda: [NEW_AGENT, *_agents()], NEW_AGENT),
+        Field(
+            "Agent", lambda: [NEW_AGENT, *_agents(agents_dir)], NEW_AGENT
+        ),
     ]
     if new:
         fields += [
@@ -98,10 +102,12 @@ def form_fields(mode: str, agent: str, start: str) -> list[Field]:
     return fields
 
 
-def _agents() -> list[str]:
-    from src.control import choices
-
-    return choices.agents()
+def _agents(agents_dir: Path | None = None) -> list[str]:
+    """The agents, from the folder the control center reads."""
+    folder = agents_dir or actions.REPO / "agents"
+    return sorted(
+        p.name for p in folder.glob("*/") if (p / "model.json").exists()
+    )
 
 
 class TrainingTab:
@@ -115,10 +121,12 @@ class TrainingTab:
         busy: Callable[[], dict] = lambda: {},
         runs_dir: Path | None = None,
         recordings_dir: Path | None = None,
+        agents_dir: Path | None = None,
     ) -> None:
         """`start_plan(plan)` runs it (and returns its chain). `busy()`:
         agents a chain here is working on, besides the live runs.
         """
+        self.agents_dir = agents_dir
         self.gui = gui
         self.jobs = jobs
         self.start_plan = start_plan
@@ -142,7 +150,7 @@ class TrainingTab:
                 box.x + PAD, top, box.w - 2 * PAD - 12, box.bottom - PAD - top
             ),
         )
-        self.form.build(form_fields(RL, NEW_AGENT, FRESH))
+        self.form.build(form_fields(RL, NEW_AGENT, FRESH, agents_dir))
         plan = self.plan_box
         self.start_button = UIButton(
             Rect(plan.x + PAD, plan.bottom - PAD - ROW, 140, ROW),
@@ -180,11 +188,26 @@ class TrainingTab:
                 values.get("Mode", RL),
                 values.get("Agent", NEW_AGENT),
                 values.get("Start", FRESH),
+                self.agents_dir,
             ),
             values,
         )
         if not self.visible:
             self.form.hide()
+        self.refresh(force=True)
+
+    def train(self, agent: str) -> None:
+        """RL for an existing agent, from its newest checkpoint."""
+        values = {**self.values(), "Mode": RL, "Agent": agent}
+        self.form.build(
+            form_fields(RL, agent, FRESH, self.agents_dir), values
+        )
+        if not self.visible:
+            self.form.hide()
+        self.message = (
+            f"Training {agent} further: check, then Start.",
+            theme.ACCENT,
+        )
         self.refresh(force=True)
 
     def branch_from(self, start: str) -> None:
@@ -193,7 +216,9 @@ class TrainingTab:
         """
         values = {**self.values(), "Mode": RL, "Agent": NEW_AGENT}
         values.update(Start=start, Name="")
-        self.form.build(form_fields(RL, NEW_AGENT, start), values)
+        self.form.build(
+            form_fields(RL, NEW_AGENT, start, self.agents_dir), values
+        )
         if not self.visible:
             self.form.hide()
         self.form.widgets["Name"].focus()
@@ -210,7 +235,7 @@ class TrainingTab:
         busy = {**busy_agents(rows), **self.busy()}
         self.plan = make_plan(
             values,
-            _agents(),
+            _agents(self.agents_dir),
             busy,
             runs_dir=self.runs_dir,
             recordings=self._recordings(values),

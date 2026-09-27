@@ -202,6 +202,41 @@ def _confirm_delete_run(v: dict) -> list[str]:
     ]
 
 
+def _confirm_delete_agent(v: dict) -> list[str]:
+    from src.control import agents_data
+    from src.control.trash import Trash, TrashError
+
+    agent = v["Agent"]
+    try:
+        plan = Trash().agent_plan(agent)
+    except TrashError as error:  # the command will say so too
+        return [f"agents/{agent} moves into the trash.", str(error)]
+    runs = _count(len(plan.runs), "run")
+    lines = [f"agents/{agent} and {runs} move into the trash:"]
+    shown = [p.name for p in plan.runs[:3]]
+    lines += [f"runs/{name}" for name in shown]
+    if len(plan.runs) > 3:
+        lines.append(f"and {len(plan.runs) - 3} more")
+    if plan.children:
+        lines.append(
+            f"Kept (their own weights): {', '.join(plan.children)}, "
+            f"branched from {agent}."
+        )
+    ranks = agents_data.leaderboard(
+        agents_data.load_agents(), agents_data.baselines()
+    )
+    place = agents_data.place_of(agent, ranks)
+    if place:
+        lines.append(f"It's #{place} on the leaderboard. Restore it anytime.")
+    else:
+        lines.append("You can restore it from the trash.")
+    return lines
+
+
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" + ("" if n == 1 else "s")
+
+
 def _confirm_empty(v: dict) -> list[str]:
     count = len(_trash_entries())
     noun = "entry is" if count == 1 else "entries are"
@@ -407,6 +442,15 @@ ACTIONS = (
         confirm=_confirm_delete_run,
     ),
     Action(
+        "Delete an agent",
+        "Files",
+        "Move an agent into the trash, with its training, imitation, and "
+        "episode runs. Agents branched from it stay.",
+        (Field("Agent", choices.agents),),
+        lambda v: ["-delete_agent", v["Agent"]],
+        confirm=_confirm_delete_agent,
+    ),
+    Action(
         "Trash",
         "Files",
         "What's in the trash: one entry per delete, newest first.",
@@ -503,6 +547,7 @@ MAKE_TARGETS = {
     "fixtures": "Regenerate fixtures",
     "vitals": "Vitals log",
     "delete_run": "Delete a run",
+    "delete_agent": "Delete an agent",
     "trash": "Trash",
     "restore": "Restore from the trash",
     "empty_trash": "Empty the trash",

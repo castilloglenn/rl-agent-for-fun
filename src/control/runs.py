@@ -122,7 +122,7 @@ def _number(text: str):
         return text
 
 
-def _read_json(path: Path) -> dict:
+def read_json(path: Path) -> dict:
     try:
         return json.loads(path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
@@ -210,7 +210,7 @@ def status_of(
         pid = _lock_pid(folder)
         if pid and _alive(pid):
             return ELSEWHERE  # its lock says it's training
-    summary = _read_json(folder / "summary.json")
+    summary = read_json(folder / "summary.json")
     if summary:
         return STOPPED if summary.get("interrupted") else DONE
     if kind != TRAINING:  # no lock: recent writes mean it's running
@@ -241,7 +241,7 @@ def scan(
     for folder in sorted(runs_dir.glob("*/"), reverse=True):
         config = configs.get(folder.name)
         if config is None:
-            config = _read_json(folder / "config.json")
+            config = read_json(folder / "config.json")
             if not config:
                 continue  # not a run, or its config isn't written yet
             configs[folder.name] = config
@@ -320,7 +320,7 @@ class RunData:
     def __init__(self, folder: Path, agents_dir: Path | None = None):
         self.folder = folder
         self.agents_dir = agents_dir or AGENTS_DIR
-        self.config = _read_json(folder / "config.json")
+        self.config = read_json(folder / "config.json")
         self.kind = run_kind(self.config)
         self.who = run_who(self.config)
         self.summary: dict = {}
@@ -333,7 +333,7 @@ class RunData:
         suite = self.config.get("suite")
         self.suite = f"{suite['name']}-v{suite['version']}" if suite else None
         if self.suite:
-            scores = _read_json(
+            scores = read_json(
                 self.agents_dir / "baselines" / f"{self.suite}.json"
             ).get("scores", {})
             self.baseline = (scores.get("heuristic") or {}).get("score_mean")
@@ -346,7 +346,7 @@ class RunData:
     def refresh(self) -> bool:
         """Reads what the run wrote since. True if anything changed."""
         changed = False
-        summary = _read_json(self.folder / "summary.json")
+        summary = read_json(self.folder / "summary.json")
         if summary != self.summary:
             self.summary, changed = summary, True
         if self.kind in (TRAINING, IMITATION):
@@ -390,7 +390,7 @@ class RunData:
             ),
             key=lambda p: p[1],
         )
-        best = _read_json(agent / "evaluations" / "best.json")
+        best = read_json(agent / "evaluations" / "best.json")
         self.best = next(
             (p for p in self.suite_points if p[0] == best.get("checkpoint")),
             None,

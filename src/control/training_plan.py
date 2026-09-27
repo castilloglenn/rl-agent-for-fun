@@ -223,8 +223,8 @@ def _pace(runs_dir: Path | None, kind: str) -> tuple[float, int] | None:
     for folder in sorted(runs_dir.glob("*/"), reverse=True):
         if used == PACE_RUNS:
             break
-        config = runs._read_json(folder / "config.json")
-        summary = runs._read_json(folder / "summary.json")
+        config = runs.read_json(folder / "config.json")
+        summary = runs.read_json(folder / "summary.json")
         if runs.run_kind(config) != kind or not summary.get("seconds"):
             continue
         if kind == runs.TRAINING:

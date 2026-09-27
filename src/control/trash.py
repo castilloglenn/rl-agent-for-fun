@@ -7,7 +7,9 @@ them back. Restoring puts them back; emptying deletes them for good.
       runs/<folder>/    the moved folder, at its path from the repo root
 
 One entry per delete, holding every folder that delete moved, so a
-restore puts it all back together. Agents (step 6c) use the same entries.
+restore puts it all back together. Deleting an agent (step 6c) moves its
+folder and its runs: its training and imitation runs, and the episode
+runs it drove. Agents branched from it stay (they have their own weights).
 """
 
 import json
@@ -29,7 +31,7 @@ class TrashError(ValueError):
 @dataclass(frozen=True)
 class Entry:
     name: str  # its folder in trash/
-    kind: str  # "run" (6c adds "agent")
+    kind: str  # "run" or "agent"
     label: str  # what was deleted, for example the run's folder
     created: str
     paths: tuple[str, ...]  # the moved folders, from the repo root
@@ -45,6 +47,7 @@ class Trash:
         self.root = root or REPO
         self.folder = self.root / "trash"
         self.runs_dir = self.root / "runs"
+        self.agents_dir = self.root / "agents"
 
     # Deleting
 
@@ -53,13 +56,45 @@ class Trash:
         in its agent (later training continues from them).
         """
         folder = self.runs_dir / name
-        config = runs._read_json(folder / "config.json")
+        config = runs.read_json(folder / "config.json")
         if not folder.is_dir() or not config:
             raise TrashError(f"no run {name!r} in {self.runs_dir}")
         status = runs.status_of(folder, runs.run_kind(config), None)
         if status in runs.LIVE:
             raise TrashError(f"{name} is still running: stop it first")
         return self._move("run", name, [folder])
+
+    def agent_plan(self, agent_id: str) -> "AgentPlan":
+        """What deleting an agent would move and keep, without moving."""
+        folder = self.agents_dir / agent_id
+        if not (folder / "model.json").exists():
+            raise TrashError(f"no agent {agent_id!r} in {self.agents_dir}")
+        owned, live = [], []
+        for run in sorted(self.runs_dir.glob("*/")):
+            config = runs.read_json(run / "config.json")
+            if not config or not _belongs(config, agent_id):
+                continue
+            owned.append(run)
+            status = runs.status_of(run, runs.run_kind(config), None)
+            if status in runs.LIVE:
+                live.append(run.name)
+        children = []
+        for other in sorted(self.agents_dir.glob("*/")):
+            profile = runs.read_json(other / "profile.json")
+            source = profile.get("branched_from") or {}
+            if source.get("agent") == agent_id:
+                children.append(other.name)
+        return AgentPlan(folder, owned, children, live)
+
+    def delete_agent(self, agent_id: str) -> Entry:
+        """Moves an agent and its runs into the trash, as one entry."""
+        plan = self.agent_plan(agent_id)
+        if plan.live:
+            raise TrashError(
+                f"{agent_id} has a run still running ({plan.live[0]}): "
+                "stop it first"
+            )
+        return self._move("agent", agent_id, [plan.folder, *plan.runs])
 
     def _move(self, kind: str, label: str, folders: list[Path]) -> Entry:
         now = datetime.now()
@@ -127,8 +162,24 @@ class Trash:
         return gone
 
 
+@dataclass(frozen=True)
+class AgentPlan:
+    folder: Path  # agents/<id>
+    runs: list[Path]  # its training, imitation, and episode runs
+    children: list[str]  # agents branched from it: they stay
+    live: list[str]  # its runs still running: deleting is refused
+
+
+def _belongs(config: dict, agent_id: str) -> bool:
+    """A run of the agent: it trained it, or it drove the episodes."""
+    if (config.get("agent") or {}).get("id") == agent_id:
+        return True
+    driver = config.get("driver") or {}
+    return driver.get("type") == "agent" and driver.get("id") == agent_id
+
+
 def _entry(folder: Path) -> Entry | None:
-    info = runs._read_json(folder / "trash.json")
+    info = runs.read_json(folder / "trash.json")
     if not info:
         return None
     return Entry(
