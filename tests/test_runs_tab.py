@@ -1,0 +1,347 @@
+"""The control center's Runs tab: run status, live curves, charts
+(step 6b1). Every run here is written into tmp_path, never runs/.
+"""
+
+import json
+import os
+import sys
+import time
+
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+
+import pygame  # noqa: E402
+import pytest  # noqa: E402
+
+from src.control import charts, runs  # noqa: E402
+from src.control.charts import Chart, Series  # noqa: E402
+from src.control.jobs import JobManager  # noqa: E402
+from src.control.runs import CsvTail, RunData, scan  # noqa: E402
+from tests.test_control import _wait  # noqa: E402
+from tests.test_runner import _run  # noqa: E402
+from tests.test_training import _train  # noqa: E402
+
+
+class _Process:
+    def __init__(self, pid=999_999, alive=True):
+        self.pid, self.alive = pid, alive
+
+    def poll(self):
+        return None if self.alive else 0
+
+
+def _job(run=None, paused=False, alive=True, pid=999_999):
+    from src.control.jobs import Job
+
+    job = Job(1, "a job", [], _Process(pid, alive), paused=paused)
+    job.run = run
+    return job
+
+
+def _folder(root, name, kind="training", summary=None, **files):
+    """A run folder by hand: its config, and the given files."""
+    folder = root / name
+    folder.mkdir(parents=True)
+    config = {
+        "name": name,
+        "created_at": "2026-09-27T00:00:00+08:00",
+        "driver": {"type": "baseline", "id": "heuristic"},
+        "episodes": 10,
+        "trainer": {"name": "t", "total_decisions": 1000, "epochs": 10},
+        "agent": {"id": "pupil", "start_decisions": 0},
+    }
+    if kind:
+        config["kind"] = kind
+    if kind in (None, "episodes"):
+        config.pop("agent")
+    (folder / "config.json").write_text(json.dumps(config))
+    if summary is not None:
+        (folder / "summary.json").write_text(json.dumps(summary))
+    for file, text in files.items():
+        (folder / file.replace("_", ".", 1)).write_text(text)
+    return folder
+
+
+# Reading files that are still being written
+
+
+def test_a_tail_reads_only_new_complete_lines(tmp_path):
+    path = tmp_path / "learning.csv"
+    path.write_text("decisions,score_mean\n2048,11.0\n4096,1")
+    tail = CsvTail(path)
+    assert tail.read()
+    assert tail.rows == [{"decisions": 2048.0, "score_mean": 11.0}]
+    assert not tail.read()  # the half line waits
+    with open(path, "a") as file:
+        file.write("2.5\n")
+    assert tail.read()
+    assert tail.column("score_mean", "decisions") == [
+        (2048.0, 11.0),
+        (4096.0, 12.5),
+    ]
+
+
+def test_a_rewritten_file_is_read_again(tmp_path):
+    path = tmp_path / "learning.csv"
+    path.write_text("update,x\n1,1\n2,2\n3,3\n")
+    tail = CsvTail(path)
+    tail.read()
+    path.write_text("update,x\n1,1\n")  # Ctrl+C keeps the last update's
+    assert tail.read()
+    assert tail.rows == [{"update": 1.0, "x": 1.0}]
+
+
+def test_a_missing_file_has_no_rows(tmp_path):
+    tail = CsvTail(tmp_path / "nothing.csv")
+    assert not tail.read() and tail.rows == []
+
+
+# Status
+
+
+def test_statuses_from_the_files(tmp_path):
+    _folder(tmp_path, "a_done", summary={"interrupted": False})
+    stopped = _folder(tmp_path, "b_stopped", summary={"interrupted": True})
+    (stopped / "resume.pt").write_bytes(b"")
+    _folder(tmp_path, "c_ended")  # no summary, no lock: it crashed
+    live = _folder(tmp_path, "d_live")
+    (live / "training.lock").write_text(str(os.getpid()))
+    _folder(tmp_path, "e_episodes", kind=None, metrics_csv="episode\n0\n")
+    rows = {row.name: row for row in scan(tmp_path)}
+    assert rows["a_done"].status == runs.DONE
+    assert rows["b_stopped"].status == runs.STOPPED
+    assert rows["b_stopped"].resumable
+    assert rows["c_ended"].status == runs.ENDED
+    assert not rows["c_ended"].resumable  # no resume state
+    assert rows["d_live"].status == runs.ELSEWHERE  # its lock is alive
+    assert rows["e_episodes"].status == runs.ELSEWHERE  # just written
+    later = time.time() + runs.LIVE_SECONDS + 1
+    rows = {row.name: row for row in scan(tmp_path, now=later)}
+    assert rows["e_episodes"].status == runs.ENDED
+    assert [row.name for row in scan(tmp_path)][0] == "e_episodes"
+
+
+def test_our_jobs_are_linked_to_their_runs(tmp_path):
+    _folder(tmp_path, "a_run")
+    locked = _folder(tmp_path, "b_run")
+    (locked / "training.lock").write_text("4242")
+    jobs = [_job(run="a_run", paused=True), _job(pid=4242)]
+    rows = {row.name: row for row in scan(tmp_path, jobs)}
+    assert rows["a_run"].status == runs.PAUSED
+    assert rows["a_run"].job is jobs[0]
+    assert rows["b_run"].job is jobs[1]  # by the lock's process id
+    assert rows["b_run"].status == runs.RUNNING
+
+
+def test_progress_and_list_lines(tmp_path):
+    _folder(
+        tmp_path,
+        "2026-09-27_003302_train-pupil_seed0",
+        learning_csv="decisions,score_mean\n250,1\n",
+    )
+    (row,) = scan(tmp_path, [_job(run="2026-09-27_003302_train-pupil_seed0")])
+    assert row.progress == 0.25
+    assert row.line == "09-27 00:33:02 train    pupil         25%"
+
+
+def test_a_job_learns_its_run_from_its_first_line(tmp_path):
+    jobs = JobManager(cwd=tmp_path)
+    job = jobs.start(
+        "job", [sys.executable, "-c", "print('Run: 2026-09-27_x_seed0')"]
+    )
+    assert _wait(lambda: not job.running and job.lines_seen >= 2)
+    assert job.run == "2026-09-27_x_seed0"
+
+
+def test_runs_announce_their_folder_first(tmp_path):
+    seen = []
+    summary = _run(tmp_path, episodes=1, on_start=seen.append)
+    assert seen == [summary.folder]
+    seen = []
+    summary = _train(tmp_path, on_start=seen.append)
+    assert seen == [summary.folder]
+
+
+# One run's details and curves
+
+
+def test_a_training_run_has_its_curves(tmp_path):
+    summary = _train(tmp_path)
+    data = RunData(summary.folder, tmp_path / "agents")
+    done, total, unit = data.counts()
+    assert (done, total, unit) == (512, 512, "decisions")
+    chart = data.main_chart()
+    training = chart.series[0]
+    assert training.label == "training" and len(training.points) == 4
+    assert data.options()[0] == "Agent reward"
+    for option in data.options():
+        assert data.second_chart(option).series[0].points
+    assert "pupil from initial" in data.description()
+    assert not data.refresh()  # nothing new
+
+
+def test_suite_scores_come_from_the_agents_history(tmp_path):
+    folder = _folder(
+        tmp_path / "runs",
+        "r",
+        learning_csv="decisions,score_mean,seconds\n100,5,1\n200,9,2\n",
+    )
+    config = json.loads((folder / "config.json").read_text())
+    config["suite"] = {"name": "box", "version": 1}
+    (folder / "config.json").write_text(json.dumps(config))
+    agent = tmp_path / "agents" / "pupil"
+    (agent / "evaluations").mkdir(parents=True)
+    events = [
+        {"event": "checkpoint_saved", "run": "r", "checkpoint": "a",
+         "decisions": 100},
+        {"event": "checkpoint_saved", "run": "other", "checkpoint": "b",
+         "decisions": 150},
+        {"event": "scored", "checkpoint": "a", "suite": "box-v1",
+         "score_mean": 40.0},
+        {"event": "scored", "checkpoint": "b", "suite": "box-v1",
+         "score_mean": 50.0},
+    ]
+    (agent / "history.jsonl").write_text(
+        "\n".join(json.dumps(e) for e in events) + "\n"
+    )
+    (agent / "evaluations" / "best.json").write_text('{"checkpoint": "a"}')
+    baselines = tmp_path / "agents" / "baselines"
+    baselines.mkdir()
+    (baselines / "box-v1.json").write_text(
+        '{"scores": {"heuristic": {"score_mean": 30.0}}}'
+    )
+    data = RunData(folder, tmp_path / "agents")
+    assert data.suite_points == [("a", 100.0, 40.0)]  # only this run's
+    assert data.best == ("a", 100.0, 40.0)
+    assert data.notes() == "suite best a 40"
+    labels = [s.label for s in data.main_chart().series]
+    assert labels == ["training", "suite box-v1", "best a", "heuristic"]
+    assert data.seconds_left() == pytest.approx(8.0)  # 800 more at 100/s
+
+
+def test_an_episode_run_has_its_curves(tmp_path):
+    summary = _run(tmp_path, episodes=3)
+    data = RunData(summary.folder, tmp_path)
+    assert data.counts() == (3, 3, "episodes")
+    episode, mean = data.main_chart().series
+    assert len(episode.points) == 3 and len(mean.points) == 3
+    assert data.notes().startswith("best episode")
+
+
+def test_an_imitation_run_has_its_curves(tmp_path):
+    folder = _folder(
+        tmp_path,
+        "i",
+        kind="imitation",
+        learning_csv=(
+            "epoch,seconds,train_loss,train_accuracy,held_out_loss,"
+            "held_out_accuracy,value_loss\n1,0.5,1.7,0.4,1.8,0.35,0.2\n"
+        ),
+    )
+    data = RunData(folder, tmp_path)
+    assert data.counts() == (1, 10, "epochs")
+    train, held = data.main_chart().series
+    assert train.points == [(1.0, 0.4)] and held.points == [(1.0, 0.35)]
+    assert [s.label for s in data.second_chart("Loss").series] == [
+        "train",
+        "held-out",
+    ]
+
+
+def test_rolling_mean():
+    points = [(i, float(i)) for i in range(4)]
+    assert runs._rolling(points, 2) == [
+        (0, 0.0),
+        (1, 0.5),
+        (2, 1.5),
+        (3, 2.5),
+    ]
+
+
+# Charts
+
+
+def test_ticks_are_round_numbers():
+    assert charts.nice_ticks(0, 5347) == [0, 2000, 4000, 6000]
+    assert charts.nice_ticks(0.3, 0.7) == [0.3, 0.4, 0.5, 0.6, 0.7]
+    flat = charts.nice_ticks(5, 5)
+    assert flat[0] < 5 < flat[-1] and len(flat) > 2
+
+
+def test_number_formats():
+    assert charts.compact(2_000_000) == "2M"
+    assert charts.compact(1_250_000) == "1.2M"
+    assert charts.compact(5347) == "5.3k"
+    assert charts.compact(0.02) == "0.02"
+    assert charts.readable(4412.4) == "4,412"
+    assert charts.readable(2.4617) == "2.46"
+    assert charts.percent(0.675) == "68%"
+
+
+def test_nearest_point():
+    series = Series("s", [(0, 1), (10, 2), (20, 3)], (0, 0, 0))
+    assert charts.nearest(series, 12) == (10, 2)
+    assert charts.nearest(series, 16) == (20, 3)
+    assert charts.nearest(Series("e", [], (0, 0, 0)), 5) is None
+
+
+def test_charts_draw_with_and_without_data():
+    pygame.init()
+    surface = pygame.Surface((600, 300))
+    rect = pygame.Rect(0, 0, 600, 300)
+    line = Series("s", [(0, 1.0), (10, 2.0)], (255, 255, 255))
+    level = Series("l", [(0, 1.5)], (9, 9, 9), charts.LEVEL)
+    chart = Chart("T", [line, level], "{} decisions")
+    charts.draw_chart(surface, rect, chart, mouse=(300, 150))
+    charts.draw_chart(surface, rect, Chart("T", [], "x {}"))
+    assert Chart("T", [level], "x").empty  # a level alone isn't data
+
+
+# The tab in the window
+
+
+@pytest.fixture
+def window(tmp_path):
+    from src.control.window import ControlCenter
+
+    runs_dir = tmp_path / "runs"
+    stopped = _folder(runs_dir, "2026-09-27_000000_train-pupil_seed0",
+                      summary={"interrupted": True})
+    (stopped / "resume.pt").write_bytes(b"")
+    center = ControlCenter(runs_dir=runs_dir, agents_dir=tmp_path)
+    yield center
+    center.jobs.stop_all()
+
+
+def test_the_runs_tab_opens_and_hides_the_commands(window):
+    runs_tab = window.runs_tab
+    window.handle(
+        pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN,
+            button=1,
+            pos=window.tab_rects["Runs"].center,
+        )
+    )
+    assert window.tab == "Runs"
+    assert not window.log_box.visible and runs_tab.run_list.visible
+    assert runs_tab.selected == "2026-09-27_000000_train-pupil_seed0"
+    window.draw()
+    window.open_tab("Commands")
+    assert window.log_box.visible and not runs_tab.run_list.visible
+
+
+def test_resume_training_starts_the_resume_action(window, monkeypatch):
+    started = []
+    monkeypatch.setattr(
+        window.jobs,
+        "start",
+        lambda label, argv: started.append(argv) or _job(),
+    )
+    window.open_tab("Runs")
+    tab = window.runs_tab
+    assert tab.buttons["Resume training"].is_enabled
+    assert not tab.buttons["Stop"].is_enabled  # not one of our jobs
+    tab.press("Resume training")
+    assert started[0][-2:] == [
+        "-resume",
+        "2026-09-27_000000_train-pupil_seed0",
+    ]

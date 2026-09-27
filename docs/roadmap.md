@@ -46,7 +46,9 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 5d | Window layout of modular boxes: a one-row top bar, the game on the left (driver and mode, game, score, leaderboard, agent), the car on the right (instruments, sensors, objective, display), `?` for a shortcuts box, a quit prompt on Esc, P to pause, and your round starting with your first driving key ([decision 021](decisions/021-window-layout-on-four-sides.md)) | Done |
 | 6 | Control center GUI: its own window (training setup, runs panel, learning curves, terminal-style console, recordings and datasets, agent roster grid, agent profile pages, agent leaderboard), pause training in place (it stays in memory while you watch replays or live play), plus separate simulation windows for live play and replays | Next ([decision 022](decisions/022-control-center-in-pygame.md)) |
 | 6a | Shell and commands: `make control`, every command consolidated into 19 actions grouped by the natural steps, with fields (dropdowns from the files on disk), background jobs (stop = Ctrl+C, pause, resume), live console | Done |
-| 6b | Training and runs: a training form (RL or imitation), runs list, live learning curves, stop / pause / resume / branch | Next |
+| 6b1 | Runs tab: every run (training, imitation, episodes) with its status read from the files, progress and time left, live learning curves with hover readouts, and stop / pause / resume / resume training / watch best replay ([decision 023](decisions/023-runs-tab.md)) | Done |
+| 6b2 | Training tab: one form for RL, imitation, or both chained, with a preview and an estimate; starting it opens the run in the Runs tab | Next |
+| 6b3 | Branch and compare: click a checkpoint dot to watch it or branch a new agent from it, and overlay two runs' curves | Planned |
 | 6c | Agents: roster cards, profile page (lineage, skill history, suite scores against the heuristic, milestone), leaderboard by suite score | Planned |
 | 6d | Files: editors for reward profiles, rules, trainers, models, datasets, and suites (with the same validators), and a recordings browser | Planned |
 | 7 | Maps: inner walls (rectangles) in stage files, camera for big stages, map editor (walls, spawns, scripted checkpoint sequences). Evaluation suite gains map-based skills (corridors, unseen maps). A reward term for progress toward the checkpoint, so backing out of a dead end pays off without rewarding reversing itself (paying for reversing would let an agent farm reward by rocking in place) | Planned |
@@ -353,7 +355,7 @@ Control center window        Simulation window 1      Simulation window 2
                         (IPC: inter-process communication)
 ```
 
-- **Control center:** runs list and status, learning curves, and a terminal-style console (scrolling log + command line). Example commands: `train`, `pause`, `resume`, `replay`, `spawn`, `join`, `compare`, `open`.
+- **Control center:** runs list and status, learning curves, and a console with each job's live output. The Runs tab (6b1, [decision 023](decisions/023-runs-tab.md)) reads every run's status and curves from its folder, including runs started in a terminal.
 - **Training setup:** pick the training mode (imitation, RL, or both, [decision 012](decisions/012-agent-training-modes.md)), stage, rules, reward profile, seed or seed range, and driver or starting checkpoint, then start. It's a front end over the runner (4h): the same settings a command line run takes.
 - **Recordings and datasets:** browse recordings per player (4i), replay them, keep or unkeep runs, and pick kept runs as an imitation dataset (5b).
 - **Everything is a named file** (stages, rules, reward profiles, recordings, runs, agents), so the control center lists and picks them rather than holding its own copies.

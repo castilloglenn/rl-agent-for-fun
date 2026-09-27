@@ -135,6 +135,7 @@ def train_agent(
     agents_root: Path | None = None,
     on_update: Callable[[UpdateReport], None] | None = None,
     suite: str = DEFAULT_SUITE,
+    on_start: Callable[[Path], None] | None = None,
 ) -> TrainingSummary:
     """One training phase: continues the agent's newest checkpoint for
     `trainer.total_decisions` decisions. Episode i uses seed first_seed + i.
@@ -160,6 +161,8 @@ def train_agent(
         suite=suite,
     )
     training.write_config()
+    if on_start:
+        on_start(folder)
     world = env.world
     record(
         loaded.folder,
@@ -185,6 +188,7 @@ def resume_training(
     base_config: ConfigDict | None = None,
     on_update: Callable[[UpdateReport], None] | None = None,
     suite: str = DEFAULT_SUITE,
+    on_start: Callable[[Path], None] | None = None,
 ) -> TrainingSummary:
     """Continues a stopped training run exactly where its last update
     left it, with the run's own trainer, stage, rules, and reward. It ends
@@ -240,6 +244,8 @@ def resume_training(
         suite=(run_config.get("suite") or {}).get("name", suite),
     )
     training.restore(state)
+    if on_start:
+        on_start(folder)
     record(
         loaded.folder,
         "phase_resumed",

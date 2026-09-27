@@ -4,6 +4,9 @@ A closed or crashed game window never takes down the control center or a
 training run. Stop sends Ctrl+C (SIGINT), so training keeps its exact
 resume state. Pause freezes the process in place (SIGSTOP), and resume
 continues it (SIGCONT).
+
+A job that writes a run folder names it first ("Run: <folder>"), so the
+runs tab knows which run is whose.
 """
 
 import os
@@ -17,6 +20,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 LOG_LINES = 2000  # kept per job
+RUN_LINE = "Run: "  # a run's first line: the folder it writes
 
 
 @dataclass
@@ -31,6 +35,7 @@ class Job:
     stopped: bool = False  # stopped by you, rather than finished
     log: deque = field(default_factory=lambda: deque(maxlen=LOG_LINES))
     lines_seen: int = 0  # grows with every line, for change detection
+    run: str | None = None  # the run folder it writes, once it says
 
     @property
     def running(self) -> bool:
@@ -131,5 +136,7 @@ def _read(job: Job) -> None:
 
 
 def _add(job: Job, line: str) -> None:
+    if job.run is None and line.startswith(RUN_LINE):
+        job.run = line[len(RUN_LINE) :].strip()
     job.log.append(line)
     job.lines_seen += 1

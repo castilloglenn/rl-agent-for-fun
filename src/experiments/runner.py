@@ -67,6 +67,7 @@ def run_experiment(
     rules: Rules | None = None,
     runs_dir: Path | None = None,
     on_episode: Callable[[int, EpisodeResult], None] | None = None,
+    on_start: Callable[[Path], None] | None = None,
 ) -> RunSummary:
     """Plays `episodes` games with `driver` (seeds first_seed, +1, ...)."""
     config = config.copy_and_resolve_references()
@@ -81,6 +82,8 @@ def run_experiment(
     )
     folder = _new_folder(runs_dir or RUNS_DIR, name, first_seed)
     _write_config(folder, name, env, driver, episodes, first_seed)
+    if on_start:
+        on_start(folder)
     (folder / "notes.md").write_text(f"# {name}\n\nYour observations.\n")
 
     results: list[EpisodeResult] = []

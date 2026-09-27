@@ -180,6 +180,7 @@ def _train(cl_args, config) -> None:
             reward=cl_args.reward,
             rules=rules,
             on_update=_training_progress,
+            on_start=_announce_run,
         )
     except AgentError as error:
         raise SystemExit(
@@ -205,7 +206,10 @@ def _resume(cl_args, config) -> None:
         run = cl_args.resume or last_stopped_run()
         print(f"Resuming {run} (Ctrl+C stops again)")
         summary = resume_training(
-            run, base_config=config, on_update=_training_progress
+            run,
+            base_config=config,
+            on_update=_training_progress,
+            on_start=_announce_run,
         )
     except (AgentError, TrainingError) as error:
         raise SystemExit(str(error))
@@ -273,7 +277,12 @@ def _imitate(cl_args, config) -> None:
             f"{cl_args.imitate!r} with trainer {trainer.name!r}"
         )
         summary = imitate(
-            cl_args.imitate, trainer, dataset, config, on_epoch=progress
+            cl_args.imitate,
+            trainer,
+            dataset,
+            config,
+            on_epoch=progress,
+            on_start=_announce_run,
         )
     except (AgentError, TrainerError, DatasetError) as error:
         raise SystemExit(str(error))
@@ -297,6 +306,13 @@ def _imitate(cl_args, config) -> None:
         f"DRIVER=agent:{summary.agent}@{summary.checkpoint}"
     )
     print(f"Improve it with RL: make train AGENT={summary.agent}")
+
+
+def _announce_run(folder) -> None:
+    """The run's folder, as soon as it exists: the control center links
+    the job to its run by this line (step 6b1).
+    """
+    print(f"Run: {folder.name}", flush=True)
 
 
 def _training_progress(report) -> None:
@@ -364,6 +380,7 @@ def _experiment_run(cl_args, config) -> None:
         reward=cl_args.reward,
         rules=rules,
         on_episode=progress,
+        on_start=_announce_run,
     )
     state = "interrupted, " if summary.interrupted else ""
     print(

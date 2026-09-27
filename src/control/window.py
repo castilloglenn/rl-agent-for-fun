@@ -1,16 +1,17 @@
-"""The control center window (roadmap step 6a): every action, grouped by
+"""The control center window (roadmap step 6): every action, grouped by
 the natural steps (actions.py), the jobs running in the background, and
-their live output.
+their live output (the Commands tab, 6a), and every run with its live
+learning curves (the Runs tab, 6b1, runs_tab.py).
 
     make control
 
 It never runs anything itself: each action is its own process (see
-jobs.py), started with the same `app.py` command you'd type. The console's
-command line also takes make commands, like the terminal.
+jobs.py), started with the same `app.py` command you'd type.
 """
 
 import html
 import time
+from pathlib import Path
 
 import pygame
 import pygame_gui
@@ -25,6 +26,7 @@ from pygame_gui.elements import (
 
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.jobs import JobManager
+from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
 from src.render import theme
 from src.utils.ui import draw_text, get_font
@@ -44,7 +46,7 @@ STATS_HEIGHT = 32  # the machine's vital signs, above the tabs
 TABS = (  # (name, the step it arrives in: None if it's here)
     ("Commands", None),
     ("Training", "6b"),
-    ("Runs", "6b"),
+    ("Runs", None),
     ("Agents", "6c"),
     ("Files", "6d"),
 )
@@ -142,10 +144,11 @@ def gui_theme() -> dict:
         "misc": ITEM,
     }
     look["#console"] = {"font": _font(CONSOLE_FONT)}
-    look["#jobs.@selection_list_item"] = {
-        "font": _font(CONSOLE_FONT),
-        "misc": ITEM,
-    }
+    for list_id in ("#jobs", "#runs"):
+        look[f"{list_id}.@selection_list_item"] = {
+            "font": _font(CONSOLE_FONT),
+            "misc": ITEM,
+        }
     return look
 
 
@@ -174,7 +177,12 @@ def wrap(text: str, width: float, size: int = theme.TEXT_SIZE) -> list[str]:
 
 
 class ControlCenter:
-    def __init__(self, jobs: JobManager | None = None) -> None:
+    def __init__(
+        self,
+        jobs: JobManager | None = None,
+        runs_dir: Path | None = None,
+        agents_dir: Path | None = None,
+    ) -> None:
         pygame.init()
         pygame.display.set_caption("Maze Car · Control Center")
         self.screen = pygame.display.set_mode(SIZE)
@@ -209,6 +217,16 @@ class ControlCenter:
         )
         self.tab_rects = self._tab_rects()
         self._build()
+        # The Runs tab: the full height, for its charts.
+        self.runs_tab = RunsTab(
+            self.gui,
+            Rect(MARGIN, top, width, SIZE[1] - MARGIN - top),
+            self.jobs,
+            self.run_named,
+            runs_dir=runs_dir,
+            agents_dir=agents_dir,
+        )
+        self.runs_tab.hide()
 
     # Widgets
 
@@ -369,8 +387,10 @@ class ControlCenter:
 
     # Actions
 
-    def run_action(self, action: Action, values: dict) -> None:
-        """Runs an action, unless a field it needs is empty."""
+    def run_action(self, action: Action, values: dict):
+        """Runs an action, unless a field it needs is empty. Returns its
+        job, or None.
+        """
         empty = []
         for field in action.fields:
             value = values.get(field.name, field.default).strip()
@@ -379,19 +399,28 @@ class ControlCenter:
                 empty.append(field.name)
         if empty:
             self.message = (f"Needs: {', '.join(empty)}", theme.BAD)
-            return
+            return None
         label = action.name
         if action.fields:
             label += f": {values.get(action.fields[0].name, '')}"
-        self._start(label, action.argv(values), action.opens_window)
+        return self._start(label, action.argv(values), action.opens_window)
 
-    def _start(self, label: str, argv: list[str], window: bool) -> None:
+    def run_named(self, name: str, values: dict):
+        """Runs the action called `name` (for the other tabs), with its
+        defaults for the fields `values` leaves out.
+        """
+        action = next(a for a in ACTIONS if a.name == name)
+        filled = {f.name: f.default for f in action.fields}
+        return self.run_action(action, {**filled, **values})
+
+    def _start(self, label: str, argv: list[str], window: bool):
         job = self.jobs.start(label, argv)
         self.selected_job = job
         where = "a game window opens" if window else "headless"
         self.message = (f"Started job #{job.number} ({where})", theme.GOOD)
         self._log_seen = -1
         self._refresh(force=True)
+        return job
 
     def _job_action(self, name: str) -> None:
         if name == "Clear":
@@ -406,6 +435,30 @@ class ControlCenter:
             }[name]
             action(self.selected_job)
         self._refresh(force=True)
+
+    def open_tab(self, name: str) -> None:
+        if name == self.tab:
+            return
+        self.tab = name
+        commands = [
+            self.group_menu,
+            self.action_list,
+            *self.field_widgets.values(),
+            *([self.run_button] if self.run_button else []),
+            self.job_list,
+            *self.job_buttons.values(),
+            self.log_box,
+        ]
+        if name == "Runs":
+            for widget in commands:
+                widget.hide()
+            self.runs_tab.show()
+        else:
+            self.runs_tab.hide()
+            for widget in commands:
+                widget.show()
+            if self.selected:
+                self._place()  # hides the fields scrolled out of view
 
     def ask_to_quit(self) -> None:
         self.confirm_quit = True
@@ -428,8 +481,14 @@ class ControlCenter:
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for name, rect in self.tab_rects.items():
                 if rect.collidepoint(event.pos) and _available(name):
-                    self.tab = name
-        elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
+                    self.open_tab(name)
+        if self.tab == "Runs":
+            self.runs_tab.handle(event)
+        else:
+            self._handle_commands(event)
+
+    def _handle_commands(self, event) -> None:
+        if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element is self.group_menu:
                 self._show_group(event.text)
         elif event.type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
@@ -500,17 +559,21 @@ class ControlCenter:
 
     def draw(self) -> None:
         self.screen.fill(theme.BACKGROUND)
-        boxes = (
-            self.stats_bar,
-            self.tab_bar,
-            self.commands_box,
-            self.jobs_box,
-            self.console,
-        )
-        for rect in boxes:
+        for rect in (self.stats_bar, self.tab_bar):
             pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
         self._draw_stats()
         self._draw_tabs()
+        if self.tab == "Runs":
+            self.runs_tab.draw(self.screen)
+            self.gui.draw_ui(self.screen)
+        else:
+            self._draw_commands()
+        if self.confirm_quit:
+            self._draw_quit_box()
+
+    def _draw_commands(self) -> None:
+        for rect in (self.commands_box, self.jobs_box, self.console):
+            pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
         _header(self.screen, self.commands_box, "COMMANDS")
         _header(self.screen, self.jobs_box, "JOBS")
         job = getattr(self, "_log_job", None)
@@ -527,8 +590,6 @@ class ControlCenter:
         self.gui.draw_ui(self.screen)
         if self.selected:
             self._draw_hints()
-        if self.confirm_quit:
-            self._draw_quit_box()
 
     def _dropdown_open(self) -> bool:
         menus = [self.group_menu, *self.field_widgets.values()]
@@ -805,6 +866,8 @@ class ControlCenter:
             for event in pygame.event.get():
                 self.handle(event)
             self._refresh()
+            if self.tab == "Runs":
+                self.runs_tab.refresh()
             self.gui.update(elapsed)
             self.draw()
             pygame.display.flip()

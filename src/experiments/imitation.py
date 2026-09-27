@@ -93,6 +93,7 @@ def imitate(
     recordings_root: Path | None = None,
     on_epoch: Callable[[EpochReport], None] | None = None,
     suite: str = DEFAULT_SUITE,
+    on_start: Callable[[Path], None] | None = None,
 ) -> ImitationSummary:
     """Clones the dataset's driving into an agent (created with the small
     model if it doesn't exist yet), starting from its newest checkpoint.
@@ -115,6 +116,8 @@ def imitate(
         runs_dir or RUNS_DIR, f"imitate-{loaded.agent_id}", trainer.seed
     )
     _write_config(folder, loaded, trainer, data, held_out)
+    if on_start:
+        on_start(folder)
     record(
         loaded.folder,
         "phase_started",

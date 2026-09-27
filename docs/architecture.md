@@ -192,9 +192,12 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `actions.py` | `ACTIONS`: every command, consolidated into 19 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
 | `makefile.py` | `read_commands()`: every make target, read from the Makefile, so a test can check that the actions cover them all |
 | `choices.py` | `options(command, param)`: dropdown choices from the files on disk (agents, drivers, rules, rewards, stages, runs, recordings, test files), or None for typed values |
-| `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it |
+| `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it. A job remembers the run folder it writes, from its `Run: <folder>` line |
+| `runs.py` | The Runs tab's data ([decision 023](decisions/023-runs-tab.md)): `scan()` lists every run folder with its status (from our jobs, `training.lock`, the summary, and file times) and progress; `RunData` holds one run's details and chart series, and `CsvTail` reads only the lines a CSV file gained since the last read |
+| `charts.py` | `draw_chart()`: hand-drawn line charts (lines, dots, rings, dashed levels) with round ticks and a hover readout |
+| `runs_tab.py` | `RunsTab`: the run list, the selected run's header, two charts (the second picked from a dropdown), and its buttons |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window (the machine's vital signs and tabs on top, actions with their fields (scrolling when they don't fit) and the command they run, jobs, a big console, and a QUIT? box with Cancel (Esc) and Confirm (Enter)), themed like the game window |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: the machine's vital signs and tabs on top, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Runs tab, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
 
 ## Replays (`src/replay/`)
 
