@@ -19,16 +19,19 @@ from src.render.panels import ModeInfo, PlaybackInfo
 from src.render.renderer import Command
 from src.replay.format import Replay, read_replay
 from src.replay.replayer import Replayer, Verification
+from src.sim.components import Transform
 from src.utils.timing import FixedStepClock
 
 SPEEDS = (0.5, 1.0, 2.0, 4.0)
 SPEED_KEYS = {pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2, pygame.K_4: 3}
+TRAIL_EVERY = 2  # steps between the trail's points (60 per second)
 SHORTCUTS = (
     ("SPACE / P", "pause / resume"),
     ("1-4", "speed: 0.5x, 1x, 2x, 4x"),
     ("N", "one step while paused"),
     ("R", "restart"),
     ("H", "lines"),
+    ("T", "trail: where the car has been"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),
 )
@@ -73,6 +76,8 @@ class ReplayViewer:
         self.clock = FixedStepClock(steps_per_second, max_steps_per_frame=32)
         self.control = PlaybackControl()
         self.running = True
+        self.trail: list[tuple[float, float]] = []  # where the car has been
+        self._start_trail()
 
     @staticmethod
     def open(path: str | Path, config: ConfigDict) -> "ReplayViewer":
@@ -83,16 +88,33 @@ class ReplayViewer:
         control = self.control
         if control.restart_requested:
             self.replayer.restart()
+            self._start_trail()
             control.restart_requested = False
         if control.paused:
             for _ in range(control.step_requests):
-                self.replayer.step()
+                self._step()
             control.step_requests = 0
             self.clock.advance(0)
             return
         for _ in range(self.clock.advance(elapsed * control.speed)):
-            if not self.replayer.step():
+            if not self._step():
                 break
+
+    def _step(self) -> bool:
+        """One replay step, adding to the trail. False once it's over."""
+        more = self.replayer.step()
+        if self.replayer.step_index % TRAIL_EVERY == 0:
+            self._add_trail_point()
+        return more
+
+    def _start_trail(self) -> None:
+        self.trail = []
+        self._add_trail_point()
+
+    def _add_trail_point(self) -> None:
+        env = self.replayer.env
+        transform = env.world.component(env.car, Transform)
+        self.trail.append((transform.x, transform.y))
 
     def mode(self) -> ModeInfo:
         if self.verification.ok:
@@ -110,7 +132,9 @@ class ReplayViewer:
             position=self.replayer.step_index / sps,
             length=self.replayer.total_steps / sps,
         )
-        return ModeInfo(label, color, SHORTCUTS, messages, playback)
+        return ModeInfo(
+            label, color, SHORTCUTS, messages, playback, self.trail
+        )
 
     def run(self) -> None:
         elapsed = 0.0

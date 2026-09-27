@@ -33,7 +33,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
 | `make recordings` | List recorded rounds per player (recent and kept counts, newest) |
 | `make replay_last` | Watch your newest recording |
-| `make replay FILE=path` | Watch a replay (`.jsonl` or `.jsonl.gz`): SPACE pause, 1-4 speed, N step, R restart |
+| `make replay FILE=path` | Watch a replay (`.jsonl` or `.jsonl.gz`): SPACE or P pause, 1-4 speed, N step, R restart, T trail, H lines |
 | `make runs` | List all experiment runs (newest first): driver, stage, rules, reward, episodes, mean and best score, survival |
 | `make run_heuristic` | Run the heuristic for 100 episodes, headless, into `runs/` |
 | `make run_random` | Same, with the random baseline |

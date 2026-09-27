@@ -75,6 +75,7 @@ class Renderer:
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
         self.show_shortcuts = False  # "?" toggles the shortcuts box
+        self.show_trail = False  # T toggles a replay's trail
         self.confirm_quit = False  # Esc asks first, Enter confirms
         self.keys_pressed: list[int] = []  # this frame's keys, for modes
         # The playback state last drawn (speed, paused), and when it
@@ -145,6 +146,8 @@ class Renderer:
             self.show_shortcuts = not self.show_shortcuts
         elif key == pygame.K_h:
             self.show_lines = not self.show_lines
+        elif key == pygame.K_t:
+            self.show_trail = not self.show_trail
         elif self.show_shortcuts:
             return
         else:
@@ -165,7 +168,7 @@ class Renderer:
         mode: a window mode other than live play, such as a replay.
         """
         self.display.fill(theme.BACKGROUND)
-        self._draw_field(world, alpha)
+        self._draw_field(world, alpha, mode.trail if mode else None)
         if mode and mode.playback:
             self._draw_playback(mode.playback)
         cars = panels.car_infos(world)
@@ -209,7 +212,7 @@ class Renderer:
         pygame.display.flip()
         return self.clock.tick(self.frame_rate) / 1000
 
-    def _draw_field(self, world: World, alpha: float) -> None:
+    def _draw_field(self, world: World, alpha: float, trail=None) -> None:
         self._checkpoints = world.query(Transform, Checkpoint)
         field_rect = world.resource(Field).rect.move(self.offset)
         # pygame draws a 1 px outline inside the rect's right and bottom
@@ -229,6 +232,8 @@ class Renderer:
                 trigger.radius,
                 width=2,
             )
+        if trail and self.show_trail:
+            self._draw_trail(trail)  # under the car
         sim = world.resource(SimConfig)
         step = world.resource(SimClock).step
         for car, (transform, motion, hitbox, sensors, renderable, previous) in (
@@ -308,6 +313,34 @@ class Renderer:
             ),
         ]
         self._draw_centered_lines(lines)
+
+    # A replay's trail: bright for the last seconds, fading to gray.
+
+    TRAIL_RECENT = 120  # points (at 60 per second): 2 s stay bright
+    TRAIL_FADE = 1200  # then fade to gray over the next 20 s
+    TRAIL_CHUNK = 8  # points drawn per line, in one color
+
+    def _draw_trail(self, trail) -> None:
+        count = len(trail)
+        ox, oy = self.offset
+        for start in range(0, count - 1, self.TRAIL_CHUNK):
+            chunk = trail[start : start + self.TRAIL_CHUNK + 1]
+            if len(chunk) < 2:
+                break
+            age = count - 1 - (start + len(chunk) - 1)  # its newest point
+            fresh = 1.0 - max(age - self.TRAIL_RECENT, 0) / self.TRAIL_FADE
+            fresh = max(fresh, 0.0)
+            color = tuple(
+                round(old + (new - old) * fresh)
+                for old, new in zip(theme.TRAIL_OLD, theme.TRAIL_RECENT)
+            )
+            pygame.draw.lines(
+                self.display,
+                color,
+                False,
+                [(x + ox, y + oy) for x, y in chunk],
+                2 if age < self.TRAIL_RECENT else 1,
+            )
 
     # Playback: a video-player-style bar along the bottom of the field.
 

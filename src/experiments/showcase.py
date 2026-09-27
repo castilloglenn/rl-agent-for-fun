@@ -37,8 +37,9 @@ from src.experiments.runner import RUNS_DIR
 from src.render import theme
 from src.render.panels import ModeInfo, PlaybackInfo
 from src.render.renderer import Command
-from src.replay.viewer import SPEEDS, PlaybackControl
-from src.sim.resources import RoundState
+from src.replay.viewer import SPEEDS, TRAIL_EVERY, PlaybackControl
+from src.sim.components import Transform
+from src.sim.resources import RoundState, SimClock
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.utils.timing import FixedStepClock
@@ -54,6 +55,7 @@ SHORTCUTS = (
     ("<- ->", "previous / next checkpoint"),
     ("R", "restart this checkpoint"),
     ("H", "lines"),
+    ("T", "trail: where the car has been"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),
 )
@@ -217,6 +219,7 @@ class Showcase:
         self.env.driver = f"{self.folder.name}@{stop.checkpoint}"
         self.observation, _ = self.env.reset(seed=self.seed)
         self.driver.reset(self.seed)
+        self.trail: list[tuple[float, float]] = [self._car_position()]
         self.card = True  # the title card stays until Enter
         self.after = AFTER_SECONDS  # pause after the round ends
         self.finished = False
@@ -279,6 +282,12 @@ class Showcase:
         if not self.env.is_game_over:
             self.env.step_world(self.driver.act(self.observation))
             self.observation = self.env.last_observation
+            if self.env.world.resource(SimClock).step % TRAIL_EVERY == 0:
+                self.trail.append(self._car_position())
+
+    def _car_position(self) -> tuple[float, float]:
+        transform = self.env.world.component(self.env.car, Transform)
+        return transform.x, transform.y
 
     # What the window shows
 
@@ -295,7 +304,12 @@ class Showcase:
         else:
             messages = ()
         return ModeInfo(
-            label, theme.ACCENT, SHORTCUTS, messages, self._playback()
+            label,
+            theme.ACCENT,
+            SHORTCUTS,
+            messages,
+            self._playback(),
+            self.trail,
         )
 
     def _playback(self) -> PlaybackInfo:

@@ -59,6 +59,8 @@ class ModeInfo:
     shortcuts: tuple[tuple[str, str], ...]  # (key, what it does), for "?"
     messages: tuple[tuple[str, ColorValue], ...] = ()
     playback: "PlaybackInfo | None" = None  # replays: the control bar
+    # Replays: where the car has been, oldest first (T shows it).
+    trail: tuple[tuple[float, float], ...] | list | None = None
 
 
 @dataclass(frozen=True)

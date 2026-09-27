@@ -155,3 +155,16 @@ def test_navigating_shows_the_card_again(trained):
     assert show.index == 1 and show.card
     show.handle_key(pygame.K_LEFT)
     assert show.index == 0 and show.card
+
+
+def test_the_showcase_draws_a_trail_too(trained):
+    show = _show(trained)
+    assert len(show.trail) == 1  # the start
+    show.handle_key(pygame.K_RETURN)
+    for _ in range(30):
+        show.tick(1 / 60)
+    assert len(show.trail) > 10 and show.mode().trail is show.trail
+    assert ("T", "trail: where the car has been") in show.mode().shortcuts
+    show.handle_key(pygame.K_RIGHT)
+    assert len(show.trail) == 1  # a new checkpoint starts a new trail
+

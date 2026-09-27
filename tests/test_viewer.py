@@ -113,3 +113,32 @@ def test_presentation_settings_come_from_the_viewer_config():
     config.hud.near_caution = 99.0
     viewer = ReplayViewer(_replay(steps=50), config)
     assert viewer.replayer.env.config.hud.near_caution == 99.0
+
+
+def test_the_trail_follows_playback(viewer):
+    assert len(viewer.trail) == 1  # the start
+    viewer.control.handle_key(pygame.K_2)  # 1x
+    for _ in range(60):  # 1 s of frames: 120 steps, a point every 2
+        viewer.tick(1 / 60)
+    assert 58 <= len(viewer.trail) <= 62
+    assert viewer.mode().trail is viewer.trail
+    viewer.control.handle_key(pygame.K_SPACE)
+    points = len(viewer.trail)
+    viewer.tick(1.0)
+    assert len(viewer.trail) == points  # paused: no new points
+    viewer.control.handle_key(pygame.K_r)
+    viewer.tick(0.0)
+    assert len(viewer.trail) == 1  # restart clears it
+
+
+def test_t_toggles_the_trail_apart_from_the_lines(viewer):
+    renderer = viewer.renderer
+    assert not renderer.show_trail and renderer.show_lines
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_t))
+    renderer.poll_events()
+    assert renderer.show_trail and renderer.show_lines
+    viewer.tick(1.0)
+    env = viewer.replayer.env
+    renderer.draw(env.world, 1.0, env.reward_status(), viewer.mode())
+    assert ("T", "trail: where the car has been") in viewer.mode().shortcuts
+
