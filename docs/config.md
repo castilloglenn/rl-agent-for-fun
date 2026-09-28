@@ -10,7 +10,7 @@
 | `show_bounds` | `True` | `Renderer`: hitbox lines exist (H toggles all debug lines at runtime) |
 | `show_collision_distance` | `True` | `Renderer`: ray lines exist (H toggles all debug lines at runtime) |
 | `window.title` | `"Maze Car"` | `Renderer`. The window size is derived from the field size plus the panel layout (`src/render/layout.py`), currently 1203×640 |
-| `stage` | `"box"` | The playing area: a stage file in `stages/`, by name or path (size, walls, spawns, checkpoint rules). `box` (no walls), `pillars` (4 blocks), `s_curve` (an S through two walls), `arena` (1200 × 1200, 7 walls: bigger than the field view, see [decision 034](decisions/034-camera.md)). See [decision 009](decisions/009-stage-format-and-spawn-schedules.md) and [decision 033](decisions/033-walls-in-the-simulation.md) |
+| `stage` | `"box"` | The playing area: a stage file in `stages/`, by name or path (size, walls, spawns, checkpoint rules). `box` (no walls), `pillars` (4 blocks), `s_curve` (an S through two walls), `arena` (1200 × 1200, 7 walls: bigger than the field view, which follows the car with a mini map, see [decision 034](decisions/034-camera.md)). See [decision 009](decisions/009-stage-format-and-spawn-schedules.md) and [decision 033](decisions/033-walls-in-the-simulation.md) |
 | `sensors.ray_length` | 1800 | `SimConfig`: maximum ray distance. Longer than the field's diagonal, so today every ray reaches the border |
 | `sim.steps_per_second` | 120 | `SimConfig`: the fixed simulation rate. Per-step physics values and step-based durations come from it ([decision 008](decisions/008-fixed-timestep-clock.md)) |
 | `hud.reaction_time` | 0.25 s | HUD stopping distance: reaction part (speed × time), plus braking (speed² / 2 × brake) |
@@ -20,7 +20,6 @@
 | `hud.time_caution`, `hud.time_danger` | 10.0, 5.0 s | TIME turns amber / red below these seconds left |
 | `game.seed` | 0 | Seed for the spawn schedules (agents and tests). The demo picks a fresh one per round |
 | `hud.checkpoint_near` | 80.0 px | Checkpoint distance turns green below this |
-| `window.max_field` | [1100, 640] | The largest field view (px). A bigger stage is scaled to fit it, or followed at 1:1 (F) ([decision 034](decisions/034-camera.md)). A display setting: never saved |
 | `window.playback_bar` | false | A playback bar under the field (replays and the showcase turn it on). A display setting: never saved |
 | `hud.hit_flash_seconds`, `hud.hit_blink_seconds` | 0.5, 0.1 s | After a hit, the car blinks red this long, switching this often |
 | `rules` | `"standard"` | How the game is played and scored: a rules file in `rules/`, by name or path (round length, rounds per game, scoring, collisions). `standard`: one 60 s round (7,200 steps), +1 per 10 px, +100 per checkpoint, health 100 with hits harmless up to 60 px/s into the wall and lethal from 240 px/s, and scraping along a wall at 1 health per 10 px. Also `sprint` (30 s) and `marathon` (120 s). See [decision 013](decisions/013-game-rules-files.md) |

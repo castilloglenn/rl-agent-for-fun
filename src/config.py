@@ -134,9 +134,6 @@ def get_maze_car_config() -> ConfigDict:
     config.window.title = "Maze Car"
     # A playback bar under the field (replays and the showcase set it).
     config.window.playback_bar = False
-    # The largest field view (px). A bigger stage is scaled to fit, or
-    # followed at 1:1 (F). A display setting, like playback_bar.
-    config.window.max_field = [1100, 640]
 
     # The playing area: a stage file in stages/, by name or path. It holds
     # the size, spawns, and checkpoint rules. See docs/decisions/009.

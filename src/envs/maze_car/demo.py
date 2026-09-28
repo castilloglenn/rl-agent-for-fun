@@ -18,7 +18,8 @@ RECORDING_SHORTCUTS = (
     ("R", "restart"),
     ("K", "keep the last round"),
     ("H", "lines"),
-    ("F", "camera: fit or follow (big stages)"),
+    ("F", "camera: follow or fit (big stages)"),
+    ("M", "mini map (big stages)"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),
 )

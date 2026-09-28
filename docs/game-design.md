@@ -116,7 +116,7 @@ All values above are starting points, kept in config so experiments can change t
 
 ## Later phases
 
-- Inner walls in stage files (done in step 7a: rectangles, [decision 033](decisions/033-walls-in-the-simulation.md); the `pillars` and `s_curve` stages), a camera for stages bigger than the window (step 7b: fit or follow, F), and a map editor (step 7c)
+- Inner walls in stage files (done in step 7a: rectangles, [decision 033](decisions/033-walls-in-the-simulation.md); the `pillars` and `s_curve` stages), a camera for stages bigger than the view (step 7b: follow with a mini map, or fit, F), and a map editor (step 7c)
 - Fuel system
 - Multiple rounds per game
 - Multiple cars and car-vs-car collision

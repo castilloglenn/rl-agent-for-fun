@@ -4,6 +4,7 @@ from pygame import Rect, Surface
 
 from src.ecs import World
 from src.render import camera, panels, theme, warnings
+from src.render.camera import FOLLOW
 from src.render.layout import Layout
 from src.sim.components import (
     Checkpoint,
@@ -17,7 +18,7 @@ from src.sim.components import (
     Transform,
     Trigger,
 )
-from src.sim.geometry import car_corners
+from src.sim.geometry import car_corners, direction
 from src.sim.stage import Stage, load_stage
 from src.sim.resources import (
     EventLog,
@@ -64,20 +65,15 @@ class Renderer:
         """
         self.config = config
         field_rect = Field.from_stage(stage or load_stage(config.stage)).rect
-        # A big stage gets a view of at most max_field (step 7b).
-        max_field = tuple(config.window.get("max_field", camera.MAX_FIELD))
-        view_w, view_h = camera.view_size(
-            field_rect.width, field_rect.height, max_field
-        )
+        # The field view is the box's size on every stage (step 7b).
+        view_w, view_h = camera.view_size(field_rect.width, field_rect.height)
         self.layout = Layout.for_field(
             view_w, view_h, playback=config.window.playback_bar
         )
         self.camera = camera.Camera.for_stage(
-            field_rect.width,
-            field_rect.height,
-            self.layout.field_view,
-            max_field,
+            field_rect.width, field_rect.height, self.layout.field_view
         )
+        self.show_minimap = True  # M: on stages bigger than the view
         # Debug lines (rays, hitbox, and future distance or boundary
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
@@ -163,6 +159,8 @@ class Renderer:
             self.show_trail = not self.show_trail
         elif key == pygame.K_f:
             self.camera.toggle()
+        elif key == pygame.K_m:
+            self.show_minimap = not self.show_minimap
         elif self.show_shortcuts:
             return
         else:
@@ -301,16 +299,85 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
+        self._draw_minimap(world, alpha)
         self.display.set_clip(None)
+
+    MINIMAP = 150  # px: the mini map's long side
+    MINIMAP_INSET = 10  # px from the view's edges
+
+    def _draw_minimap(self, world: World, alpha: float) -> None:
+        """Follow mode on a big stage: the whole stage, small, in the
+        view's top right (top left while the car is under it): walls, the
+        checkpoint, the car, and the area the view shows.
+        """
+        cam = self.camera
+        if not (self.show_minimap and cam.zoomable and cam.mode == FOLLOW):
+            return
+        s = self.MINIMAP / max(cam.stage_width, cam.stage_height)
+        size = (round(cam.stage_width * s), round(cam.stage_height * s))
+        view, inset = cam.view, self.MINIMAP_INSET
+        box = pygame.Rect(0, 0, *size)
+        box.topright = (view.right - inset, view.top + inset)
+        car = self._first_car(world, alpha)
+        if car and box.inflate(24, 24).collidepoint(cam.to_screen(*car[:2])):
+            box.topleft = (view.left + inset, view.top + inset)
+        shade = pygame.Surface(size, pygame.SRCALPHA)
+        shade.fill((*theme.BACKGROUND, 235))
+        self.display.blit(shade, box)
+
+        def at(x: float, y: float) -> tuple[float, float]:
+            return box.x + x * s, box.y + y * s
+
+        for wall in world.resource(Walls).boxes:
+            left, top = at(wall.left, wall.top)
+            rect = pygame.Rect(
+                round(left),
+                round(top),
+                max(round((wall.right - wall.left) * s), 1),
+                max(round((wall.bottom - wall.top) * s), 1),
+            )
+            pygame.draw.rect(self.display, theme.TEXT_DIM, rect)
+        ox, oy = cam.origin
+        seen = pygame.Rect(
+            round(box.x + ox * s),
+            round(box.y + oy * s),
+            round(view.w * s),
+            round(view.h * s),
+        )
+        pygame.draw.rect(self.display, theme.PANEL_BORDER, seen, 1)
+        for _, (spot, _) in self._checkpoints:
+            pygame.draw.circle(
+                self.display, theme.CHECKPOINT, at(spot.x, spot.y), 3
+            )
+        if car:
+            x, y, angle = car
+            dx, dy = direction(angle)
+            head = at(x, y)
+            pygame.draw.line(
+                self.display,
+                theme.TRAIL_RECENT,
+                head,
+                (head[0] + dx * 7, head[1] + dy * 7),
+                2,
+            )
+            pygame.draw.circle(self.display, theme.TRAIL_RECENT, head, 3)
+        pygame.draw.rect(self.display, theme.PANEL_BORDER, box, 1)
+
+    def _first_car(self, world: World, alpha: float):
+        """(x, y, angle) of the first car, where it's drawn, or None."""
+        for _, (transform, previous) in world.query(Transform, PreviousPose):
+            return (
+                lerp(previous.center_x, transform.x, alpha),
+                lerp(previous.center_y, transform.y, alpha),
+                lerp_angle(previous.angle, transform.angle, alpha),
+            )
+        return None
 
     def _follow(self, world: World, alpha: float) -> None:
         """Follow mode centers on the first car, where it's drawn."""
-        for _, (transform, previous) in world.query(Transform, PreviousPose):
-            self.camera.follow(
-                lerp(previous.center_x, transform.x, alpha),
-                lerp(previous.center_y, transform.y, alpha),
-            )
-            return
+        car = self._first_car(world, alpha)
+        if car:
+            self.camera.follow(car[0], car[1])
 
     def _car_color(self, world, car, renderable, step, sim) -> ColorValue:
         """Dark red once wrecked. After a hit, it blinks red for a moment

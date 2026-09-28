@@ -1,45 +1,33 @@
 """The field's camera (roadmap step 7b): how stage coordinates become
 screen pixels. Drawing only: the simulation never sees it.
 
-A stage that fits the largest field view (`window.max_field`) shows 1:1,
-exactly as before. A bigger one gets a view of that size, and two modes
-(F switches):
+The field view is always the box's size (855 x 480), so the window and
+the car look the same on every stage. A stage that fits shows 1:1. A
+bigger one has two modes (F switches):
 
-    fit     the whole stage, scaled down to the view
-    follow  1:1, centered on the car, stopping at the stage's edges
+    follow  1:1, centered on the car, stopping at the stage's edges (the
+            default), with a mini map (M)
+    fit     the whole stage, scaled down to the view: an overview
 """
 
 from dataclasses import dataclass
 
 from pygame import Rect
 
-MAX_FIELD = (1100, 640)  # px: the largest field view
-# The smallest field view (the box's size): the top bar above it needs
-# the width. A narrower fitted stage is centered in it.
-MIN_FIELD = (855, 480)
+VIEW = (855, 480)  # px: the field view, the box's size
 FIT, FOLLOW = "fit", "follow"
 
 
-def view_size(
-    stage_width: float, stage_height: float, max_field=MAX_FIELD
-) -> tuple[int, int]:
-    """The field view's size: the stage's, scaled down to fit, and at
-    least MIN_FIELD.
+def view_size(stage_width: float, stage_height: float) -> tuple[int, int]:
+    """The field view's size: always VIEW (a smaller stage is centered
+    in it, a bigger one is followed or fitted).
     """
-    scale = fit_scale(stage_width, stage_height, max_field)
-    return (
-        max(round(stage_width * scale), MIN_FIELD[0]),
-        max(round(stage_height * scale), MIN_FIELD[1]),
-    )
+    return VIEW
 
 
-def fit_scale(
-    stage_width: float, stage_height: float, max_field=MAX_FIELD
-) -> float:
-    """1.0 when the stage fits, else the scale that fits it."""
-    return min(
-        1.0, max_field[0] / stage_width, max_field[1] / stage_height
-    )
+def fit_scale(stage_width: float, stage_height: float, view=VIEW) -> float:
+    """1.0 when the stage fits the view, else the scale that fits it."""
+    return min(1.0, view[0] / stage_width, view[1] / stage_height)
 
 
 @dataclass
@@ -53,10 +41,12 @@ class Camera:
 
     @staticmethod
     def for_stage(
-        stage_width: float, stage_height: float, view: Rect, max_field
+        stage_width: float, stage_height: float, view: Rect
     ) -> "Camera":
-        scale = fit_scale(stage_width, stage_height, max_field)
-        return Camera(stage_width, stage_height, view, scale)
+        """Follow for a stage bigger than the view, else 1:1."""
+        scale = fit_scale(stage_width, stage_height, view.size)
+        mode = FOLLOW if scale < 1.0 else FIT
+        return Camera(stage_width, stage_height, view, scale, mode)
 
     @property
     def zoomable(self) -> bool:
