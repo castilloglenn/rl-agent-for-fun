@@ -26,6 +26,7 @@ from src.sim.resources import (
     RoundState,
     SimClock,
     SimConfig,
+    Walls,
 )
 from src.utils.common import (
     get_triangle_coordinates_from_rect,
@@ -216,6 +217,21 @@ class Renderer:
         pygame.display.flip()
         return self.clock.tick(self.frame_rate) / 1000
 
+    def _draw_walls(self, world: World) -> None:
+        """Walls inside the field (7a): filled, with the border's outline
+        (1 px wider, as for the border, so the line is on the surface).
+        """
+        ox, oy = self.offset
+        for box in world.resource(Walls).boxes:
+            rect = pygame.Rect(
+                round(box.left + ox),
+                round(box.top + oy),
+                round(box.right - box.left) + 1,
+                round(box.bottom - box.top) + 1,
+            )
+            pygame.draw.rect(self.display, theme.WALL, rect)
+            pygame.draw.rect(self.display, theme.FIELD_BORDER, rect, 1)
+
     def _draw_field(self, world: World, alpha: float, trail=None) -> None:
         self._checkpoints = world.query(Transform, Checkpoint)
         field_rect = world.resource(Field).rect.move(self.offset)
@@ -226,6 +242,7 @@ class Renderer:
             field_rect.x, field_rect.y, field_rect.w + 1, field_rect.h + 1
         )
         pygame.draw.rect(self.display, theme.FIELD_BORDER, border, 1)
+        self._draw_walls(world)
         for _, (spot, trigger, _) in world.query(
             Transform, Trigger, Checkpoint
         ):

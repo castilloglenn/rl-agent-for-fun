@@ -28,6 +28,7 @@ from src.sim.resources import (
     SimClock,
     SimConfig,
     SpawnSchedules,
+    Walls,
 )
 from src.sim.rules import Rules, load_rules
 from src.sim.spawning import SpawnSchedule
@@ -73,6 +74,8 @@ def create_world(
     world.add_resource(Rng(seed))
     world.add_resource(stage)
     world.add_resource(Field.from_stage(stage))
+    walls = Walls.from_stage(stage)
+    world.add_resource(walls)
     world.add_resource(
         SpawnSchedules(
             {
@@ -82,6 +85,7 @@ def create_world(
                     stage.checkpoints,
                     stage.width,
                     stage.height,
+                    walls=walls.boxes,
                 )
             }
         )
@@ -125,7 +129,13 @@ def create_car(
             for name, ray_angle in RAY_LAYOUT
         ]
     )
-    cast_rays(sensors, transform, world.resource(Field), config.ray_length)
+    cast_rays(
+        sensors,
+        transform,
+        world.resource(Field),
+        config.ray_length,
+        world.resource(Walls).boxes,
+    )
 
     return world.create_entity(
         ActionInput(),

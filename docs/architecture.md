@@ -36,15 +36,16 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 | File | Contents |
 |---|---|
 | `components.py` | Cars: `ActionInput`, `Transform`, `Motion`, `CarSpec`, `Hitbox`, `Ray`/`Sensors`, `PreviousPose`, `Score`, `Eliminated`, `Renderable`. Triggers: `Trigger` (circle), effects `ScoreReward` and `Respawn`, and the `Checkpoint` tag |
-| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `Rng` (the seed, with one named random stream per use), `Stage`, `Rules`, `Field` (spans the stage from (0, 0)), `SpawnSchedules`, `SimClock`, `RoundState`, and `EventLog` |
+| `resources.py` | `SimConfig` (step rate, car size, ray length, driving limits), `Rng` (the seed, with one named random stream per use), `Stage`, `Rules`, `Field` (spans the stage from (0, 0)), `Walls` (the stage's walls as boxes, step 7a), `SpawnSchedules`, `SimClock`, `RoundState`, and `EventLog` |
 | `systems/` | `pose_history_system`, `steering_system`, `movement_system`, `reward_system` (+1 per 10 px forward), `trigger_system` (car touches trigger: apply effects), `sensor_system`, `clock_system`, then `round_system`. The order is fixed by `SIMULATION_SYSTEMS` |
 | `elimination.py` | `eliminate(world, car, reason)`: the single way a car leaves a round (walls now, hazards and weapons later). Marks it `Eliminated`, stops it, logs the event |
 | `observation.py` | `observe(world, car)`: the agent's 14 normalized inputs, with a versioned layout (`OBSERVATION_NAMES`, `OBSERVATION_VERSION`) |
 | `stage.py` | `Stage` (size, walls, spawns, checkpoint rules), `load_stage(name or path)`, validation, and `to_dict()` for embedding in replays |
 | `rules.py` | `Rules` (round length, rounds per game, scoring), `load_rules(name or path)`, validation, `to_dict()`, and `with_round_seconds()` (a renamed round-length override). The `Rules` object is also the world resource the reward and round systems read. See [decision 013](decisions/013-game-rules-files.md) |
-| `spawning.py` | `SpawnSchedule`: stage + seed decide every spawn. Slot N's candidates depend only on (seed, spawner, N); `random` or `scripted` mode |
+| `spawning.py` | `SpawnSchedule`: stage + seed decide every spawn. Slot N's candidates depend only on (seed, spawner, N); `random` or `scripted` mode. Random spots keep the border margin from walls too |
 | `factories.py` | `create_game(config, label, seed, stage, rules)` (world + car at the stage's spawn + checkpoint: used by the env and tests), `create_world`, `create_car`, `create_start_car`, `create_checkpoint` |
 | `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
+| `walls.py` | Walls inside the field ([decision 033](decisions/033-walls-in-the-simulation.md)): `Box`, `wall_contact` (the first contact of a moving hitbox, with its normal), `slide`, `overlaps`, `ray_to_walls`, and `rotation_into_walls` |
 
 **The car's position is its float center** (`Transform.x`, `Transform.y`), and `Hitbox` holds its size. The hitbox is the car's 4 real corners. The field border is the only obstacle so far: cars stop exactly on contact (`movement_system`), turns into it are cancelled (`steering_system`), and it stops rays (`sensor_system`).
 

@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "s_curve",
+  "size": [855, 480],
+  "walls": [[285, 0, 20, 320], [570, 160, 20, 320]],
+  "spawns": [{"x": 140, "y": 400, "angle": 90}],
+  "checkpoints": {
+    "mode": "scripted",
+    "radius": 15,
+    "points": [[140, 80], [430, 400], [720, 80]]
+  }
+}

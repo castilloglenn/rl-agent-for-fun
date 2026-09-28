@@ -10,6 +10,9 @@ from pathlib import Path
 STAGE_FORMAT = 1
 STAGES_DIR = Path(__file__).resolve().parents[2] / "stages"
 SCHEDULE_MODES = ("random", "scripted")
+# A spawn this close to a wall would start with the car touching it (a
+# car is 24 x 16: 14.4 px from its center to a corner).
+SPAWN_CLEARANCE = 16.0
 
 
 class StageError(ValueError):
@@ -39,7 +42,7 @@ class Stage:
     height: float
     spawns: tuple[Spawn, ...]
     checkpoints: CheckpointRules
-    walls: tuple = ()  # rectangles, from roadmap step 7
+    walls: tuple = ()  # [x, y, width, height] rectangles (step 7a)
     format: int = STAGE_FORMAT
 
     @staticmethod
@@ -81,13 +84,32 @@ class Stage:
         }
 
     def validate(self) -> None:
+        from src.sim.walls import Box
+
         if self.width <= 0 or self.height <= 0:
             raise StageError("stage size must be positive")
+        boxes = []
+        for wall in self.walls:
+            if len(wall) != 4:
+                raise StageError(
+                    f"wall {list(wall)}: needs x, y, width, height"
+                )
+            x, y, width, height = wall
+            if width <= 0 or height <= 0:
+                raise StageError(f"wall {list(wall)}: size must be positive")
+            if x < 0 or y < 0 or x + width > self.width or (
+                y + height > self.height
+            ):
+                raise StageError(f"wall {list(wall)} is outside the stage")
+            boxes.append(Box.from_list(wall))
         if not self.spawns:
             raise StageError("a stage needs at least one spawn")
         for spawn in self.spawns:
             if not self.contains(spawn.x, spawn.y):
                 raise StageError(f"spawn {spawn} is outside the stage")
+            near = [b.distance(spawn.x, spawn.y) for b in boxes]
+            if any(d < SPAWN_CLEARANCE for d in near):
+                raise StageError(f"spawn {spawn} is on or next to a wall")
         rules = self.checkpoints
         if rules.mode not in SCHEDULE_MODES:
             raise StageError(f"unknown checkpoint mode {rules.mode!r}")
@@ -97,6 +119,8 @@ class Stage:
             for x, y in rules.points:
                 if not self.contains(x, y):
                     raise StageError(f"checkpoint {(x, y)} is outside")
+                if any(b.distance(x, y) < rules.radius for b in boxes):
+                    raise StageError(f"checkpoint {(x, y)} touches a wall")
         elif 2 * rules.border_margin >= min(self.width, self.height):
             raise StageError("checkpoint border_margin leaves no room")
 

@@ -560,7 +560,7 @@ def draw_car_panel(
         column.note("No car")
     column.gap()
 
-    column.header("SENSORS (px to border)")
+    column.header("SENSORS (px to a wall)")
     if car:
         _draw_sensors(
             column, car, world.resource(SimConfig).brake_deceleration, hud

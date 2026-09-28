@@ -22,7 +22,7 @@ One car alone in the box map (the field border, no inner walls, no fuel). **A sk
 | Rounds per game | 1 (configurable, other rules between rounds decided when it goes above 1). Round length, rounds, and scoring live in rules files (`rules/standard.json`) since roadmap step 4g ([decision 013](decisions/013-game-rules-files.md)) |
 | Game score | **Accumulates across all rounds of a game**, and resets only when a new game starts. With several rounds, an agent's episode will likely be a whole game, so it learns to play for the total |
 | Round ends | When the timer hits 0, or when the car is wrecked |
-| Wall hits | Touching the border (driving or turning into it) costs health by impact speed, and the car slides along the wall, or stops if it hit head-on (see Car health). At 0 health the car is **wrecked**: out of the round. Later, with several cars, the round continues until the timer ends or every car is out. The HUD shows WRECKED, the event log records it, and R restarts |
+| Wall hits | Touching the border or a wall inside the field (driving or turning into it) costs health by impact speed, and the car slides along the wall, or stops if it hit head-on (see Car health). At 0 health the car is **wrecked**: out of the round. Later, with several cars, the round continues until the timer ends or every car is out. The HUD shows WRECKED, the event log records it, and R restarts |
 
 The HUD shows the remaining time.
 
@@ -68,7 +68,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 
 - One on the field at a time. Collecting it spawns the next one.
 - Random position from a **seeded** random number generator, so replays reproduce it.
-- Radius 15 px. Spawns at least 100 px from the car and 40 px from the border.
+- Radius 15 px. Spawns at least 100 px from the car and 40 px from the border and any wall.
 
 ### Controls (realistic driving)
 
@@ -89,7 +89,7 @@ The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 ### Sensors
 
-Rays only detect things a car can hit (the border now; later walls, other cars, and explosion hazards). They pass through checkpoints and fuel, which agents perceive through the compass inputs instead (see Observation).
+Rays only detect things a car can hit (the border and walls now; later other cars and explosion hazards). They pass through checkpoints and fuel, which agents perceive through the compass inputs instead (see Observation).
 
 8 rays at 0°, ±45°, ±90°, ±135°, and 180° around the car's heading: front, front-left, left, back-left, back, back-right, right, front-right. Each ray starts where it leaves the car's body, so distance 0 means touching. Distances are exact floats. **Implemented in step 3e.**
 
@@ -116,7 +116,7 @@ All values above are starting points, kept in config so experiments can change t
 
 ## Later phases
 
-- Inner walls in stage files, with a map editor (rectangles first: [decision 006](decisions/006-rectangle-walls-first.md))
+- Inner walls in stage files (done in step 7a: rectangles, [decision 033](decisions/033-walls-in-the-simulation.md); the `pillars` and `s_curve` stages), with a map editor (step 7c)
 - Fuel system
 - Multiple rounds per game
 - Multiple cars and car-vs-car collision

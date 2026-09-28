@@ -10,13 +10,15 @@ from src.sim.components import (
 from src.sim.collisions import hit_wall
 from src.sim.elimination import round_active
 from src.sim.geometry import car_corners, inside, rotation_impact
-from src.sim.resources import Field, SimConfig
+from src.sim.resources import Field, SimConfig, Walls
+from src.sim.walls import rotation_into_walls
 
 
 def steering_system(world: World) -> None:
     if not round_active(world):
         return
     field = world.resource(Field)
+    walls = world.resource(Walls).boxes
     for car, (action, transform, motion, spec, hitbox) in world.query(
         ActionInput, Transform, Motion, CarSpec, Hitbox, exclude=(Eliminated,)
     ):
@@ -29,22 +31,36 @@ def steering_system(world: World) -> None:
         corners = car_corners(
             transform.x, transform.y, angle, hitbox.width, hitbox.height
         )
+        into_wall = None
         if inside(corners, field.rect):
-            transform.angle = angle
-            continue
-        # Turning a corner into the border is a wall hit: the turn is
-        # blocked (the speed stays), and the corner's speed into the wall
-        # is the impact.
-        before = car_corners(
-            transform.x,
-            transform.y,
-            transform.angle,
-            hitbox.width,
-            hitbox.height,
-        )
-        impact = rotation_impact(before, corners, field.rect)
+            if not walls:
+                transform.angle = angle
+                continue
+            before = _corners(transform, hitbox)
+            into_wall = rotation_into_walls(before, corners, walls)
+            if into_wall is None:
+                transform.angle = angle
+                continue
+        # Turning a corner into the border (or a wall) is a wall hit: the
+        # turn is blocked (the speed stays), and the corner's speed into
+        # the wall is the impact.
+        before = _corners(transform, hitbox)
+        if into_wall is None:
+            impact = rotation_impact(before, corners, field.rect)
+        else:
+            impact = into_wall
         steps_per_second = world.resource(SimConfig).steps_per_second
         hit_wall(world, car, impact * steps_per_second, keep=1.0)
+
+
+def _corners(transform: Transform, hitbox: Hitbox) -> list:
+    return car_corners(
+        transform.x,
+        transform.y,
+        transform.angle,
+        hitbox.width,
+        hitbox.height,
+    )
 
 
 def next_steering(steering: float, action: ActionInput, spec: CarSpec) -> float:

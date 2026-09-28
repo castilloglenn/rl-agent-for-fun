@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "pillars",
+  "size": [855, 480],
+  "walls": [[255, 130, 60, 60], [540, 130, 60, 60], [255, 290, 60, 60], [540, 290, 60, 60]],
+  "spawns": [{"x": 150, "y": 240, "angle": 0}],
+  "checkpoints": {
+    "mode": "random",
+    "radius": 15,
+    "border_margin": 40,
+    "min_car_distance": 100
+  }
+}

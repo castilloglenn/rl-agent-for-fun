@@ -6,13 +6,14 @@
 - 0 points right, and positive turns counterclockwise on screen.
 - Screen y grows downward, so `get_angular_movement_deltas` flips the sign of y (`src/utils/common.py`).
 - 8 rays are angled relative to the car's heading (`RAY_LAYOUT` in `src/sim/systems/sensors.py`): 0, ±45, ±90, ±135, 180.
-- Each ray starts on the car's body edge (`body_edge_distance`) and ends at the field border, with exact float distances (`distance_to_bounds`). Distance 0 means touching.
+- Each ray starts on the car's body edge (`body_edge_distance`) and ends at the field border or the nearest wall, with exact float distances (`distance_to_bounds`, `ray_to_walls`). Distance 0 means touching.
 
 ## Movement and physics
 
 - The car's position is its **float center** (`Transform.x`, `Transform.y`), in world coordinates.
 - The hitbox is the car's **4 real corners** (`car_corners` in `src/sim/geometry.py`), rotating with it. It never grows with the angle: see [decision 004](decisions/004-polygon-hitbox-deferred.md).
 - **Border contact is exact:** a move goes as far as it can until a corner touches the border (`move_until_contact`, which also says which borders stopped it), and that contact is a **wall hit**: `hit_wall()` (`src/sim/collisions.py`) applies damage by the speed into the wall (`impact_speed`) on the first step of a contact, and the car slides the rest of the step along the wall (the move's part into the wall is dropped; its speed shrinks to the part along the wall, 0 head-on). A wrecked car doesn't slide. The distance slid costs scrape damage (`scrape_wall`), and `end_scrape` logs a scrape once the car leaves the wall. A turn that would push a corner out is also a hit, at that corner's speed (`rotation_impact`), and the turn doesn't happen. A wreck goes through `eliminate()` (`src/sim/elimination.py`).
+- **Walls inside the field** (`src/sim/walls.py`, [decision 033](decisions/033-walls-in-the-simulation.md)) follow the same rules. A move stops at the first contact, a car corner into a wall face or a wall corner into the car's side (`wall_contact`), with a normal out of the wall; the impact is the speed along the normal, and the slide keeps the motion along the surface (`slide`). A point within `EPS` (1e-6 px) of a surface is on it, not inside, so resting cars slide or leave freely. A turn that would overlap a wall (`overlaps`, separating axes) is blocked (`rotation_into_walls`).
 - **After a round ends**, the world is frozen: car systems and the step counter stop, so stepping a finished round changes nothing.
 - **Stage coordinates:** the field spans (0, 0) to the stage size. The physics boundary is `Field.rect` (left/top edges included, right/bottom at `rect.right`/`rect.bottom`), and the drawn border line sits exactly on it.
 - `Motion.speed` is signed, in px per step along the heading: positive forward, negative reversing.

@@ -69,6 +69,21 @@ class Field:
         return Field(x=0.0, y=0.0, width=stage.width, height=stage.height)
 
 
+@dataclass(frozen=True)
+class Walls:
+    """The walls inside the field (roadmap 7a): static rectangles from
+    the stage. They stop cars and rays like the border.
+    """
+
+    boxes: tuple = ()  # walls.Box
+
+    @staticmethod
+    def from_stage(stage: "Stage") -> "Walls":
+        from src.sim.walls import Box
+
+        return Walls(tuple(Box.from_list(wall) for wall in stage.walls))
+
+
 @dataclass
 class RoundState:
     """The current round: a countdown in steps, and whether it's over."""

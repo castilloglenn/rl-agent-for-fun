@@ -1,6 +1,6 @@
 # 006: Rectangle walls first, angled walls later
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented.
+**Date:** 2026-09-25. **Status:** Accepted. Implemented in roadmap step 7a ([decision 033](033-walls-in-the-simulation.md)).
 
 ## Context
 
