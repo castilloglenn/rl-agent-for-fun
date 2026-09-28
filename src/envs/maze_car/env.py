@@ -95,6 +95,8 @@ class MazeCarEnv(Environment):
         self.running: bool = True
         self.last_reward = 0.0
         self.round_reward = 0.0  # agent reward summed over this game
+        # Each term's share of it, summed over this game (for the HUD).
+        self.round_terms = {term: 0.0 for term in self.reward_profile.terms}
         self.last_observation = self.get_state()
         if self.recorder:
             self.recorder.on_reset(self)
@@ -212,8 +214,11 @@ class MazeCarEnv(Environment):
             ),
             distance_points=score.distance_points - distance_points_before,
         )
-        self.last_reward = self.reward_profile(events)
+        parts = self.reward_profile.contributions(events)
+        self.last_reward = sum(parts.values())  # = reward_profile(events)
         self.round_reward += self.last_reward
+        for term, value in parts.items():
+            self.round_terms[term] += value
         if self.recorder and self.is_game_over:
             self.recorder.on_finish(self)
         return (points, self.is_game_over, self.score)
@@ -230,6 +235,8 @@ class MazeCarEnv(Environment):
             profile=self.reward_profile.name,
             last=self.last_reward,
             total=self.round_reward,
+            terms=dict(self.round_terms),
+            weights=dict(self.reward_profile.terms),
         )
 
     def render(self, alpha: float = 1.0, mode=None) -> float:

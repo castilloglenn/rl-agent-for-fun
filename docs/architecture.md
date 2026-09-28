@@ -66,7 +66,7 @@ Geometry and physics rules: [conventions](conventions.md).
 - Measured: about 49,000 `step` calls per second on one core, headless (observation and reward included).
 
 **For the real-time demo:**
-- `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over. It also scores the step with the reward profile (`last_reward`, `round_reward`), so the HUD shows the agent reward while a human drives.
+- `step_world(action)`: one simulation step, no drawing. Does nothing once the game is over. It also scores the step with the reward profile (`last_reward`, `round_reward`, and each term's share summed over the game in `round_terms`, from `RewardProfile.contributions`), so the HUD shows the agent reward, by term, while a human drives.
 - `game_step(action)`: `step_world`, plus one drawn frame if `config.show_gui` is on (`step` uses it, so an agent can be watched).
 - `render(alpha)`: handles window events (R runs `reset()`) and draws one frame, interpolated by `alpha`. Returns the real seconds since the previous frame.
 
@@ -247,8 +247,8 @@ A controller decides the car's `ActionInput` before each step. Live, that's a **
 | File | Contents |
 |---|---|
 | `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
-| `layout.py` | `Layout.for_field`: screen rects for the left panel, top bar, field view, and right panel ([decision 021](decisions/021-window-layout-on-four-sides.md)). The window size follows from the field size |
-| `panels.py` | Top bar, one row (HEALTH gauge on the left; round, time, score, status on the right). Left game boxes (driver and mode; game: stage, rules, spawns, seed; score; leaderboard; agent: reward profile and reward, step, sim rate). Right car boxes (car and inputs, sensors, objective, display: FPS, vsync). Every section is its own box, with even 16 px gaps. Text is shortened with "…" to fit. `?` toggles a shortcuts box over the field (each mode's `ModeInfo.shortcuts`). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field |
+| `layout.py` | `Layout.for_field`: screen rects for the left panel, top bar, field view, right panel, and the optional playback and reward bars under the field ([decision 021](decisions/021-window-layout-on-four-sides.md)). The window size follows from the field size |
+| `panels.py` | Top bar, one row (HEALTH gauge on the left; round, time, score, status on the right). Left game boxes (driver and mode; game: stage, rules, spawns, seed; score; leaderboard; agent: reward profile and reward, step, sim rate). Right car boxes (car and inputs, sensors, objective, display: FPS, vsync). Every section is its own box, with even 16 px gaps. Text is shortened with "…" to fit. `draw_reward_bar`: the agent reward by term (gains, costs, net) under the field ([decision 032](decisions/032-reward-by-term.md)). `?` toggles a shortcuts box over the field (each mode's `ModeInfo.shortcuts`). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field |
 | `warnings.py` | When HUD values and ray lines turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, time, FPS. Pure functions, shared by the panels and the field |
 | `theme.py` | Colors and text sizes |
 

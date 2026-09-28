@@ -103,10 +103,16 @@ class RewardProfile:
 
     def __call__(self, events: StepEvents) -> float:
         """reward = sum of weight x term."""
-        return sum(
-            weight * TERMS[term](events, self.params.get(term))
+        return sum(self.contributions(events).values())
+
+    def contributions(self, events: StepEvents) -> dict[str, float]:
+        """Each term's weight x value this step, in the profile's order:
+        they sum to the reward (the HUD shows them, summed over a game).
+        """
+        return {
+            term: weight * TERMS[term](events, self.params.get(term))
             for term, weight in self.terms.items()
-        )
+        }
 
     @staticmethod
     def from_dict(data: dict) -> "RewardProfile":
