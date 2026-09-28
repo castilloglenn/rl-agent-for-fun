@@ -37,7 +37,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |
 | `make maze_car_stage STAGE=name` | Another stage: a name in `stages/`, or a path |
 | `make maze_car_reward REWARD=name` | Another reward profile: a name in `rewards/`, or a path |
-| `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), `classic` (any wall contact wrecks), a name in `rules/`, or a path |
+| `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), a name in `rules/`, or a path |
 | `make maze_car_seconds SECONDS=n` | Another round length (the rules get renamed, for example `standard-90s`) |
 | `make maze_car_fps FPS=n` | Cap the frame rate (0 = match the display) |
 | `make recordings` | List recorded rounds per player (recent and kept counts, newest) |

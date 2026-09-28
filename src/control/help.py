@@ -31,7 +31,7 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
                               "wrecked and the round ends for it."),
         "collisions.safe_speed": ("px/s", "Hits at or below this speed into "
                                   "the wall do no damage. 0 with lethal "
-                                  "speed 0: any hit wrecks (classic)."),
+                                  "speed 0: any hit wrecks."),
         "collisions.lethal_speed": ("px/s", "Hits at or above this speed "
                                     "into the wall wreck the car. Between "
                                     "safe and lethal, damage rises "

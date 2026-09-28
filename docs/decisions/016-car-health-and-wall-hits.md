@@ -14,7 +14,7 @@ Any wall contact wrecked the car instantly. A light scrape and a full-speed cras
   "collisions": {"health": 100, "safe_speed": 60, "lethal_speed": 240, "scrape_damage": 0.1}
   ```
 
-  Damage = `health × (impact − safe_speed) / (lethal_speed − safe_speed)`, from none up to all of it. `rules/classic.json` keeps instant wrecks (`safe_speed` = `lethal_speed` = 0).
+  Damage = `health × (impact − safe_speed) / (lethal_speed − safe_speed)`, from none up to all of it. `rules/classic.json` kept instant wrecks (`safe_speed` = `lethal_speed` = 0). It was removed on 2026-09-28; any rules file can still set those values, and the tests check them with a scratch file.
 - **Impact speed is the speed into the wall** (the part of the car's velocity toward the border it touched), so grazing hurts less than a head-on hit. A turn that pushes a corner into the wall is a hit at that corner's speed, and the turn doesn't happen.
 - **The car slides along the wall** (changed from "stop" the same day, see Consequences): on the first step of a contact it loses the part of its motion into the wall, and its speed shrinks to the part along it. A head-on hit stops it exactly where it touched. Pushing on into the wall is the same contact: no more impact damage, but **scraping costs `scrape_damage` health per px slid** (1 per 10 px), so riding a wall wears the car down. No bounce: the car only moves along its heading, and a bounce would need a separate velocity. A wrecked car doesn't slide.
 - **Wording:** a *bump* does no damage, a *hit* costs health, and a *wrecked* car (health 0) is out of the round. "Crash" is gone from code, events, and HUD.

@@ -4,7 +4,7 @@ type by the validators the commands use.
 
     ┌ FILES ───────┐ ┌ rules/standard.json ─────────────────────────┐
     │ [Rules ▾]    │ │ description        [One 60 s round, ...     ] │
-    │  classic     │ │ round_seconds      [60                      ] │
+    │  marathon    │ │ round_seconds      [60                      ] │
     │ ▸standard    │ │ ... (the fields scroll)                      │
     │              │ │ Valid, saved                                 │
     │              │ │ [Save] [Revert]  [new name] [Duplicate] [Del]│

@@ -18,6 +18,7 @@ from src.sim.geometry import car_corners, inside, max_move_fraction
 from src.sim.resources import Field, SimClock
 from src.sim.stage import load_stage
 from src.utils.types import Colors
+from tests.test_collisions import instant_wreck_rules
 
 
 def test_corners_unrotated():
@@ -132,8 +133,9 @@ def test_a_car_angled_into_a_wall_can_steer_away():
 
 
 @pytest.mark.parametrize("angle", [0, 30, 45, 60])
-def test_classic_rules_wreck_on_any_contact(angle):
-    world, car, right = _drive_into_right_border(angle, "classic")
+def test_instant_wreck_rules_wreck_on_any_contact(angle, tmp_path):
+    rules = instant_wreck_rules(tmp_path)
+    world, car, right = _drive_into_right_border(angle, rules)
     corners = _corners(world, car)
     assert max(x for x, _ in corners) == pytest.approx(right, abs=1e-9)
     assert world.component(car, Motion).speed == 0
@@ -158,8 +160,9 @@ def test_turning_into_the_border_is_blocked():
     assert not world.try_component(car, Eliminated)  # a slow corner: a bump
 
 
-def test_classic_rules_wreck_a_turn_into_the_border():
-    world, car, transform, field = _nose_on_right_border("classic")
+def test_instant_wreck_rules_wreck_a_turn_into_the_border(tmp_path):
+    rules = instant_wreck_rules(tmp_path)
+    world, car, transform, field = _nose_on_right_border(rules)
     assert transform.angle == 0
     assert world.component(car, Eliminated).reason == "wrecked"
 

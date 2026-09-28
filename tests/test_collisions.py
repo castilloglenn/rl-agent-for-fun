@@ -1,5 +1,6 @@
 """Car health and wall hits (roadmap step 5a4)."""
 
+import json
 import os
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -83,8 +84,21 @@ def test_damage_rises_from_safe_to_lethal_speed():
     assert collisions.damage(400) == 100
 
 
-def test_classic_rules_make_any_hit_lethal():
-    collisions = load_rules("classic").collisions
+def instant_wreck_rules(folder) -> str:
+    """A rules file where any wall contact wrecks (safe and lethal speed
+    0, no scraping), like the game before car health (5a4). Returns its
+    path.
+    """
+    data = load_rules("standard").to_dict()
+    data["name"] = "instant_wreck"
+    data["collisions"].update(safe_speed=0, lethal_speed=0, scrape_damage=0)
+    path = folder / "instant_wreck.json"
+    path.write_text(json.dumps(data))
+    return str(path)
+
+
+def test_zero_safe_and_lethal_speeds_make_any_hit_lethal(tmp_path):
+    collisions = load_rules(instant_wreck_rules(tmp_path)).collisions
     assert collisions.damage(0.01) == collisions.health
 
 
@@ -322,8 +336,9 @@ def test_a_long_scrape_wrecks_the_car():
     assert any("scraped" in text for text in _texts(world))
 
 
-def test_classic_rules_have_no_scraping():
-    assert load_rules("classic").collisions.scrape_damage == 0
+def test_instant_wreck_rules_have_no_scraping(tmp_path):
+    rules = load_rules(instant_wreck_rules(tmp_path))
+    assert rules.collisions.scrape_damage == 0
 
 
 def test_scrape_damage_cant_be_negative():
