@@ -134,6 +134,9 @@ def get_maze_car_config() -> ConfigDict:
     config.window.title = "Maze Car"
     # A playback bar under the field (replays and the showcase set it).
     config.window.playback_bar = False
+    # On a stage bigger than the view, each round starts with the whole
+    # map for 3 s, then zooms into the car (any key skips it).
+    config.window.map_intro = True
 
     # The playing area: a stage file in stages/, by name or path. It holds
     # the size, spawns, and checkpoint rules. See docs/decisions/009.

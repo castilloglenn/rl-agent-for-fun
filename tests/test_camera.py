@@ -140,3 +140,76 @@ def test_the_map_card_draws_the_stage_and_the_view_area():
     assert any(r.size == (200, 200) for r in inside)  # the stage
     walls = len(load_stage("arena").walls)
     assert len(inside) >= walls + 2  # walls, the stage, the view area
+
+
+# The map intro
+
+
+def test_the_intro_holds_the_whole_map_then_zooms_in():
+    from src.render.camera import INTRO_HOLD, INTRO_ZOOM
+
+    cam = _arena()
+    cam.follow(600, 1100)
+    target = cam.to_screen(600, 1100)
+    cam.start_intro()
+    assert cam.in_intro and cam.holding and cam.label() == "overview"
+    fit = camera.fit_scale(1200, 1200, VIEW.size)
+    assert cam.scale == pytest.approx(fit)
+    cam.update(INTRO_HOLD + INTRO_ZOOM / 2)  # halfway through the zoom
+    assert not cam.holding and fit < cam.scale < 1.0
+    point = (321.0, 654.0)
+    assert cam.to_world(*cam.to_screen(*point)) == pytest.approx(point)
+    cam.update(INTRO_ZOOM)  # done
+    assert not cam.in_intro and cam.scale == 1.0 and cam.mode == FOLLOW
+    assert cam.to_screen(600, 1100) == pytest.approx(target)
+
+
+def test_no_intro_on_a_stage_that_fits():
+    cam = Camera.for_stage(855, 480, pygame.Rect(0, 0, 855, 480))
+    cam.start_intro()
+    assert not cam.in_intro
+
+
+def _game(stage, map_intro=True):
+    from src.envs.maze_car.env import MazeCarEnv
+
+    config = get_maze_car_config()
+    config.window.map_intro = map_intro
+    env = MazeCarEnv(config, stage=load_stage(stage))
+    env.reset(seed=1)
+    return env
+
+
+def test_each_new_round_starts_the_intro():
+    env = _game("arena")
+    renderer = env.renderer
+    renderer.draw(env.world, 1.0, env.reward_status(), None)
+    assert renderer.camera.in_intro
+    renderer.camera.skip_intro()
+    renderer.draw(env.world, 1.0, env.reward_status(), None)
+    assert not renderer.camera.in_intro  # the same round: no new intro
+    env.reset(seed=2)  # a new round (restart)
+    renderer.draw(env.world, 1.0, env.reward_status(), None)
+    assert renderer.camera.in_intro
+
+
+def test_the_intro_can_be_turned_off():
+    env = _game("arena", map_intro=False)
+    env.renderer.draw(env.world, 1.0, env.reward_status(), None)
+    assert not env.renderer.camera.in_intro
+
+
+def test_any_key_skips_the_intro_and_f_keeps_the_overview():
+    env = _game("arena")
+    renderer = env.renderer
+    renderer.draw(env.world, 1.0, env.reward_status(), None)
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_w))
+    renderer.poll_events()
+    assert not renderer.camera.in_intro
+    assert renderer.camera.mode == FOLLOW
+    env.reset(seed=3)
+    renderer.draw(env.world, 1.0, env.reward_status(), None)
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_f))
+    renderer.poll_events()
+    assert not renderer.camera.in_intro and renderer.camera.mode == FIT
+

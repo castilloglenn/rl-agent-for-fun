@@ -97,6 +97,16 @@ def test_the_title_card_stays_until_enter(trained):
     assert show.mode().playback.speed == 2.0  # shown in the playback bar
 
 
+def test_a_big_stages_intro_waits_for_the_card(trained):
+    from src.render.camera import Camera
+
+    show = _show(trained)
+    view = show.renderer.camera.view
+    show.renderer.camera = Camera.for_stage(1200, 1200, view)  # a big one
+    show.handle_key(pygame.K_RETURN)  # the card closes: the intro plays
+    assert not show.card and show.renderer.camera.in_intro
+
+
 def _play_to_end(show):
     for _ in range(10_000):
         if show.env.is_game_over:

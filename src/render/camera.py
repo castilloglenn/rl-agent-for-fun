@@ -9,6 +9,9 @@ and it has two modes (F switches):
     follow  1:1, centered on the car, stopping at the stage's edges (the
             default)
     fit     the whole stage, scaled down to the view: an overview
+
+At the start of each round on a big stage, a map intro shows the whole
+stage for 3 s, then zooms smoothly into follow mode (any key skips it).
 """
 
 from dataclasses import dataclass
@@ -17,6 +20,8 @@ from pygame import Rect
 
 VIEW = (855, 480)  # px: the field view, the box's size
 FIT, FOLLOW = "fit", "follow"
+INTRO_HOLD = 3.0  # s: a big stage's whole map, at the start of a round
+INTRO_ZOOM = 1.0  # s: then the zoom into follow mode
 MAP_LONG_SIDE = 200  # px: the map card's drawing of a big stage
 MAP_TOP = 34  # px: from the card's top to the map (under its header)
 MAP_CARD_EXTRA = MAP_TOP + 14  # the card's height beyond the map's
@@ -52,6 +57,8 @@ class Camera:
     fit: float = 1.0  # the fit mode's scale
     mode: str = FIT
     origin: tuple[float, float] = (0.0, 0.0)  # follow: the view's top left
+    # The map intro: seconds since it began, or None when there's none.
+    intro: float | None = None
 
     @staticmethod
     def for_stage(
@@ -66,10 +73,6 @@ class Camera:
     def zoomable(self) -> bool:
         """The stage is bigger than the view: fit and follow differ."""
         return self.fit < 1.0
-
-    @property
-    def scale(self) -> float:
-        return 1.0 if self.mode == FOLLOW else self.fit
 
     def toggle(self) -> None:
         if self.zoomable:
@@ -91,39 +94,78 @@ class Camera:
             ),
         )
 
+    # The map intro (a big stage, the start of a round): the whole stage
+    # for INTRO_HOLD seconds, then a smooth zoom into follow mode.
+
+    def start_intro(self) -> None:
+        if self.zoomable and self.mode == FOLLOW:
+            self.intro = 0.0
+
+    def update(self, seconds: float) -> None:
+        """Advances the intro by real seconds (drawing time)."""
+        if self.intro is None:
+            return
+        self.intro += seconds
+        if self.intro >= INTRO_HOLD + INTRO_ZOOM:
+            self.intro = None
+
+    def skip_intro(self) -> None:
+        self.intro = None
+
     @property
-    def pad(self) -> tuple[float, float]:
-        """Screen px from the view's corner to the stage, on an axis where
-        the stage (at this scale) is smaller than the view: it's centered.
-        """
-        s = self.scale
+    def in_intro(self) -> bool:
+        return self.intro is not None
+
+    @property
+    def holding(self) -> bool:
+        """The intro's first part: the whole stage, still."""
+        return self.intro is not None and self.intro < INTRO_HOLD
+
+    def _zoom(self) -> float:
+        """0 (the whole stage) to 1 (follow), eased at both ends."""
+        if self.intro is None:
+            return 1.0
+        t = min(max((self.intro - INTRO_HOLD) / INTRO_ZOOM, 0.0), 1.0)
+        return t * t * (3 - 2 * t)
+
+    # Stage to screen: scale s and offset: screen = offset + point * s.
+
+    def _mapping(self, mode: str) -> tuple[float, float, float]:
+        s = 1.0 if mode == FOLLOW else self.fit
+        ox, oy = self.origin if mode == FOLLOW else (0.0, 0.0)
+        pad_x = max((self.view.w - self.stage_width * s) / 2, 0.0)
+        pad_y = max((self.view.h - self.stage_height * s) / 2, 0.0)
         return (
-            max((self.view.w - self.stage_width * s) / 2, 0.0),
-            max((self.view.h - self.stage_height * s) / 2, 0.0),
+            s,
+            self.view.x + pad_x - ox * s,
+            self.view.y + pad_y - oy * s,
         )
+
+    def _current(self) -> tuple[float, float, float]:
+        if self.intro is None:
+            return self._mapping(self.mode)
+        e = self._zoom()
+        start, end = self._mapping(FIT), self._mapping(FOLLOW)
+        return tuple(a + (b - a) * e for a, b in zip(start, end))
+
+    @property
+    def scale(self) -> float:
+        return self._current()[0]
 
     def to_screen(self, x: float, y: float) -> tuple[float, float]:
-        s = self.scale
-        ox, oy = self.origin
-        px, py = self.pad
-        return (
-            self.view.x + px + (x - ox) * s,
-            self.view.y + py + (y - oy) * s,
-        )
+        s, dx, dy = self._current()
+        return dx + x * s, dy + y * s
 
     def to_world(self, sx: float, sy: float) -> tuple[float, float]:
-        s = self.scale
-        ox, oy = self.origin
-        px, py = self.pad
-        return (
-            (sx - self.view.x - px) / s + ox,
-            (sy - self.view.y - py) / s + oy,
-        )
+        s, dx, dy = self._current()
+        return (sx - dx) / s, (sy - dy) / s
 
     def label(self) -> str:
         """For the DISPLAY card."""
         if not self.zoomable:
             return "1:1"
+        if self.in_intro:
+            return "overview"
         if self.mode == FOLLOW:
             return "follow"
         return f"fit {self.fit:.0%}"

@@ -82,6 +82,10 @@ class Renderer:
         self.camera = camera.Camera.for_stage(
             field_rect.width, field_rect.height, self.layout.field_view
         )
+        # The map intro, at each round's start on a big stage (7b).
+        self.map_intro = config.window.get("map_intro", True)
+        self._intro_world = None  # the round whose intro has started
+        self._frame_ticks: int | None = None
         # Debug lines (rays, hitbox, and future distance or boundary
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
@@ -138,6 +142,7 @@ class Renderer:
             if event.type == pygame.QUIT:
                 commands.add(Command.QUIT)
             elif event.type == pygame.KEYDOWN:
+                self.camera.skip_intro()  # any key: straight to the game
                 self._key(event.key, game_over, commands)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
@@ -188,6 +193,7 @@ class Renderer:
         """
         self.display.fill(theme.BACKGROUND)
         self._print_events(world)
+        self._advance_intro(world)
         self._draw_field(world, alpha, mode.trail if mode else None)
         if mode and mode.playback:
             self._draw_playback(mode.playback)
@@ -234,6 +240,41 @@ class Renderer:
         """Shows the frame. Returns the real seconds since the last one."""
         pygame.display.flip()
         return self.clock.tick(self.frame_rate) / 1000
+
+    def _advance_intro(self, world: World) -> None:
+        """A new round starts the map intro (a big stage only); each frame
+        moves it on by the real time since the last frame.
+        """
+        now = pygame.time.get_ticks()
+        seconds = 0.0
+        if self._frame_ticks is not None:
+            seconds = min((now - self._frame_ticks) / 1000, 0.1)
+        self._frame_ticks = now
+        if world is not self._intro_world:
+            self._intro_world = world
+            if self.map_intro:
+                self.camera.start_intro()
+            return
+        self.camera.update(seconds)
+
+    def _draw_intro_hint(self) -> None:
+        """During the intro's overview: what's happening, and the skip."""
+        if not self.camera.holding:
+            return
+        view = self.camera.view
+        text = "The whole map · any key skips"
+        rect = get_font(theme.TEXT_SIZE).size(text)
+        box = pygame.Rect(0, 0, rect[0] + 24, rect[1] + 12)
+        box.midbottom = (view.centerx, view.bottom - 14)
+        self._draw_backdrop(box)
+        draw_text(
+            self.display,
+            text,
+            box.center,
+            theme.TEXT_SIZE,
+            theme.TEXT_DIM,
+            anchor="center",
+        )
 
     def _draw_walls(self, world: World) -> None:
         """Walls inside the field (7a): filled, with the border's outline
@@ -307,6 +348,7 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
+        self._draw_intro_hint()
         self.display.set_clip(None)
 
     def _draw_map(self, world: World, alpha: float) -> None:
