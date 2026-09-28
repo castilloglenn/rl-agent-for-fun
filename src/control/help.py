@@ -269,6 +269,18 @@ TOPICS: dict[str, str] = {
     "heuristic's: above 1.0 beats it.",
     "history": "One suite result per scored checkpoint. A drop can mean it "
     "forgot a skill while learning something else.",
+    # Recordings browser
+    "recording:when": "When the round was recorded.",
+    "recording:seed": "The round's seed: the same seed gives the same "
+    "spawns and checkpoints.",
+    "recording:score": "The round's game points.",
+    "recording:ended": "time: the timer ran out. all out: the car was "
+    "wrecked. stopped: you restarted or quit mid-round.",
+    "recording:kept": "Kept rounds are never removed by the latest-50 "
+    "limit (the oldest unkept ones go first).",
+    "recording:game": "The stage and rules it was played on.",
+    "recording:datasets": "The datasets that read it, by their rules "
+    "(include, min_score). make dataset shows what's actually usable.",
     # Training tab
     "estimate": "From how long your last finished runs of the same kind "
     "took, per decision (or per epoch for imitation).",

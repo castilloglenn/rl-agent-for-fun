@@ -10,7 +10,9 @@ type by the validators the commands use.
     │              │ │ [Save] [Revert]  [new name] [Duplicate] [Del]│
     └──────────────┘ └──────────────────────────────────────────────┘
 
-The logic (fields, checking, writing) is in files.py.
+The logic (fields, checking, writing) is in files.py. The last kind,
+Recordings, swaps the editor for the recordings browser (step 6d2,
+recordings_view.py): the list shows players, the right side a table.
 """
 
 import time
@@ -32,6 +34,8 @@ from src.control.actions import Field
 from src.control.confirm import Confirm
 from src.control.files import KINDS, FileError, Kind
 from src.control.form import Form
+from src.control.recordings_data import players
+from src.control.recordings_view import RecordingsView
 from src.control.text import PAD, fit, header
 from src.control.tooltips import Tooltips
 from src.control.trash import Trash, TrashError
@@ -45,6 +49,7 @@ GAP = 8
 LABEL = 250  # field paths are long: scenarios.1.first_seed
 CHECK_EVERY = 0.3  # seconds between checks while typing
 DEFAULT_TAG = "  (default)"
+RECORDINGS = "Recordings"  # the kind that browses recordings (6d2)
 
 
 class FilesTab:
@@ -54,6 +59,7 @@ class FilesTab:
         area: Rect,
         ask: Callable[[Confirm], None],
         root: Path | None = None,
+        run_action: Callable[[str, dict], object] = lambda n, v: None,
     ) -> None:
         """`ask(box)` opens a confirmation box. `root`: the repo (tests
         use a scratch copy).
@@ -70,7 +76,7 @@ class FilesTab:
         )
         box = self.list_box
         self.kind_menu = None
-        self._build_kind_menu(KINDS[0])
+        self._build_kind_menu(KINDS[0].label)
         self.file_list = UISelectionList(
             Rect(
                 box.x + PAD,
@@ -123,18 +129,22 @@ class FilesTab:
         self._checked_values: dict | None = None
         self._checked = 0.0
         self.visible = True
+        self.mode = "files"  # or "recordings"
+        self.view = RecordingsView(
+            gui, self.editor, ask, run_action, self.root
+        )
         self._show_kind(KINDS[0])
 
-    def _build_kind_menu(self, kind: Kind) -> None:
-        """The kind picker, showing `kind` (rebuilt to undo a pick that
+    def _build_kind_menu(self, label: str) -> None:
+        """The kind picker, showing `label` (rebuilt to undo a pick that
         waits for "discard changes?").
         """
         if self.kind_menu:
             self.kind_menu.kill()
         box = self.list_box
         self.kind_menu = UIDropDownMenu(
-            [k.label for k in KINDS],
-            kind.label,
+            [k.label for k in KINDS] + [RECORDINGS],
+            label,
             Rect(box.x + PAD, box.y + 40, box.w - 2 * PAD, ROW),
             self.gui,
         )
@@ -144,32 +154,66 @@ class FilesTab:
     # Showing and hiding with the tab
 
     def widgets(self) -> list:
-        return [
-            self.kind_menu,
-            self.file_list,
-            self.new_name,
-            *self.buttons.values(),
-        ]
+        return [self.kind_menu, self.file_list, *self.editor_widgets()]
+
+    def editor_widgets(self) -> list:
+        return [self.new_name, *self.buttons.values()]
 
     def show(self) -> None:
         self.visible = True
-        for widget in self.widgets():
-            widget.show()
-        self.form.show()
+        self.kind_menu.show()
+        self.file_list.show()
+        self._show_mode()
 
     def hide(self) -> None:
         self.visible = False
         for widget in self.widgets():
             widget.hide()
         self.form.hide()
+        self.view.hide()
+
+    def _show_mode(self) -> None:
+        """The editor's widgets, or the recordings browser's."""
+        editing = self.mode == "files"
+        for widget in self.editor_widgets():
+            widget.show() if editing and self.visible else widget.hide()
+        if editing and self.visible:
+            self.form.show()
+            self.view.hide()
+        else:
+            self.form.hide()
+            if self.visible:
+                self.view.show()
+            else:
+                self.view.hide()
+
+    def show_recordings(self) -> None:
+        self.mode = "recordings"
+        self.dirty = False
+        self.name = None
+        shown = self.kind_menu.selected_option
+        if (shown[0] if isinstance(shown, tuple) else shown) != RECORDINGS:
+            self._build_kind_menu(RECORDINGS)
+        found = players(self.root / "recordings")
+        self.file_list.set_item_list([f"{p}  ({n})" for p, n in found])
+        if not self.visible:
+            self.file_list.hide()
+        self._show_mode()
+        self.view.open(found[0][0] if found else None)
+        for item in self.file_list.item_list[:1]:
+            item["selected"] = True
+            if item["button_element"] is not None:
+                item["button_element"].select()
 
     # Choosing a file
 
     def _show_kind(self, kind: Kind, name: str | None = None) -> None:
         shown = self.kind_menu.selected_option
         if (shown[0] if isinstance(shown, tuple) else shown) != kind.label:
-            self._build_kind_menu(kind)  # the picker follows the file
+            self._build_kind_menu(kind.label)  # the picker follows the file
         self.kind = kind
+        self.mode = "files"
+        self._show_mode()
         self._tracked = files.tracked(self.root, kind)
         found = files.names(self.root / kind.folder)
         self.file_list.set_item_list(
@@ -267,7 +311,8 @@ class FilesTab:
         self._update_buttons()
 
     def refresh(self, force: bool = False) -> None:
-        self.check(force)
+        if self.mode == "files":
+            self.check(force)
 
     def _update_buttons(self) -> None:
         default = self.name in self.kind.defaults
@@ -353,25 +398,30 @@ class FilesTab:
     def dropdown_open(self) -> bool:
         menu = self.kind_menu
         expanded = menu.current_state is menu.menu_states["expanded"]
+        if self.mode == "recordings":
+            return expanded or self.view.dropdown_open()
         return expanded or self.form.dropdown_open()
 
     # Events
 
     def handle(self, event) -> None:
-        if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-            if event.ui_element is self.kind_menu:
-                kind = next(k for k in KINDS if k.label == event.text)
-                if kind != self.kind:
-                    if self.dirty:  # show the current kind until answered
-                        self._build_kind_menu(self.kind)
-
-                    def switch() -> None:
-                        self._build_kind_menu(kind)
-                        self._show_kind(kind)
-
-                    self._unless_dirty(switch)
+        if (
+            event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED
+            and event.ui_element is self.kind_menu
+        ):
+            self._pick_kind(event.text)
+            return
+        if self.mode == "recordings":
+            if (
+                event.type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION
+                and event.ui_element is self.file_list
+            ):
+                self.view.open(event.text.rsplit("  (", 1)[0])
             else:
-                self.check(force=True)
+                self.view.handle(event)
+            return
+        if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
+            self.check(force=True)
         elif event.type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
             if event.ui_element is self.file_list:
                 name = event.text.replace(DEFAULT_TAG, "")
@@ -392,12 +442,33 @@ class FilesTab:
         elif event.type == pygame.MOUSEWHEEL:
             self.form.handle_wheel(event)
 
+    def _pick_kind(self, label: str) -> None:
+        current = RECORDINGS if self.mode == "recordings" else self.kind.label
+        if label == current:
+            return
+        if self.dirty:  # show the current kind until answered
+            self._build_kind_menu(current)
+        if label == RECORDINGS:
+            self._unless_dirty(self.show_recordings)
+            return
+        kind = next(k for k in KINDS if k.label == label)
+
+        def switch() -> None:
+            self._build_kind_menu(kind.label)
+            self._show_kind(kind)
+
+        self._unless_dirty(switch)
+
     # Drawing
 
     def draw(self, surface) -> None:
         for rect in (self.list_box, self.editor):
             pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
         header(surface, self.list_box, "FILES")
+        if self.mode == "recordings":
+            self.view.tips = self.tips
+            self.view.draw(surface)
+            return
         e = self.editor
         header(surface, e, "EDITOR")
         if not self.name:
@@ -455,6 +526,8 @@ class FilesTab:
 
     def draw_after(self, surface) -> None:
         """After the GUI: the hints in blank fields, and the new name's."""
+        if self.mode == "recordings":
+            return
         self.form.draw_hints(surface)
         entry = self.new_name
         if not entry.get_text() and not entry.is_focused and entry.visible:

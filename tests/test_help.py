@@ -89,6 +89,9 @@ def test_every_topic_the_tabs_ask_for_exists():
     keys += [f"stat:{s}" for s in ("CPU", "MEMORY", "BATTERY", "DISK")]
     keys += ["stat:JOBS", "compare", "high scores", "heuristic ratio"]
     keys += ["legend:suite", "legend:best", "legend:heuristic"]
+    from src.control.recordings_view import COLUMNS
+
+    keys += [f"recording:{name}" for name, _, _, _ in COLUMNS]
     for key in keys:
         assert help.topic(key), key
 

@@ -19,9 +19,12 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 
 | Command | Does |
 |---|---|
-| `make control` | The control center: the machine's vital signs (CPU, memory, battery, disk, our jobs' share), and every command below, consolidated into 25 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console. The Training tab trains an agent from one form (RL, imitation, or both, for a new or existing agent), the Runs tab lists every run with its status and live learning curves, the Agents tab shows every agent (cards or a leaderboard) with its profile, and the Files tab edits reward profiles, rules, trainers, models, datasets, and suites, checked as you type. Rest the mouse on an item marked with a small circled "i" (and on legends, radar labels, badges, and the vital signs) for what it means |
+| `make control` | The control center: the machine's vital signs (CPU, memory, battery, disk, our jobs' share), and every command below, consolidated into 28 actions with fields (dropdowns from your files), background jobs (stop, pause, resume), and a live console. The Training tab trains an agent from one form (RL, imitation, or both, for a new or existing agent), the Runs tab lists every run with its status and live learning curves, the Agents tab shows every agent (cards or a leaderboard) with its profile, and the Files tab edits reward profiles, rules, trainers, models, datasets, and suites, checked as you type, and browses your recordings (watch, keep, unkeep, delete). Rest the mouse on an item marked with a small circled "i" (and on legends, radar labels, badges, and the vital signs) for what it means |
 | `make delete_run RUN=folder` | Move a run folder into the trash (`trash/`). Its checkpoints stay in its agent, and a live run is refused ([decision 027](decisions/027-trash.md)) |
 | `make delete_agent AGENT=id` | Move an agent into the trash, with its training, imitation, and episode runs. Agents branched from it stay ([decision 028](decisions/028-agents-tab.md)) |
+| `make keep FILE=path` | Keep a recording: move it into `kept/`, where the latest-50 limit never removes it |
+| `make unkeep FILE=path` | Move a kept recording back with the recent ones (the latest-50 limit applies at your next saved round) |
+| `make delete_recording FILE=path` | Move a recording into the trash ([decision 031](decisions/031-recordings-browser.md)) |
 | `make trash` | What's in the trash, one entry per delete, newest first |
 | `make restore TRASH=entry` | Put a trash entry's folders back where they were |
 | `make empty_trash` | Delete everything in the trash for good (no question asked in the terminal; the control center asks) |

@@ -8,7 +8,7 @@
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
 	resume_last eval eval_baselines agents agent dataset imitate \
 	showcase showcase_all control vitals delete_run trash restore \
-	empty_trash delete_agent
+	empty_trash delete_agent keep unkeep delete_recording
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -61,6 +61,9 @@ help:
 	@echo "Files"
 	@echo "  make delete_run RUN=folder           move a run into the trash (its checkpoints stay)"
 	@echo "  make delete_agent AGENT=id           move an agent and its runs into the trash"
+	@echo "  make keep FILE=path                  keep a recording (never removed by the limit)"
+	@echo "  make unkeep FILE=path                move a kept recording back with the recent ones"
+	@echo "  make delete_recording FILE=path      move a recording into the trash"
 	@echo "  make trash                           list what's in the trash"
 	@echo "  make restore TRASH=entry             put a trash entry back where it was"
 	@echo "  make empty_trash                     delete the trash for good"
@@ -255,6 +258,18 @@ delete_run:
 delete_agent:
 	$(call require,AGENT,rookie)
 	python app.py -delete_agent $(AGENT)
+
+keep:
+	$(call require,FILE,recordings/You/2026-09-27_014237_seed136188_score3733_time.jsonl.gz)
+	python app.py -keep $(FILE)
+
+unkeep:
+	$(call require,FILE,recordings/You/kept/2026-09-27_014237_seed136188_score3733_time.jsonl.gz)
+	python app.py -unkeep $(FILE)
+
+delete_recording:
+	$(call require,FILE,recordings/You/2026-09-27_014237_seed136188_score3733_time.jsonl.gz)
+	python app.py -delete_recording $(FILE)
 
 trash:
 	python app.py -list_trash

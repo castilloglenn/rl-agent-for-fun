@@ -96,6 +96,34 @@ def _dispatch(cl_args) -> None:
                 print(f"Restored {', '.join(entry.paths)}")
         except TrashError as error:
             raise SystemExit(str(error))
+    elif cl_args.keep or cl_args.unkeep:
+        from src.replay.recordings import (
+            RecordingError,
+            keep_file,
+            unkeep_file,
+        )
+
+        try:
+            if cl_args.keep:
+                path = keep_file(cl_args.keep)
+                print(f"Kept: {path} (the latest-50 limit never removes it)")
+            else:
+                path = unkeep_file(cl_args.unkeep)
+                print(
+                    f"Moved back with the recent ones: {path} (the latest-50 "
+                    "limit applies at your next saved round)"
+                )
+        except RecordingError as error:
+            raise SystemExit(str(error))
+    elif cl_args.delete_recording:
+        from src.control.trash import Trash, TrashError
+
+        try:
+            entry = Trash().delete_recording(cl_args.delete_recording)
+        except TrashError as error:
+            raise SystemExit(str(error))
+        print(f"Moved {entry.paths[0]} into the trash: trash/{entry.name}")
+        print(f"Restore it: make restore TRASH={entry.name}")
     elif cl_args.list_trash:
         from src.control.trash import Trash, format_entries
 

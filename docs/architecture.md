@@ -189,7 +189,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 | File | Contents |
 |---|---|
-| `actions.py` | `ACTIONS`: every command, consolidated into 25 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
+| `actions.py` | `ACTIONS`: every command, consolidated into 28 actions grouped by the natural steps, each with fields (dropdowns or typed) and the `app.py` arguments it builds. `MAKE_TARGETS` maps each make target to the action covering it |
 | `makefile.py` | `read_commands()`: every make target, read from the Makefile, so a test can check that the actions cover them all |
 | `choices.py` | `options(command, param)`: dropdown choices from the files on disk (agents, drivers, rules, rewards, stages, runs, recordings, test files), or None for typed values |
 | `jobs.py` | `JobManager`: starts each command as a process (plain-text output captured live), and stops (SIGINT, like Ctrl+C), pauses (SIGSTOP), and resumes (SIGCONT) it. A job remembers the run folder it writes, from its `Run: <folder>` line |
@@ -201,13 +201,15 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `training_tab.py` | `TrainingTab`: the form (its fields follow the mode) and the plan box with Start |
 | `form.py` | `Form`: a scrolling column of labeled fields (dropdowns, typed, or read-only, with dimmed hints) for the tabs |
 | `confirm.py` | `Confirm`: the confirmation box (quit, delete a run, empty the trash): dims the window, Cancel (Esc) and a confirm button (Enter), buttons acting on release |
-| `trash.py` | `Trash`: deleting moves folders into `trash/` (one entry per delete, with `trash.json`), `restore`, `empty`, and `entries` ([decision 027](decisions/027-trash.md)). `agent_plan` says what deleting an agent moves and keeps |
+| `trash.py` | `Trash`: deleting moves folders (or files: named files, recordings) into `trash/` (one entry per delete, with `trash.json`), `restore`, `empty`, and `entries` ([decision 027](decisions/027-trash.md)). `agent_plan` says what deleting an agent moves and keeps |
 | `agents_data.py` | The Agents tab's data ([decision 028](decisions/028-agents-tab.md)): `load_agents`, `skills` (the radar's six axes, 0 to 1), `history`, `lineage`, `leaderboard`, and `high_scores` |
 | `agents_tab.py` | `AgentsTab`: the roster (cards or leaderboard), and the selected agent's profile, radar, skill history, lineage, and buttons |
 | `radar.py` | `draw_radar()`: a skill radar with a reference outline |
 | `files.py` | The Files tab's logic ([decision 029](decisions/029-file-editors.md)): `KINDS` (folder, defaults, validator), `items` and `rebuild` (a file as fields by path, and back), `check`, `dump` (the repo's layout), `save` (a changed suite gets the next version), `duplicate` |
 | `help.py` | The help texts ([decision 030](decisions/030-units-and-tooltips.md)): every file field by path with its unit, reward terms, form fields, and topics (charts, statuses, skills, columns, badges, vital signs) |
 | `tooltips.py` | `Tooltips`: tabs register help areas while drawing (and draw the "i" marker); the window draws the one under the mouse after 0.5 s |
+| `recordings_data.py` | The recordings browser's data ([decision 031](decisions/031-recordings-browser.md)): `players`, `recordings` (rows from file names and headers), and `uses` (whether a dataset's rules let a round in) |
+| `recordings_view.py` | `RecordingsView`: the table of a player's rounds, with Watch, Keep, Unkeep, and Delete (inside the Files tab) |
 | `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete |
 | `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
@@ -222,7 +224,7 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 |---|---|
 | `format.py` | `Replay` (header, action changes, end), `write_replay` / `read_replay` (`.jsonl`, or `.jsonl.gz` gzipped), and `to_current_actions` (reads actions by name) |
 | `recorder.py` | `ReplayRecorder(drivers)`: plug into `MazeCarEnv(..., recorder=...)`. The env calls `on_reset` (header), `on_step` (stores only action changes), and `on_finish` (end line). Driver records: `human_driver(player)`, `agent_driver(id, checkpoint)` |
-| `recordings.py` | Your demo rounds, per player: `RecordingLibrary` (`recordings/<player>/`, the latest 50, and `kept/`, never removed), and `LibraryRecorder`, which saves every round when it ends, and as "stopped" when it's restarted or quit (rounds under 1 s aren't saved). `keep_last()` is K in the demo |
+| `recordings.py` | Your demo rounds, per player: `RecordingLibrary` (`recordings/<player>/`, the latest 50, and `kept/`, never removed), and `LibraryRecorder`, which saves every round when it ends, and as "stopped" when it's restarted or quit (rounds under 1 s aren't saved). `keep_last()` is K in the demo. `keep_file` and `unkeep_file` move a recording into or out of `kept/` by its path (unkeeping doesn't prune) |
 | `viewer.py` | `ReplayViewer`: replay mode in a window (`app.py -replay <file>`). Verifies the replay headless first, then plays it with `PlaybackControl` (SPACE pause, 1-4 for 0.5×/1×/2×/4×, N one step while paused, R restart). Shows its state through a `ModeInfo` |
 | `replayer.py` | `Replayer(replay)`: rebuilds the game from the file alone (embedded stage, seed, game-defining config via `config_with_game`, reward profile), re-simulates, and `verify()`s the end line (step, reason, score, reward). Code and observation version differences are reported as notes |
 

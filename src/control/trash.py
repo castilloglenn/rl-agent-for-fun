@@ -31,7 +31,7 @@ class TrashError(ValueError):
 @dataclass(frozen=True)
 class Entry:
     name: str  # its folder in trash/
-    kind: str  # "run", "agent", or "file"
+    kind: str  # "run", "agent", "file", or "recording"
     label: str  # what was deleted, for example the run's folder
     created: str
     paths: tuple[str, ...]  # the moved folders, from the repo root
@@ -102,6 +102,18 @@ class Trash:
         if not path.exists():
             raise TrashError(f"no file {folder}/{name}.json")
         return self._move("file", f"{folder}-{name}", [path])
+
+    def delete_recording(self, path: Path) -> Entry:
+        """Moves a recording (recordings/<player>/[kept/]x.jsonl.gz) into
+        the trash.
+        """
+        path = Path(path)
+        if not path.is_absolute():
+            path = self.root / path
+        if not path.exists() or "recordings" not in path.parts:
+            raise TrashError(f"no recording {path}")
+        name = path.name.split(".")[0]
+        return self._move("recording", name, [path])
 
     def _move(self, kind: str, label: str, folders: list[Path]) -> Entry:
         now = datetime.now()

@@ -238,6 +238,21 @@ def _count(n: int, noun: str) -> str:
     return f"{n} {noun}" + ("" if n == 1 else "s")
 
 
+def _recent_recordings() -> list[str]:
+    return [p for p in choices.recordings(100) if "/kept/" not in p]
+
+
+def _kept_recordings() -> list[str]:
+    return [p for p in choices.recordings(100) if "/kept/" in p]
+
+
+def _confirm_delete_recording(v: dict) -> list[str]:
+    return [
+        f"{v['File']} moves into the trash.",
+        "You can restore it later.",
+    ]
+
+
 def _confirm_empty(v: dict) -> list[str]:
     count = len(_trash_entries())
     noun = "entry is" if count == 1 else "entries are"
@@ -453,6 +468,30 @@ ACTIONS = (
         confirm=_confirm_delete_agent,
     ),
     Action(
+        "Keep a recording",
+        "Files",
+        "Move a recording into kept/, where the latest-50 limit never "
+        "removes it.",
+        (Field("File", _recent_recordings),),
+        lambda v: ["-keep", v["File"]],
+    ),
+    Action(
+        "Unkeep a recording",
+        "Files",
+        "Move a kept recording back with the recent ones. The latest-50 "
+        "limit applies at your next saved round.",
+        (Field("File", _kept_recordings),),
+        lambda v: ["-unkeep", v["File"]],
+    ),
+    Action(
+        "Delete a recording",
+        "Files",
+        "Move a recording into the trash.",
+        (Field("File", lambda: choices.recordings(100)),),
+        lambda v: ["-delete_recording", v["File"]],
+        confirm=_confirm_delete_recording,
+    ),
+    Action(
         "Trash",
         "Files",
         "What's in the trash: one entry per delete, newest first.",
@@ -550,6 +589,9 @@ MAKE_TARGETS = {
     "vitals": "Vitals log",
     "delete_run": "Delete a run",
     "delete_agent": "Delete an agent",
+    "keep": "Keep a recording",
+    "unkeep": "Unkeep a recording",
+    "delete_recording": "Delete a recording",
     "trash": "Trash",
     "restore": "Restore from the trash",
     "empty_trash": "Empty the trash",

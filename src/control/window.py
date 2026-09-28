@@ -261,6 +261,7 @@ class ControlCenter:
             Rect(MARGIN, top, width, bottom - top),
             self.ask,
             root=files_root,
+            run_action=self.run_named,
         )
         self.files_tab.hide()
         for tab in (

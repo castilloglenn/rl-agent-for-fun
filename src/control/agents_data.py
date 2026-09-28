@@ -341,7 +341,7 @@ def high_scores(
         if not match:
             continue
         if path not in cache:
-            cache[path] = _recording_key(path)
+            cache[path] = recording_game(path)
         key = cache[path]
         if key is None:
             continue
@@ -361,7 +361,7 @@ def _game_key(stage: dict, rules: dict) -> str:
     return f"{stage.get('name', '?')} / {rules.get('name', '?')}{length}"
 
 
-def _recording_key(path: Path) -> str | None:
+def recording_game(path: Path) -> str | None:
     opener = gzip.open if path.suffix == ".gz" else open
     try:
         with opener(path, "rt") as file:

@@ -84,6 +84,36 @@ class RecordingLibrary:
             path.unlink()
 
 
+class RecordingError(ValueError):
+    pass
+
+
+def keep_file(path: Path) -> Path:
+    """Keeps a recording given by its path (recordings/<player>/x):
+    moves it into kept/, where the latest-50 limit never removes it.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise RecordingError(f"no recording {path}")
+    if path.parent.name == "kept":
+        raise RecordingError(f"{path.name} is already kept")
+    kept = path.parent / "kept" / path.name
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    return path.rename(kept)
+
+
+def unkeep_file(path: Path) -> Path:
+    """Moves a kept recording back with the recent ones. It isn't pruned
+    now: the latest-50 limit applies at the next saved round.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise RecordingError(f"no recording {path}")
+    if path.parent.name != "kept":
+        raise RecordingError(f"{path.name} isn't kept")
+    return path.rename(path.parent.parent / path.name)
+
+
 class LibraryRecorder(ReplayRecorder):
     """Records every round and saves it to a library: when the round ends,
     and when it's cut short (restart or quit) as "stopped".
