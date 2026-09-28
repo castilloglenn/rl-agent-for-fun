@@ -55,7 +55,6 @@ SHORTCUTS = (
     ("R", "restart this checkpoint"),
     ("H", "lines"),
     ("F", "camera: follow or fit (big stages)"),
-    ("M", "mini map (big stages)"),
     ("T", "trail: where the car has been"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),

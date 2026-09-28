@@ -20,6 +20,9 @@ class Layout:
     │      ├──────────────────┤      │
     │      │ playback_bar     │      │  (replays and the showcase)
     └──────┴──────────────────┴──────┘
+
+    On a stage bigger than the view, a map card (`map_box`) sits at the
+    top of the right column, above the right panel's cards.
     """
 
     window: Rect
@@ -28,10 +31,14 @@ class Layout:
     left_panel: Rect
     right_panel: Rect
     playback_bar: Rect | None = None
+    map_box: Rect | None = None
 
     @staticmethod
     def for_field(
-        field_width: float, field_height: float, playback: bool = False
+        field_width: float,
+        field_height: float,
+        playback: bool = False,
+        map_height: int = 0,
     ) -> "Layout":
         width, height = int(field_width), int(field_height)
         side_height = TOP_BAR_HEIGHT + MARGIN + height
@@ -47,6 +54,15 @@ class Layout:
         right_panel = Rect(
             field_view.right + MARGIN, MARGIN, RIGHT_WIDTH, side_height
         )
+        map_box = None
+        if map_height:
+            map_box = Rect(right_panel.x, MARGIN, RIGHT_WIDTH, map_height)
+            right_panel = Rect(
+                right_panel.x,
+                map_box.bottom + MARGIN,
+                RIGHT_WIDTH,
+                side_height - map_height - MARGIN,
+            )
         playback_bar = None
         if playback:
             playback_bar = Rect(
@@ -65,4 +81,5 @@ class Layout:
             left_panel,
             right_panel,
             playback_bar,
+            map_box,
         )

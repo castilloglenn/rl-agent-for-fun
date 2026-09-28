@@ -1,12 +1,13 @@
 """The field's camera (roadmap step 7b): how stage coordinates become
 screen pixels. Drawing only: the simulation never sees it.
 
-The field view is always the box's size (855 x 480), so the window and
-the car look the same on every stage. A stage that fits shows 1:1. A
-bigger one has two modes (F switches):
+The field view is the box's size (855 x 480), so the car looks the same
+on every stage. A stage that fits shows 1:1. A bigger one gets a map card
+at the top right (the renderer's), the view grows as tall as the card,
+and it has two modes (F switches):
 
     follow  1:1, centered on the car, stopping at the stage's edges (the
-            default), with a mini map (M)
+            default)
     fit     the whole stage, scaled down to the view: an overview
 """
 
@@ -16,6 +17,9 @@ from pygame import Rect
 
 VIEW = (855, 480)  # px: the field view, the box's size
 FIT, FOLLOW = "fit", "follow"
+MAP_LONG_SIDE = 200  # px: the map card's drawing of a big stage
+MAP_TOP = 34  # px: from the card's top to the map (under its header)
+MAP_CARD_EXTRA = MAP_TOP + 14  # the card's height beyond the map's
 
 
 def view_size(stage_width: float, stage_height: float) -> tuple[int, int]:
@@ -23,6 +27,16 @@ def view_size(stage_width: float, stage_height: float) -> tuple[int, int]:
     in it, a bigger one is followed or fitted).
     """
     return VIEW
+
+
+def map_size(stage_width: float, stage_height: float):
+    """The map card's drawing size for a stage bigger than the view
+    (its long side MAP_LONG_SIDE), or None for one that fits.
+    """
+    if fit_scale(stage_width, stage_height) >= 1.0:
+        return None
+    s = MAP_LONG_SIDE / max(stage_width, stage_height)
+    return round(stage_width * s), round(stage_height * s)
 
 
 def fit_scale(stage_width: float, stage_height: float, view=VIEW) -> float:

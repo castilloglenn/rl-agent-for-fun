@@ -1,18 +1,19 @@
-# 034: A camera for big stages: follow, fit, and a mini map
+# 034: A camera for big stages: follow, fit, and a map card
 
-**Date:** 2026-09-28. **Status:** Accepted. Implemented in roadmap step 7b (`src/render/camera.py`, and the mini map in `renderer.py`).
+**Date:** 2026-09-28. **Status:** Accepted. Implemented in roadmap step 7b (`src/render/camera.py`, and the map card in `renderer.py` and `layout.py`).
 
 ## Context
 
-The field view was the stage's exact size, so the window grew with the stage. A 1200 × 1200 map would need a window taller than most screens. First, the view grew up to 1100 × 640 and fitted a big stage into it; you preferred the box's view and the car's size kept on every stage, with a mini map.
+The field view was the stage's exact size, so the window grew with the stage. A 1200 × 1200 map would need a window taller than most screens. First, the view grew up to 1100 × 640 and fitted a big stage into it; you preferred the box's view and the car's size kept on every stage, with a mini map. The mini map started inside the field and moved out of the car's way; that was dizzying, so it became a fixed card.
 
 ## Decision
 
 - **The field view is always the box's size, 855 × 480,** so the window and the car look the same on every stage. A stage that fits shows 1:1, exactly as before (a smaller one is centered): the box, `pillars`, and `s_curve` are pixel for pixel unchanged.
 - **A bigger stage follows the car by default:** 1:1, centered on the car, stopping at the stage's edges (an axis where the stage fits stays centered).
 - **F switches to fit,** the whole stage scaled into the same view (the arena at 40 %), an overview, and back. The DISPLAY card says which: `1:1`, `follow`, or `fit 40%`.
-- **A mini map in follow mode,** inside the field at the top right, 150 px on its long side in the stage's shape: the walls, the checkpoint (green), the car (blue, with its heading), and an outline of the area the view shows, on a dark, nearly solid background with a 1 px outline. It moves by where the car is heading: to the top left when the car travels up and to the right, and back to the top right when it travels up and to the left (reversing counts backward; standing still keeps it). So it's out of the way before the car gets there. (First it moved only when the car was right under it: too tight.) **M** hides or shows it. It isn't drawn in fit mode (the whole stage is on screen already) or on stages that fit.
-- F and M are in every `?` shortcuts box.
+- **A MAP card, fixed at the top of the right column** (on stages bigger than the view only): the whole stage, 200 px on its long side in the stage's shape, with the walls, the checkpoint (green), the car (blue, with its heading), and in follow mode an outline of the area the view shows. The right column's cards stack under it.
+- **The window grows as tall as the card** (the arena: 1429 × 836), and so does the field view (855 × 744), so it shows more of a big stage at 1:1. The box and the other stages that fit keep their exact window.
+- F is in every `?` shortcuts box.
 - **Everything in the field goes through the camera:** the border, walls, checkpoints (at least 3 px), the car (rotated and scaled together in fit), its hitbox and rays, the trail, and the guide line. Drawing is clipped to the view, and a view onto a bigger stage gets a frame.
 - **Clicks** print world coordinates, turned back through the camera (the map editor, 7c, builds on this).
 - **Drawing only:** the simulation, replays, training, and headless runs never see the camera.
@@ -20,5 +21,5 @@ The field view was the stage's exact size, so the window grew with the stage. A 
 
 ## Consequences
 
-- No setting for the view's size: it's the box's.
+- No setting for the view's size: it's the box's (plus the map card's height on a big stage).
 - Clicking the mini map to move the view (in replays) is a later idea on the roadmap.

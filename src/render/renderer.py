@@ -4,8 +4,8 @@ from pygame import Rect, Surface
 
 from src.ecs import World
 from src.render import camera, panels, theme, warnings
-from src.render.camera import FOLLOW
-from src.render.layout import Layout
+from src.render.camera import FOLLOW, MAP_CARD_EXTRA, MAP_TOP
+from src.render.layout import MARGIN, Layout
 from src.sim.components import (
     Checkpoint,
     Eliminated,
@@ -65,16 +65,23 @@ class Renderer:
         """
         self.config = config
         field_rect = Field.from_stage(stage or load_stage(config.stage)).rect
-        # The field view is the box's size on every stage (step 7b).
+        # The field view is the box's size (step 7b). A bigger stage adds
+        # a map card at the top right, and the view grows as tall.
         view_w, view_h = camera.view_size(field_rect.width, field_rect.height)
+        self.map_size = camera.map_size(field_rect.width, field_rect.height)
+        map_height = 0
+        if self.map_size:
+            map_height = self.map_size[1] + MAP_CARD_EXTRA
+            view_h += map_height + MARGIN
         self.layout = Layout.for_field(
-            view_w, view_h, playback=config.window.playback_bar
+            view_w,
+            view_h,
+            playback=config.window.playback_bar,
+            map_height=map_height,
         )
         self.camera = camera.Camera.for_stage(
             field_rect.width, field_rect.height, self.layout.field_view
         )
-        self.show_minimap = True  # M: on stages bigger than the view
-        self.minimap_side = "right"  # moves off the car's top quarter
         # Debug lines (rays, hitbox, and future distance or boundary
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
@@ -160,8 +167,6 @@ class Renderer:
             self.show_trail = not self.show_trail
         elif key == pygame.K_f:
             self.camera.toggle()
-        elif key == pygame.K_m:
-            self.show_minimap = not self.show_minimap
         elif self.show_shortcuts:
             return
         else:
@@ -197,6 +202,8 @@ class Renderer:
         panels.draw_game_panel(
             self.display, self.layout.left_panel, world, cars, reward, mode
         )
+        if self.layout.map_box:
+            self._draw_map(world, alpha)
         panels.draw_car_panel(
             self.display,
             self.layout.right_panel,
@@ -300,37 +307,29 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
-        self._draw_minimap(world, alpha)
         self.display.set_clip(None)
 
-    MINIMAP = 150  # px: the mini map's long side
-    MINIMAP_INSET = 10  # px from the view's edges
-
-    def _draw_minimap(self, world: World, alpha: float) -> None:
-        """Follow mode on a big stage: the whole stage, small, in a top
-        corner of the view: walls, the checkpoint, the car, and the area
-        the view shows. It starts top right, moves to the top left when
-        the car heads up and to the right, and back when it heads up and
-        to the left.
+    def _draw_map(self, world: World, alpha: float) -> None:
+        """The MAP card (big stages): the whole stage, small, at the top
+        of the right column: walls, the checkpoint, the car with its
+        heading, and in follow mode the area the view shows.
         """
+        card = self.layout.map_box
         cam = self.camera
-        if not (self.show_minimap and cam.zoomable and cam.mode == FOLLOW):
-            return
-        s = self.MINIMAP / max(cam.stage_width, cam.stage_height)
-        size = (round(cam.stage_width * s), round(cam.stage_height * s))
-        view, inset = cam.view, self.MINIMAP_INSET
-        car = self._first_car(world, alpha)
-        self.minimap_side = minimap_side(
-            self.minimap_side, self._travel(world)
+        pygame.draw.rect(self.display, theme.PANEL_BORDER, card, 1)
+        draw_text(
+            self.display,
+            "MAP",
+            (card.x + 14, card.y + 10),
+            theme.HEADER_SIZE,
+            theme.ACCENT,
+            bold=True,
         )
-        box = pygame.Rect(0, 0, *size)
-        if self.minimap_side == "right":
-            box.topright = (view.right - inset, view.top + inset)
-        else:
-            box.topleft = (view.left + inset, view.top + inset)
-        shade = pygame.Surface(size, pygame.SRCALPHA)
-        shade.fill((*theme.BACKGROUND, 235))
-        self.display.blit(shade, box)
+        width, height = self.map_size
+        box = pygame.Rect(0, card.y + MAP_TOP, width, height)
+        box.centerx = card.centerx
+        s = width / cam.stage_width
+        pygame.draw.rect(self.display, theme.FIELD_BORDER, box, 1)
 
         def at(x: float, y: float) -> tuple[float, float]:
             return box.x + x * s, box.y + y * s
@@ -344,18 +343,20 @@ class Renderer:
                 max(round((wall.bottom - wall.top) * s), 1),
             )
             pygame.draw.rect(self.display, theme.TEXT_DIM, rect)
-        ox, oy = cam.origin
-        seen = pygame.Rect(
-            round(box.x + ox * s),
-            round(box.y + oy * s),
-            round(view.w * s),
-            round(view.h * s),
-        )
-        pygame.draw.rect(self.display, theme.PANEL_BORDER, seen, 1)
+        if cam.mode == FOLLOW:
+            ox, oy = cam.origin
+            seen = pygame.Rect(
+                round(box.x + ox * s),
+                round(box.y + oy * s),
+                round(min(cam.view.w, cam.stage_width) * s),
+                round(min(cam.view.h, cam.stage_height) * s),
+            )
+            pygame.draw.rect(self.display, theme.PANEL_BORDER, seen, 1)
         for _, (spot, _) in self._checkpoints:
             pygame.draw.circle(
                 self.display, theme.CHECKPOINT, at(spot.x, spot.y), 3
             )
+        car = self._first_car(world, alpha)
         if car:
             x, y, angle = car
             dx, dy = direction(angle)
@@ -364,23 +365,10 @@ class Renderer:
                 self.display,
                 theme.TRAIL_RECENT,
                 head,
-                (head[0] + dx * 7, head[1] + dy * 7),
+                (head[0] + dx * 8, head[1] + dy * 8),
                 2,
             )
             pygame.draw.circle(self.display, theme.TRAIL_RECENT, head, 3)
-        pygame.draw.rect(self.display, theme.PANEL_BORDER, box, 1)
-
-    def _travel(self, world: World) -> tuple[float, float] | None:
-        """The first car's direction of travel on screen (its heading,
-        or the opposite while reversing), or None while it stands still.
-        """
-        for _, (transform, motion) in world.query(Transform, Motion):
-            if motion.speed == 0:
-                return None
-            dx, dy = direction(transform.angle)
-            sign = 1.0 if motion.speed > 0 else -1.0
-            return dx * sign, dy * sign
-        return None
 
     def _first_car(self, world: World, alpha: float):
         """(x, y, angle) of the first car, where it's drawn, or None."""
@@ -752,23 +740,6 @@ class Renderer:
                     ),
                     end_pos=cam.to_screen(ray.end.x + dx, ray.end.y + dy),
                 )
-
-
-def minimap_side(side: str, travel: tuple[float, float] | None) -> str:
-    """The mini map's corner: it leaves its side when the car travels
-    toward it (up and to the right for the top right corner, up and to
-    the left for the top left), and stays put otherwise.
-    """
-    if travel is None:
-        return side
-    dx, dy = travel
-    if dy >= 0:  # not heading up (screen y grows downward)
-        return side
-    if side == "right" and dx > 0:
-        return "left"
-    if side == "left" and dx < 0:
-        return "right"
-    return side
 
 
 def _clock(seconds: float) -> str:

@@ -82,7 +82,6 @@ LIVE_SHORTCUTS = (
     ("R", "restart"),
     ("H", "lines"),
     ("F", "camera: follow or fit (big stages)"),
-    ("M", "mini map (big stages)"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),
 )

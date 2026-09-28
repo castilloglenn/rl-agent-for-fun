@@ -1,6 +1,7 @@
-"""Roadmap step 7b: the camera and the mini map. Drawing only. The field
-view is the box's size on every stage: a stage that fits shows 1:1, a
-bigger one is followed at 1:1 (or fitted with F), with a mini map (M).
+"""Roadmap step 7b: the camera and the map card. Drawing only. A stage
+that fits shows 1:1 in the box-sized view. A bigger one is followed at
+1:1 (or fitted with F), with a MAP card at the top right, and the view
+grows as tall as the card.
 """
 
 import os
@@ -79,16 +80,28 @@ def _renderer(stage):
     return Renderer(get_maze_car_config(), load_stage(stage))
 
 
-def test_every_stage_gets_the_same_window():
-    box, arena = _renderer("box"), _renderer("arena")
-    assert arena.layout.window.size == box.layout.window.size
+def test_a_small_stage_keeps_its_window():
+    box = _renderer("box")
+    assert box.layout.map_box is None
+    assert box.layout.field_view.size == (855, 480)
     assert box.offset == box.layout.field_view.topleft  # unchanged
 
 
-def test_keys_f_and_m(capsys):
+def test_a_big_stage_gets_a_map_card_at_the_top_right():
+    box, arena = _renderer("box"), _renderer("arena")
+    card, right = arena.layout.map_box, arena.layout.right_panel
+    assert arena.map_size == (200, 200)  # the arena is square
+    assert card.topright == (arena.layout.window.right - 16, 16)
+    assert right.top == card.bottom + 16  # the cards under it
+    grow = card.h + 16
+    assert arena.layout.field_view.size == (855, 480 + grow)
+    assert arena.layout.window.w == box.layout.window.w
+    assert arena.layout.window.h == box.layout.window.h + grow
+    assert right.bottom == arena.layout.left_panel.bottom
+
+
+def test_key_f_and_clicks(capsys):
     renderer = _renderer("arena")
-    renderer._key(pygame.K_m, False, set())
-    assert not renderer.show_minimap
     renderer._key(pygame.K_f, False, set())
     assert renderer.camera.mode == FIT
     x, y = renderer.camera.to_screen(100, 200)
@@ -99,23 +112,17 @@ def test_keys_f_and_m(capsys):
     assert "click at world (100, 200)" in capsys.readouterr().out
 
 
-def _drawn_frame(stage, car_at=None):
+def _frame_rects(stage):
+    """Every rect drawn in one frame of `stage`."""
     from src.envs.maze_car.env import MazeCarEnv
-    from src.sim.components import PreviousPose, Transform
 
-    config = get_maze_car_config()
-    env = MazeCarEnv(config, stage=load_stage(stage))
+    env = MazeCarEnv(get_maze_car_config(), stage=load_stage(stage))
     env.reset(seed=1)
-    if car_at:
-        transform = env.world.component(env.car, Transform)
-        transform.x, transform.y = car_at
-        previous = env.world.component(env.car, PreviousPose)
-        previous.center_x, previous.center_y = car_at
-    boxes = []
+    rects = []
     real = pygame.draw.rect
 
     def spy(surface, color, rect, *args, **kwargs):
-        boxes.append(pygame.Rect(rect))
+        rects.append(pygame.Rect(rect))
         return real(surface, color, rect, *args, **kwargs)
 
     pygame.draw.rect = spy
@@ -123,54 +130,13 @@ def _drawn_frame(stage, car_at=None):
         env.renderer.draw(env.world, 1.0, env.reward_status(), None)
     finally:
         pygame.draw.rect = real
-    return env.renderer, boxes
+    return env.renderer, rects
 
 
-def _minimap(renderer, boxes):
-    view = renderer.camera.view
-    side = renderer.MINIMAP
-    return [
-        b for b in boxes
-        if max(b.w, b.h) == side and view.contains(b) and b.w != view.w
-    ]
-
-
-def test_the_mini_map_starts_top_right():
-    renderer, boxes = _drawn_frame("arena")
-    (mini,) = _minimap(renderer, boxes)
-    view = renderer.camera.view
-    assert mini.topright == (view.right - 10, view.top + 10)
-
-
-def test_the_mini_map_moves_away_from_where_the_car_heads():
-    from src.render.renderer import minimap_side
-
-    up_right, up_left = (0.7, -0.7), (-0.7, -0.7)
-    down_right, straight_up = (0.7, 0.7), (0.0, -1.0)
-    assert minimap_side("right", up_right) == "left"
-    assert minimap_side("left", up_right) == "left"  # stays
-    assert minimap_side("left", down_right) == "left"
-    assert minimap_side("left", straight_up) == "left"
-    assert minimap_side("left", up_left) == "right"
-    assert minimap_side("right", up_left) == "right"
-    assert minimap_side("right", None) == "right"  # standing still
-
-
-def test_reversing_travels_backward():
-    from src.envs.maze_car.env import MazeCarEnv
-    from src.sim.components import Motion, Transform
-
-    env = MazeCarEnv(get_maze_car_config(), stage=load_stage("arena"))
-    env.reset(seed=1)
-    world = env.world
-    world.component(env.car, Transform).angle = 225  # facing down, left
-    world.component(env.car, Motion).speed = -1.0  # rolling up and right
-    dx, dy = env.renderer._travel(world)
-    assert dx > 0 and dy < 0
-    world.component(env.car, Motion).speed = 0.0
-    assert env.renderer._travel(world) is None
-
-
-def test_no_mini_map_on_a_small_stage():
-    renderer, boxes = _drawn_frame("box")
-    assert not _minimap(renderer, boxes)
+def test_the_map_card_draws_the_stage_and_the_view_area():
+    renderer, rects = _frame_rects("arena")
+    card = renderer.layout.map_box
+    inside = [r for r in rects if card.contains(r) and r != card]
+    assert any(r.size == (200, 200) for r in inside)  # the stage
+    walls = len(load_stage("arena").walls)
+    assert len(inside) >= walls + 2  # walls, the stage, the view area
