@@ -297,10 +297,15 @@ class RunsTab:
             self.compare_menu.hide()
 
     def _set_compare(self, option) -> None:
-        name = option[1] if isinstance(option, tuple) else None
-        self.compare = (
-            RunData(self.runs_dir / name, self.agents_dir) if name else None
-        )
+        """pygame_gui keeps a plain option as a pair too: ("(none)",
+        "(none)"). So "(none)", or a run gone meanwhile, compares nothing.
+        """
+        name = option[1] if isinstance(option, tuple) else option
+        folder = self.runs_dir / name if name else None
+        if name == NO_COMPARE or not (folder / "config.json").exists():
+            self.compare = None
+            return
+        self.compare = RunData(folder, self.agents_dir)
 
     @property
     def row(self) -> RunRow | None:

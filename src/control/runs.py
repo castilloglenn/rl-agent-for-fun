@@ -195,7 +195,8 @@ def run_who(config: dict) -> str:
     if "agent" in config:
         return config["agent"]["id"]
     driver = config.get("driver") or {}
-    return str(driver.get("id") or driver.get("player") or config["name"])
+    who = driver.get("id") or driver.get("player") or config.get("name")
+    return str(who or "?")
 
 
 def status_of(

@@ -8,6 +8,7 @@ import os
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import pygame  # noqa: E402
+import pygame_gui  # noqa: E402
 import pytest  # noqa: E402
 
 from src.control.trash import Trash, TrashError, format_entries  # noqa
@@ -253,3 +254,35 @@ def test_the_box_widens_for_a_long_name(window):
     assert get_font(theme.TEXT_SIZE, True).size(title)[0] <= wide.w - 24
     assert tab.main_rect.contains(wide)
     window.draw()
+
+
+def test_comparing_then_back_to_none(window):
+    # pygame_gui keeps "(none)" as ("(none)", "(none)"): it used to be
+    # read as a run of that name, and crashed.
+    window.open_tab("Runs")
+    tab = window.runs_tab
+    tab.select(RUN)
+    menu = tab.compare_menu
+
+    def pick(option):
+        menu.selected_option = option
+        window.handle(
+            pygame.event.Event(
+                pygame_gui.UI_DROP_DOWN_MENU_CHANGED,
+                ui_element=menu,
+                text=option[0],
+            )
+        )
+        window.draw()
+
+    pick(menu.options_list[1])  # another run
+    assert tab.compare.folder.name == OTHER
+    pick(menu.options_list[0])  # back to (none)
+    assert menu.options_list[0] == ("(none)", "(none)")
+    assert tab.compare is None
+
+
+def test_a_run_without_a_name_still_has_a_who():
+    from src.control.runs import run_who
+
+    assert run_who({}) == "?"
