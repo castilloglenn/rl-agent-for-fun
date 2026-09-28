@@ -199,17 +199,82 @@ def test_the_intro_can_be_turned_off():
     assert not env.renderer.camera.in_intro
 
 
-def test_any_key_skips_the_intro_and_f_keeps_the_overview():
+def test_a_key_cuts_the_overview_short_but_never_the_zoom():
+    from src.render.camera import INTRO_HOLD, INTRO_ZOOM
+
     env = _game("arena")
     renderer = env.renderer
     renderer.draw(env.world, 1.0, env.reward_status(), None)
-    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_w))
+    assert renderer.modal_open  # the game waits for the intro
+    for key in (pygame.K_w, pygame.K_f, pygame.K_p):
+        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=key))
     renderer.poll_events()
-    assert not renderer.camera.in_intro
-    assert renderer.camera.mode == FOLLOW
-    env.reset(seed=3)
-    renderer.draw(env.world, 1.0, env.reward_status(), None)
-    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_f))
-    renderer.poll_events()
-    assert not renderer.camera.in_intro and renderer.camera.mode == FIT
+    cam = renderer.camera
+    assert cam.in_intro and not cam.holding  # on to the zoom
+    assert cam.intro == INTRO_HOLD
+    assert renderer.keys_pressed == []  # ignored, F included
+    assert cam.mode == FOLLOW
+    cam.update(INTRO_ZOOM)
+    assert not cam.in_intro and not renderer.modal_open  # keys count again
+
+
+def test_live_play_waits_for_the_intro():
+    from src.envs.maze_car.demo import MazeCarDemo
+    from src.sim.resources import SimClock
+
+    config = get_maze_car_config()
+    config.stage = "arena"
+    demo = MazeCarDemo(
+        config, driver="heuristic", autorun=False, record=False
+    )
+    demo.frame(0.0)  # draws: the intro starts
+    assert demo.env.renderer.camera.in_intro
+    demo.frame(1.0)  # a heuristic would drive at once, but it waits
+    assert demo.env.world.resource(SimClock).step == 0
+
+
+# Markers for checkpoints outside the view
+
+
+def test_a_marker_sits_on_the_edge_toward_the_checkpoint():
+    from src.render.renderer import offscreen_marker
+
+    view = pygame.Rect(0, 0, 800, 400)
+    start = (400, 200)
+    assert offscreen_marker(start, (500, 300), view, 16) is None  # in view
+    (x, y), (dx, dy) = offscreen_marker(start, (1400, 200), view, 16)
+    assert (x, y) == pytest.approx((784, 200)) and (dx, dy) == (1.0, 0.0)
+    (x, y), _ = offscreen_marker(start, (400, -300), view, 16)
+    assert (x, y) == pytest.approx((400, 16))  # the top edge
+    (x, y), (dx, dy) = offscreen_marker(start, (1400, 1200), view, 16)
+    assert y == pytest.approx(384) and dx > 0 and dy > 0  # a corner-ish way
+
+
+def test_the_frame_draws_a_marker_only_when_the_checkpoint_is_away():
+    env = _game("arena", map_intro=False)
+    renderer = env.renderer
+    polygons = []
+    real = pygame.draw.polygon
+
+    def spy(surface, color, points, *args, **kwargs):
+        polygons.append((color, points))
+        return real(surface, color, points, *args, **kwargs)
+
+    from src.render import theme
+    from src.sim.components import Checkpoint, Transform
+
+    (spot,) = [t for _, (t, _) in env.world.query(Transform, Checkpoint)]
+    car = env.world.component(env.car, Transform)
+    pygame.draw.polygon = spy
+    try:
+        spot.x, spot.y = car.x + 100, car.y - 100  # in view
+        renderer.draw(env.world, 1.0, env.reward_status(), None)
+        seen = [p for c, p in polygons if c == theme.CHECKPOINT]
+        spot.x, spot.y = 20.0, 20.0  # the far top left: out of view
+        polygons.clear()
+        renderer.draw(env.world, 1.0, env.reward_status(), None)
+        away = [p for c, p in polygons if c == theme.CHECKPOINT]
+    finally:
+        pygame.draw.polygon = real
+    assert not seen and len(away) == 1
 

@@ -1,3 +1,5 @@
+import math
+
 import pygame
 from ml_collections import ConfigDict
 from pygame import Rect, Surface
@@ -124,8 +126,10 @@ class Renderer:
 
     @property
     def modal_open(self) -> bool:
-        """A box that pauses the game is open (shortcuts, quit prompt)."""
-        return self.show_shortcuts or self.confirm_quit
+        """The game waits: a box is open (shortcuts, quit prompt), or the
+        map intro plays.
+        """
+        return self.show_shortcuts or self.confirm_quit or self.camera.in_intro
 
     def poll_events(self, game_over: bool = False) -> set[str]:
         """Handles window events. Returns the commands asked for.
@@ -136,13 +140,16 @@ class Renderer:
         """
         commands = set()
         # Keys pressed this frame, for modes with their own controls. Keys
-        # pressed while a box is open are for the box, not the mode.
+        # pressed while a box is open are for the box, not the mode, and
+        # keys during the map intro only hurry it along.
         self.keys_pressed: list[int] = []
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 commands.add(Command.QUIT)
             elif event.type == pygame.KEYDOWN:
-                self.camera.skip_intro()  # any key: straight to the game
+                if self.camera.in_intro:
+                    self.camera.hurry_intro()  # on to the zoom; else ignored
+                    continue
                 self._key(event.key, game_over, commands)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
@@ -257,12 +264,44 @@ class Renderer:
             return
         self.camera.update(seconds)
 
+    MARKER_INSET = 16  # px from the view's edge
+    MARKER_SIZE = 12  # px, tip to base
+
+    def _draw_offscreen_checkpoints(self, world: World, alpha: float) -> None:
+        """A green triangle on the view's edge for a checkpoint outside it,
+        on the line from the car to the checkpoint, pointing to it.
+        """
+        car = self._first_car(world, alpha)
+        if car is None:
+            return
+        start = self.camera.to_screen(car[0], car[1])
+        for _, (spot, _) in self._checkpoints:
+            point = self.camera.to_screen(spot.x, spot.y)
+            marker = offscreen_marker(
+                start, point, self.camera.view, self.MARKER_INSET
+            )
+            if marker is None:
+                continue
+            (x, y), (dx, dy) = marker
+            size, half = self.MARKER_SIZE, self.MARKER_SIZE * 0.55
+            tip = (x + dx * size / 2, y + dy * size / 2)
+            back = (x - dx * size / 2, y - dy * size / 2)
+            pygame.draw.polygon(
+                self.display,
+                theme.CHECKPOINT,
+                [
+                    tip,
+                    (back[0] - dy * half, back[1] + dx * half),
+                    (back[0] + dy * half, back[1] - dx * half),
+                ],
+            )
+
     def _draw_intro_hint(self) -> None:
         """During the intro's overview: what's happening, and the skip."""
         if not self.camera.holding:
             return
         view = self.camera.view
-        text = "The whole map · any key skips"
+        text = "The whole map · any key zooms in"
         rect = get_font(theme.TEXT_SIZE).size(text)
         box = pygame.Rect(0, 0, rect[0] + 24, rect[1] + 12)
         box.midbottom = (view.centerx, view.bottom - 14)
@@ -348,6 +387,7 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
+        self._draw_offscreen_checkpoints(world, alpha)
         self._draw_intro_hint()
         self.display.set_clip(None)
 
@@ -782,6 +822,34 @@ class Renderer:
                     ),
                     end_pos=cam.to_screen(ray.end.x + dx, ray.end.y + dy),
                 )
+
+
+def offscreen_marker(start, point, view, inset: float):
+    """Where a marker for `point` (screen px) goes when it's outside the
+    view: ((x, y) on the view's edge, inset px in, on the line from
+    `start`), and the unit direction it points. None when it's in view.
+    """
+    if view.collidepoint(point):
+        return None
+    dx, dy = point[0] - start[0], point[1] - start[1]
+    length = math.hypot(dx, dy)
+    if length == 0:
+        return None
+    ux, uy = dx / length, dy / length
+    left, right = view.left + inset, view.right - inset
+    top, bottom = view.top + inset, view.bottom - inset
+    x0 = min(max(start[0], left), right)  # the car can be at the edge
+    y0 = min(max(start[1], top), bottom)
+    t = math.inf
+    if ux > 1e-12:
+        t = min(t, (right - x0) / ux)
+    elif ux < -1e-12:
+        t = min(t, (left - x0) / ux)
+    if uy > 1e-12:
+        t = min(t, (bottom - y0) / uy)
+    elif uy < -1e-12:
+        t = min(t, (top - y0) / uy)
+    return (x0 + ux * t, y0 + uy * t), (ux, uy)
 
 
 def _clock(seconds: float) -> str:

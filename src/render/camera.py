@@ -11,7 +11,9 @@ and it has two modes (F switches):
     fit     the whole stage, scaled down to the view: an overview
 
 At the start of each round on a big stage, a map intro shows the whole
-stage for 3 s, then zooms smoothly into follow mode (any key skips it).
+stage for 3 s, then zooms smoothly into follow mode. A key cuts the 3 s
+short, never the zoom; the game waits for the intro, and keys count
+again after it.
 """
 
 from dataclasses import dataclass
@@ -111,6 +113,13 @@ class Camera:
 
     def skip_intro(self) -> None:
         self.intro = None
+
+    def hurry_intro(self) -> None:
+        """A key during the overview: straight on to the zoom (the zoom
+        itself always plays out).
+        """
+        if self.holding:
+            self.intro = INTRO_HOLD
 
     @property
     def in_intro(self) -> bool:
