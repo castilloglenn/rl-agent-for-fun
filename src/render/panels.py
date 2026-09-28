@@ -466,15 +466,34 @@ def draw_game_panel(
         column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
 
     # What an agent learns from, and the simulation it steps through.
-    column.header("AGENT")
+    # Its reward this game (decision 032), and the simulation it runs in.
+    title = f"AGENT · {reward.profile}" if reward else "AGENT"
+    width = column.right - column.left
+    column.header(_fit(title, width, theme.HEADER_SIZE, bold=True))
     if reward:
-        column.row("Reward profile", reward.profile)
-        column.row("Reward this game", f"{reward.total:+,.2f}")
+        gains, costs = reward_groups(reward)
+        column.row(
+            "Gains",
+            signed(sum(v for _, v in gains)),
+            colors=(theme.TEXT, theme.GOOD),
+        )
+        column.row(
+            "Costs",
+            signed(sum(v for _, v in costs)),
+            colors=(theme.TEXT, theme.BAD),
+        )
+        column.row("Net", signed(reward.total))
+        worst = next(((t, v) for t, v in costs if round(v, 1) < 0), None)
+        column.row(
+            "Biggest cost",
+            f"{worst[0]} {signed(worst[1])}" if worst else "none",
+            colors=(theme.TEXT_DIM, theme.TEXT_DIM),
+        )
     else:
         column.note("No reward profile")
-    column.row("Step", f"{world.resource(SimClock).step:,}")
+    step = world.resource(SimClock).step
     sim_rate = world.resource(SimConfig).steps_per_second
-    column.row("Sim rate", f"{sim_rate} steps/s")
+    column.row("Sim", f"step {step:,} at {sim_rate}/s")
     column.finish()
 
 
@@ -494,125 +513,11 @@ def reward_groups(reward: RewardStatus) -> tuple[list, list]:
     return gains, costs
 
 
-def draw_reward_bar(
-    surface: Surface, rect: Rect, reward: RewardStatus
-) -> None:
-    """The agent reward by term, under the field (decision 032), in one
-    line:
-
-        REWARD default   GAINS +3,901.0 points +3,901.0
-        COSTS -1,480.0 contact -1,200.0 · damage -250.0 ...   NET +2,421.0
-
-    When less fits, zero terms go first, then terms past the first two
-    of a group are summed as "other", then the terms themselves.
-    """
-    pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
-    y = rect.centery
-    x = _bar_text(surface, "REWARD", rect.x + 14, y, theme.ACCENT, head=True)
-    x = _bar_text(surface, reward.profile, x + 8, y, theme.TEXT_DIM)
-    net = signed(reward.total)
-    net_width = (
-        get_font(theme.HEADER_SIZE, True).size("NET ")[0]
-        + get_font(theme.TEXT_SIZE, True).size(net)[0]
-    )
-    room = rect.right - 14 - net_width - 24 - (x + 24)
-    gains, costs = reward_groups(reward)
-    groups = [("GAINS", gains, theme.GOOD), ("COSTS", costs, theme.BAD)]
-    x += 24
-    for title, total, terms, color in _fit_groups(groups, room):
-        x = _bar_text(surface, title, x, y, theme.TEXT_DIM, head=True)
-        x = _bar_text(surface, signed(total), x + 6, y, color, bold=True)
-        if terms:
-            x = _bar_text(surface, terms, x + 10, y, theme.TEXT_DIM)
-        x += 24
-    right = draw_text(
-        surface,
-        net,
-        (rect.right - 14, y),
-        theme.TEXT_SIZE,
-        theme.TEXT,
-        bold=True,
-        anchor="midright",
-    )
-    draw_text(
-        surface,
-        "NET",
-        (right.x - 6, y),
-        theme.HEADER_SIZE,
-        theme.TEXT_DIM,
-        bold=True,
-        anchor="midright",
-    )
-
-
 def signed(value: float) -> str:
     """+3,901.0, -1,480.0, and a plain 0.0 (no sign on nothing)."""
     if round(value, 1) == 0:
         return "0.0"
     return f"{value:+,.1f}"
-
-
-def _bar_text(
-    surface, text: str, x: float, y: float, color, bold=False, head=False
-) -> int:
-    """Draws one piece of the bar's line; returns where it ends."""
-    return draw_text(
-        surface,
-        text,
-        (x, y),
-        theme.HEADER_SIZE if head else theme.TEXT_SIZE,
-        color,
-        bold=bold or head,
-        anchor="midleft",
-    ).right
-
-
-def _terms_text(items: list, most: int | None) -> str:
-    if most is not None and len(items) > most:
-        rest = sum(v for _, v in items[most:])
-        items = items[:most] + [("other", rest)]
-    return " · ".join(f"{term} {signed(value)}" for term, value in items)
-
-
-def _fit_groups(groups: list, room: float) -> list:
-    """(title, total, terms text, color) per group, as much as fits."""
-    font = get_font(theme.TEXT_SIZE)
-    bold = get_font(theme.TEXT_SIZE, True)
-    head = get_font(theme.HEADER_SIZE, True)
-
-    def build(drop_zero: bool, most: int | None, terms: bool) -> list:
-        built = []
-        for title, items, color in groups:
-            if not items:
-                continue
-            total = sum(v for _, v in items)
-            shown = [(t, v) for t, v in items if v or not drop_zero]
-            text = _terms_text(shown, most) if terms else ""
-            built.append((title, total, text, color))
-        return built
-
-    def width(built: list) -> float:
-        return sum(
-            head.size(title)[0]
-            + 6
-            + bold.size(signed(total))[0]
-            + 10
-            + font.size(text)[0]
-            + 24
-            for title, total, text, _ in built
-        )
-
-    for drop_zero, most, terms in (
-        (False, None, True),
-        (True, None, True),
-        (True, 2, True),
-        (True, 1, True),
-        (True, None, False),
-    ):
-        built = build(drop_zero, most, terms)
-        if width(built) <= room:
-            return built
-    return built
 
 
 def draw_car_panel(

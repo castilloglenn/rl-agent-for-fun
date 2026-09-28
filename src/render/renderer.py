@@ -67,7 +67,6 @@ class Renderer:
             field_rect.width,
             field_rect.height,
             playback=config.window.playback_bar,
-            reward=config.window.get("reward_bar", True),
         )
         self.offset = (
             self.layout.field_view.x - field_rect.x,
@@ -176,10 +175,6 @@ class Renderer:
         self._draw_field(world, alpha, mode.trail if mode else None)
         if mode and mode.playback:
             self._draw_playback(mode.playback)
-        if self.layout.reward_bar and reward:
-            panels.draw_reward_bar(
-                self.display, self.layout.reward_bar, reward
-            )
         cars = panels.car_infos(world)
         panels.draw_top_bar(
             self.display,

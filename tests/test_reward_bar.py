@@ -1,5 +1,5 @@
-"""Decision 032: the agent reward by term, and the reward bar under the
-field. The reward values themselves must not change.
+"""Decision 032: the agent reward by term (gains, costs, net) in the
+AGENT card. The reward values themselves must not change.
 """
 
 import os
@@ -14,7 +14,7 @@ from src.drivers.random_driver import RandomDriver  # noqa: E402
 from src.envs.maze_car.env import MazeCarEnv  # noqa: E402
 from src.envs.maze_car.rewards import StepEvents, load_reward_profile  # noqa
 from src.render import panels  # noqa: E402
-from src.render.layout import MARGIN, REWARD_HEIGHT, Layout  # noqa: E402
+from src.render.layout import Layout  # noqa: E402
 from src.render.panels import RewardStatus, reward_groups, signed  # noqa
 
 EVENTS = StepEvents(
@@ -90,29 +90,37 @@ def test_numbers():
     assert signed(0.0) == "0.0" and signed(-0.01) == "0.0"
 
 
-def test_the_bar_fits_by_dropping_detail():
+def test_the_agent_card_shows_gains_costs_and_the_biggest_cost():
+    """No bottom bar: all of it in the AGENT card (5 rows fit)."""
     pygame.init()
-    terms = {f"t{i}": -float(i + 1) * 1000 for i in range(12)}
-    terms["points"] = 99999.0
-    status = _status(terms)
-    gains, costs = reward_groups(status)
-    groups = [("GAINS", gains, None), ("COSTS", costs, None)]
-    wide = panels._fit_groups(groups, 5000)
-    assert "t0" in wide[1][2] and "other" not in wide[1][2]  # all of it
-    medium = panels._fit_groups(groups, 800)
-    assert "other" in medium[1][2]  # the first costs, the rest summed
-    narrow = panels._fit_groups(groups, 400)
-    assert narrow[1][2] == ""  # the totals only
-    surface = pygame.Surface((900, 60))
-    panels.draw_reward_bar(surface, pygame.Rect(0, 8, 855, 44), status)
+    config = get_maze_car_config()
+    config.show_gui = False
+    env = MazeCarEnv(config)
+    surface = pygame.Surface((300, 700))
+    drawn = []
+    real = panels.draw_text
+
+    def spy(surface, text, *args, **kwargs):
+        drawn.append(text)
+        return real(surface, text, *args, **kwargs)
+
+    status = _status(
+        {"points": 3901.0, "contact": -1200.0, "damage": -250.0}
+    )
+    panels.draw_text = spy
+    try:
+        panels.draw_game_panel(
+            surface, pygame.Rect(16, 16, 250, 640), env.world, [], status
+        )
+    finally:
+        panels.draw_text = real
+    assert "AGENT · p" in drawn
+    for text in ("Gains", "+3,901.0", "Costs", "-1,450.0", "Net"):
+        assert text in drawn
+    assert "contact -1,200.0" in drawn  # the biggest cost
+    assert any(t.startswith("step ") and t.endswith("/s") for t in drawn)
 
 
-def test_the_layout_stacks_the_bars():
-    live = Layout.for_field(855, 480, reward=True)
-    replay = Layout.for_field(855, 480, playback=True, reward=True)
-    assert live.reward_bar.top == live.field_view.bottom + MARGIN
-    assert replay.playback_bar.top == replay.field_view.bottom + MARGIN
-    assert replay.reward_bar.top == replay.playback_bar.bottom + MARGIN
-    plain = Layout.for_field(855, 480)
-    assert live.window.h == plain.window.h + MARGIN + REWARD_HEIGHT
-    assert live.left_panel.bottom == live.reward_bar.bottom
+def test_no_bottom_bar():
+    layout = Layout.for_field(855, 480)
+    assert not hasattr(layout, "reward_bar")

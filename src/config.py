@@ -134,7 +134,6 @@ def get_maze_car_config() -> ConfigDict:
     config.window.title = "Maze Car"
     # A playback bar under the field (replays and the showcase set it).
     config.window.playback_bar = False
-    config.window.reward_bar = True  # the agent reward by term, at the bottom
 
     # The playing area: a stage file in stages/, by name or path. It holds
     # the size, spawns, and checkpoint rules. See docs/decisions/009.

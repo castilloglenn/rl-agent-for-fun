@@ -1,6 +1,6 @@
-# 032: The agent reward by term, in a bar under the field
+# 032: The agent reward by term: gains, costs, and the biggest cost
 
-**Date:** 2026-09-28. **Status:** Accepted. Implemented in `src/envs/maze_car/rewards.py` (`contributions`), `env.py`, `src/render/panels.py` (`draw_reward_bar`), and `layout.py`.
+**Date:** 2026-09-28. **Status:** Accepted. Implemented in `src/envs/maze_car/rewards.py` (`contributions`), `env.py`, and `src/render/panels.py` (the AGENT card).
 
 ## Context
 
@@ -9,13 +9,12 @@ The game window's AGENT card showed one number, the agent reward this game. It h
 ## Decision
 
 - **Each term's share:** `RewardProfile.contributions(events)` gives each term's weight × value for a step, and the reward is their sum (the profile's call now sums them: the same numbers, bit for bit, a test checks). The env adds them up over the game (`round_terms`), and `RewardStatus` carries them with the profile's weights.
-- **Gains and costs:** a term goes by the sign of its sum so far; at 0, by its weight's sign. A term like `speed` can move from gains to costs (reversing makes it negative). Each group's terms are sorted by size.
-- **A reward bar under the field,** the field's full width: `REWARD default · GAINS +3,901.0 points +3,901.0 · COSTS -1,480.0 contact -1,200.0 · damage -250.0 · stopped -30.0 · NET +2,421.0`, gains in green and costs in red. When less fits, zero terms go first, then the terms past the first of a group are summed as "other", then the terms (the totals stay).
-- **Not in the AGENT card:** it had room for about 5 rows and the breakdown needs 9 to 11. The card keeps profile, reward this game (the net), step, and sim rate.
-- **The window grows 60 px** (the bar and its gap). In replays and the showcase it sits under the playback bar. Every game window shows it: live play (it's what an agent would get for your driving), watching a driver, replays, and the showcase. `window.reward_bar` (default on) is a display setting.
+- **Gains and costs:** a term goes by the sign of its sum so far; at 0, by its weight's sign. A term like `speed` can move from gains to costs (reversing makes it negative).
+- **All of it in the AGENT card,** which has room for 5 rows (the window's height follows the field): the profile in the header (`AGENT · default`), then Gains (green), Costs (red), Net, the biggest cost by name (`contact -1,200.0`, or none), and the simulation in one row (`step 7,200 at 120/s`).
+- **Tried first, then dropped:** a reward bar under the field with every term. It repeated the card's profile and net, and made the window 60 px taller, so the card took it over.
 - ASCII plus and minus signs (the font lacks the typographic minus), one decimal, and a plain 0.0.
 
 ## Consequences
 
 - Reward values, training, replays, and the behavior fixtures are unchanged: the env only adds up what the profile computes.
-- The same sums per episode, charted in the Runs tab, are planned (roadmap 6e).
+- Only the biggest cost is named in the window. Every term per episode, charted in the Runs tab, is planned (roadmap 6e).
