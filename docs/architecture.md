@@ -247,8 +247,9 @@ A controller decides the car's `ActionInput` before each step. Live, that's a **
 
 | File | Contents |
 |---|---|
-| `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view, and calls the panels |
-| `layout.py` | `Layout.for_field`: screen rects for the left panel, top bar, field view, right panel, and the optional playback bar under the field ([decision 021](decisions/021-window-layout-on-four-sides.md)). The window size follows from the field size |
+| `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view through its camera, and calls the panels |
+| `camera.py` | `Camera` ([decision 034](decisions/034-camera.md)): stage to screen and back (`to_screen`, `to_world`); 1:1 when the stage fits, else fit (scaled) or follow (1:1 on the car, F); `view_size` bounds the field view to 855 × 480 up to `window.max_field` |
+| `layout.py` | `Layout.for_field`: screen rects for the left panel, top bar, field view, right panel, and the optional playback bar under the field ([decision 021](decisions/021-window-layout-on-four-sides.md)). The window size follows from the field view's size (the camera's, for a big stage) |
 | `panels.py` | Top bar, one row (HEALTH gauge on the left; round, time, score, status on the right). Left game boxes (driver and mode; game: stage, rules, spawns, seed; score; leaderboard; agent: reward profile, gains, costs, net, the biggest cost, and the sim step and rate, [decision 032](decisions/032-reward-by-term.md)). Right car boxes (car and inputs, sensors, objective, display: FPS, vsync). Every section is its own box, with even 16 px gaps. Text is shortened with "…" to fit. `?` toggles a shortcuts box over the field (each mode's `ModeInfo.shortcuts`). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field |
 | `warnings.py` | When HUD values and ray lines turn amber (caution) or red (danger): stopping distance, travel-path rays, speed, time, FPS. Pure functions, shared by the panels and the field |
 | `theme.py` | Colors and text sizes |

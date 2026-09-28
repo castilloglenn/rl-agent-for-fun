@@ -3,7 +3,7 @@ from ml_collections import ConfigDict
 from pygame import Rect, Surface
 
 from src.ecs import World
-from src.render import panels, theme, warnings
+from src.render import camera, panels, theme, warnings
 from src.render.layout import Layout
 from src.sim.components import (
     Checkpoint,
@@ -64,14 +64,19 @@ class Renderer:
         """
         self.config = config
         field_rect = Field.from_stage(stage or load_stage(config.stage)).rect
+        # A big stage gets a view of at most max_field (step 7b).
+        max_field = tuple(config.window.get("max_field", camera.MAX_FIELD))
+        view_w, view_h = camera.view_size(
+            field_rect.width, field_rect.height, max_field
+        )
         self.layout = Layout.for_field(
+            view_w, view_h, playback=config.window.playback_bar
+        )
+        self.camera = camera.Camera.for_stage(
             field_rect.width,
             field_rect.height,
-            playback=config.window.playback_bar,
-        )
-        self.offset = (
-            self.layout.field_view.x - field_rect.x,
-            self.layout.field_view.y - field_rect.y,
+            self.layout.field_view,
+            max_field,
         )
         # Debug lines (rays, hitbox, and future distance or boundary
         # lines). H toggles them; the config flags pick which kinds exist.
@@ -105,6 +110,11 @@ class Renderer:
         self._car_surfaces: dict[tuple, Surface] = {}
 
     @property
+    def offset(self) -> tuple[float, float]:
+        """Where the stage's (0, 0) is on screen (1:1 stages)."""
+        return self.camera.to_screen(0.0, 0.0)
+
+    @property
     def modal_open(self) -> bool:
         """A box that pauses the game is open (shortcuts, quit prompt)."""
         return self.show_shortcuts or self.confirm_quit
@@ -127,9 +137,8 @@ class Renderer:
                 self._key(event.key, game_over, commands)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    x = event.pos[0] - self.offset[0]
-                    y = event.pos[1] - self.offset[1]
-                    print(f"click at world ({x}, {y})", flush=True)
+                    x, y = self.camera.to_world(*event.pos)
+                    print(f"click at world ({x:g}, {y:g})", flush=True)
         return commands
 
     def _key(self, key: int, game_over: bool, commands: set) -> None:
@@ -152,6 +161,8 @@ class Renderer:
             self.show_lines = not self.show_lines
         elif key == pygame.K_t:
             self.show_trail = not self.show_trail
+        elif key == pygame.K_f:
+            self.camera.toggle()
         elif self.show_shortcuts:
             return
         else:
@@ -194,6 +205,7 @@ class Renderer:
             cars,
             self.config.hud,
             (self.clock.get_fps(), self.frame_rate, self.vsync),
+            self.camera.label(),
         )
         if self.confirm_quit:
             self._draw_centered_lines(
@@ -221,25 +233,37 @@ class Renderer:
         """Walls inside the field (7a): filled, with the border's outline
         (1 px wider, as for the border, so the line is on the surface).
         """
-        ox, oy = self.offset
+        s = self.camera.scale
         for box in world.resource(Walls).boxes:
+            left, top = self.camera.to_screen(box.left, box.top)
             rect = pygame.Rect(
-                round(box.left + ox),
-                round(box.top + oy),
-                round(box.right - box.left) + 1,
-                round(box.bottom - box.top) + 1,
+                round(left),
+                round(top),
+                round((box.right - box.left) * s) + 1,
+                round((box.bottom - box.top) * s) + 1,
             )
             pygame.draw.rect(self.display, theme.WALL, rect)
             pygame.draw.rect(self.display, theme.FIELD_BORDER, rect, 1)
 
     def _draw_field(self, world: World, alpha: float, trail=None) -> None:
         self._checkpoints = world.query(Transform, Checkpoint)
-        field_rect = world.resource(Field).rect.move(self.offset)
+        cam = self.camera
+        self._follow(world, alpha)
+        view = cam.view
+        clip = pygame.Rect(view.x, view.y, view.w + 1, view.h + 1)
+        if cam.zoomable:  # the view is a window onto a bigger stage
+            pygame.draw.rect(self.display, theme.PANEL_BORDER, clip, 1)
+        self.display.set_clip(clip)
+        field = world.resource(Field).rect
+        left, top = cam.to_screen(field.x, field.y)
         # pygame draws a 1 px outline inside the rect's right and bottom
         # edges. One extra pixel puts the line exactly on the physics
         # boundary, where car corners stop.
         border = pygame.Rect(
-            field_rect.x, field_rect.y, field_rect.w + 1, field_rect.h + 1
+            round(left),
+            round(top),
+            round(field.w * cam.scale) + 1,
+            round(field.h * cam.scale) + 1,
         )
         pygame.draw.rect(self.display, theme.FIELD_BORDER, border, 1)
         self._draw_walls(world)
@@ -249,8 +273,8 @@ class Renderer:
             pygame.draw.circle(
                 self.display,
                 theme.CHECKPOINT,
-                (spot.x + self.offset[0], spot.y + self.offset[1]),
-                trigger.radius,
+                cam.to_screen(spot.x, spot.y),
+                max(trigger.radius * cam.scale, 3),
                 width=2,
             )
         if trail and self.show_trail:
@@ -277,6 +301,16 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
+        self.display.set_clip(None)
+
+    def _follow(self, world: World, alpha: float) -> None:
+        """Follow mode centers on the first car, where it's drawn."""
+        for _, (transform, previous) in world.query(Transform, PreviousPose):
+            self.camera.follow(
+                lerp(previous.center_x, transform.x, alpha),
+                lerp(previous.center_y, transform.y, alpha),
+            )
+            return
 
     def _car_color(self, world, car, renderable, step, sim) -> ColorValue:
         """Dark red once wrecked. After a hit, it blinks red for a moment
@@ -359,7 +393,7 @@ class Renderer:
 
     def _draw_trail(self, trail) -> None:
         count = len(trail)
-        ox, oy = self.offset
+        to_screen = self.camera.to_screen
         for start in range(0, count - 1, self.TRAIL_CHUNK):
             chunk = trail[start : start + self.TRAIL_CHUNK + 1]
             if len(chunk) < 2:
@@ -375,7 +409,7 @@ class Renderer:
                 self.display,
                 color,
                 False,
-                [(x + ox, y + oy) for x, y in chunk],
+                [to_screen(x, y) for x, y in chunk],
                 2 if age < self.TRAIL_RECENT else 1,
             )
 
@@ -588,9 +622,14 @@ class Renderer:
         center_y = lerp(previous.center_y, transform.y, alpha)
         angle = lerp_angle(previous.angle, transform.angle, alpha)
 
+        cam = self.camera
+        scale = cam.scale
         surface = self._car_surface(hitbox.width, hitbox.height, color)
-        rotated = pygame.transform.rotate(surface, angle)
-        screen_center = (center_x + self.offset[0], center_y + self.offset[1])
+        if scale == 1.0:
+            rotated = pygame.transform.rotate(surface, angle)
+        else:  # rotated and scaled together, smoothly
+            rotated = pygame.transform.rotozoom(surface, angle, scale)
+        screen_center = cam.to_screen(center_x, center_y)
         if self.show_lines:
             # Guide to the checkpoint, under the car.
             for _, (spot, _) in self._checkpoints:
@@ -598,7 +637,7 @@ class Renderer:
                     self.display,
                     theme.GUIDE,
                     screen_center,
-                    (spot.x + self.offset[0], spot.y + self.offset[1]),
+                    cam.to_screen(spot.x, spot.y),
                 )
         self.display.blit(rotated, rotated.get_rect(center=screen_center))
 
@@ -609,21 +648,23 @@ class Renderer:
                 screen_center[0],
                 screen_center[1],
                 angle,
-                hitbox.width,
-                hitbox.height,
+                hitbox.width * scale,
+                hitbox.height * scale,
             )
             pygame.draw.polygon(self.display, theme.HITBOX, corners, width=1)
         if self.config.show_collision_distance:
             # Rays are cast at the current step. Shift them with the car.
-            dx = self.offset[0] + center_x - transform.x
-            dy = self.offset[1] + center_y - transform.y
+            dx = center_x - transform.x
+            dy = center_y - transform.y
             # Muted by default. Warning rays are drawn last, on top.
             for ray in sorted(sensors.rays, key=lambda r: ray_levels[r.name]):
                 pygame.draw.line(
                     surface=self.display,
                     color=warnings.ray_color(ray_levels[ray.name]),
-                    start_pos=(ray.start.x + dx, ray.start.y + dy),
-                    end_pos=(ray.end.x + dx, ray.end.y + dy),
+                    start_pos=cam.to_screen(
+                        ray.start.x + dx, ray.start.y + dy
+                    ),
+                    end_pos=cam.to_screen(ray.end.x + dx, ray.end.y + dy),
                 )
 
 

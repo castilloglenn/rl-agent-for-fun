@@ -81,6 +81,7 @@ LIVE_SHORTCUTS = (
     ("P", "pause / resume"),
     ("R", "restart"),
     ("H", "lines"),
+    ("F", "camera: fit or follow (big stages)"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),
 )
@@ -527,9 +528,11 @@ def draw_car_panel(
     cars: list[CarInfo],
     hud: ConfigDict,
     display: tuple[float, int, bool] = (0.0, 60, False),
+    camera: str = "1:1",
 ) -> None:
     """Right: the car's live instruments, next to the field, and the
-    display. display: (fps, target frame rate, vsync).
+    display. display: (fps, target frame rate, vsync). camera: its mode
+    (step 7b), for example "fit 53 %".
     """
     column = _Column(surface, rect)
     car = cars[0] if cars else None
@@ -588,6 +591,7 @@ def draw_car_panel(
         warnings.fps_level(fps, frame_rate, hud),
     )
     column.row("Vsync", "on" if vsync else "off")
+    column.row("Camera", camera)
     column.note("?  shortcuts")
     column.finish()
 
