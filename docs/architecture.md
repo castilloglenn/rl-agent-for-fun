@@ -199,16 +199,18 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `training_plan.py` | `make_plan(values, ...)`: the Training tab's form turned into steps (each a Commands tab action), an estimate from past runs, warnings, and what blocks starting ([decision 025](decisions/025-training-tab-and-chains.md)) |
 | `chains.py` | `Chain`: jobs run one after another, each only if the one before succeeded; a stop or a failure cancels the rest |
 | `training_tab.py` | `TrainingTab`: the form (its fields follow the mode) and the plan box with Start |
-| `form.py` | `Form`: a scrolling column of labeled fields (dropdowns or typed, with dimmed hints) for the tabs |
+| `form.py` | `Form`: a scrolling column of labeled fields (dropdowns, typed, or read-only, with dimmed hints) for the tabs |
 | `confirm.py` | `Confirm`: the confirmation box (quit, delete a run, empty the trash): dims the window, Cancel (Esc) and a confirm button (Enter), buttons acting on release |
 | `trash.py` | `Trash`: deleting moves folders into `trash/` (one entry per delete, with `trash.json`), `restore`, `empty`, and `entries` ([decision 027](decisions/027-trash.md)). `agent_plan` says what deleting an agent moves and keeps |
 | `agents_data.py` | The Agents tab's data ([decision 028](decisions/028-agents-tab.md)): `load_agents`, `skills` (the radar's six axes, 0 to 1), `history`, `lineage`, `leaderboard`, and `high_scores` |
 | `agents_tab.py` | `AgentsTab`: the roster (cards or leaderboard), and the selected agent's profile, radar, skill history, lineage, and buttons |
 | `radar.py` | `draw_radar()`: a skill radar with a reference outline |
+| `files.py` | The Files tab's logic ([decision 029](decisions/029-file-editors.md)): `KINDS` (folder, defaults, validator), `items` and `rebuild` (a file as fields by path, and back), `check`, `dump` (the repo's layout), `save` (a changed suite gets the next version), `duplicate` |
+| `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete |
 | `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
 | `vitals.py` | `VitalsLog`: those readings as a row every 10 s (and on a level change) in `logs/vitals.csv`, with job and window events as notes, rotated at 100 KB ([decision 024](decisions/024-vitals-log.md)); `tail()` for `make vitals` |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: tabs on top and the machine's vital signs along the bottom, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training, Runs, and Agents tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: tabs on top and the machine's vital signs along the bottom, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training, Runs, Agents, and Files tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
 
 ## Replays (`src/replay/`)
 

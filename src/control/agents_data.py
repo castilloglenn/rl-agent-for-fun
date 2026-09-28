@@ -19,7 +19,7 @@ from src.control import runs
 REPO = Path(__file__).resolve().parents[2]
 AGENTS_DIR = REPO / "agents"
 RECORDINGS_DIR = REPO / "recordings"
-SUITE = "box-v1"  # the default suite, as its results file names it
+SUITE_FILE = REPO / "suites" / "box.json"  # the default suite
 HIGH_SCORES = 5  # per stage, rules, and round length
 
 # The radar's axes: (label, metric, how it maps to 0..1). "relative"
@@ -140,8 +140,17 @@ def _negate(text: str) -> tuple:
     return tuple(-ord(c) for c in text)
 
 
-def baselines(agents_dir: Path | None = None, suite: str = SUITE) -> dict:
+def current_suite(path: Path = SUITE_FILE) -> str:
+    """The default suite as its results files name it: "box-v1". Its
+    version goes up when the suite is edited (6d1).
+    """
+    data = runs.read_json(path)
+    return f"{data.get('name', 'box')}-v{data.get('version', 1)}"
+
+
+def baselines(agents_dir: Path | None = None, suite: str = "") -> dict:
     """{"heuristic": metrics, "random": metrics} on the suite."""
+    suite = suite or current_suite()
     path = (agents_dir or AGENTS_DIR) / "baselines" / f"{suite}.json"
     return runs.read_json(path).get("scores", {})
 
@@ -190,8 +199,9 @@ def skills(metrics: dict, refs: dict) -> list[float]:
     return [min(max(v, 0.0), 1.0) for v in values]
 
 
-def history(agent: AgentInfo, suite: str = SUITE) -> list[dict]:
+def history(agent: AgentInfo, suite: str = "") -> list[dict]:
     """The suite results of each scored checkpoint, by decisions."""
+    suite = suite or current_suite()
     path = agent.folder / "evaluations" / f"{suite}.csv"
     try:
         with open(path, newline="") as file:

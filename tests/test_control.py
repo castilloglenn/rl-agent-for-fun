@@ -394,13 +394,16 @@ def test_closing_the_window_asks_then_quits(window):
     assert not window.running
 
 
-def test_only_built_tabs_open(window):
+def test_every_tab_opens(window):
     assert window.tab == "Commands"
-    files = window.tab_rects["Files"].center
-    window.handle(
-        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=files)
-    )
-    assert window.tab == "Commands"  # arrives in 6d
+    for name, rect in window.tab_rects.items():
+        window.handle(
+            pygame.event.Event(
+                pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center
+            )
+        )
+        assert window.tab == name
+        window.draw()
 
 
 def test_hints_hide_while_a_dropdown_is_open(window, monkeypatch):

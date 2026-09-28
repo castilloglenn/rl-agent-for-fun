@@ -33,6 +33,7 @@ class Field:
     options: Callable[[], list[str]] | None = None
     default: str = ""
     hint: str = ""  # shown next to a typed field, for example "rules' own"
+    readonly: bool = False  # shown, not edited (the Files tab, 6d1)
 
 
 @dataclass(frozen=True)

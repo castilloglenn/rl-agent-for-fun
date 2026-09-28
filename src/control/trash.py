@@ -31,7 +31,7 @@ class TrashError(ValueError):
 @dataclass(frozen=True)
 class Entry:
     name: str  # its folder in trash/
-    kind: str  # "run" or "agent"
+    kind: str  # "run", "agent", or "file"
     label: str  # what was deleted, for example the run's folder
     created: str
     paths: tuple[str, ...]  # the moved folders, from the repo root
@@ -95,6 +95,13 @@ class Trash:
                 "stop it first"
             )
         return self._move("agent", agent_id, [plan.folder, *plan.runs])
+
+    def delete_file(self, folder: str, name: str) -> Entry:
+        """Moves a named file (rules/sprint.json, ...) into the trash."""
+        path = self.root / folder / f"{name}.json"
+        if not path.exists():
+            raise TrashError(f"no file {folder}/{name}.json")
+        return self._move("file", f"{folder}-{name}", [path])
 
     def _move(self, kind: str, label: str, folders: list[Path]) -> Entry:
         now = datetime.now()

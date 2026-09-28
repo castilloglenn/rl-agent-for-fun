@@ -23,12 +23,19 @@ SCROLL_STEP = 40
 
 
 class Form:
-    def __init__(self, gui, viewport: Rect, extra_height: int = 0) -> None:
+    def __init__(
+        self,
+        gui,
+        viewport: Rect,
+        extra_height: int = 0,
+        label_width: int = LABEL,
+    ) -> None:
         """`viewport`: where the fields go. `extra_height`: room below the
         fields for the caller's own widgets (they scroll too).
         """
         self.gui = gui
         self.viewport = viewport
+        self.label_width = label_width
         self.extra_height = extra_height
         self.fields: list[Field] = []
         self.widgets: dict[str, object] = {}
@@ -43,13 +50,18 @@ class Form:
             widget.kill()
         self.fields, self.widgets, self.offsets = list(fields), {}, {}
         view = self.viewport
-        width = view.w - LABEL
+        label = self.label_width
+        width = view.w - label
         for i, field in enumerate(self.fields):
             y = i * (ROW + GAP)
-            rect = Rect(view.x + LABEL, view.y + y, width, ROW)
+            rect = Rect(view.x + label, view.y + y, width, ROW)
             value = values.get(field.name, field.default)
             options = field.options() if field.options else None
-            if options:
+            if field.readonly:
+                widget = UITextEntryLine(rect, self.gui)
+                widget.set_text(value)
+                widget.disable()
+            elif options:
                 shown = [(fit(o, width - 40), o) for o in options]
                 start = next(
                     (s for s in shown if s[1] == value),
@@ -114,8 +126,12 @@ class Form:
             widget.hide()
 
     def values(self) -> dict[str, str]:
+        """Every field's value, but read-only ones."""
         found = {}
+        readonly = {f.name for f in self.fields if f.readonly}
         for name, widget in self.widgets.items():
+            if name in readonly:
+                continue
             if isinstance(widget, UIDropDownMenu):
                 option = widget.selected_option
                 found[name] = option[1] if isinstance(option, tuple) else ""
@@ -149,9 +165,11 @@ class Form:
         surface.set_clip(view)
         for field in self.fields:
             y = self.y_of(self.offsets[field.name])
+            if y < view.top or y + ROW > view.bottom:
+                continue  # its widget is hidden: so is its label
             draw_text(
                 surface,
-                fit(field.name, LABEL - 12),
+                fit(field.name, self.label_width - 12),
                 (view.x, y + 7),
                 theme.TEXT_SIZE,
                 theme.TEXT,

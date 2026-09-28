@@ -2,8 +2,9 @@
 the natural steps (actions.py), the jobs running in the background, and
 their live output (the Commands tab, 6a), one form to train an agent
 (the Training tab, 6b2, training_tab.py), every run with its live
-learning curves (the Runs tab, 6b1 and 6b3, runs_tab.py), and every
-agent with its profile and the leaderboard (the Agents tab, 6c).
+learning curves (the Runs tab, 6b1 and 6b3, runs_tab.py), every
+agent with its profile and the leaderboard (the Agents tab, 6c), and
+the named files, edited and checked (the Files tab, 6d1).
 
     make control
 
@@ -31,6 +32,7 @@ from src.control.agents_tab import AgentsTab
 from src.control.jobs import JobManager
 from src.control.chains import Chain
 from src.control.confirm import Confirm
+from src.control.files_tab import FilesTab
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
 from src.control.text import fit, header, wrap
@@ -57,7 +59,7 @@ TABS = (  # (name, the step it arrives in: None if it's here)
     ("Training", None),
     ("Runs", None),
     ("Agents", None),
-    ("Files", "6d"),
+    ("Files", None),
 )
 LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
 CONSOLE_FONT = "menlo"  # monospace, like a terminal: tables line up
@@ -168,6 +170,7 @@ class ControlCenter:
         runs_dir: Path | None = None,
         agents_dir: Path | None = None,
         logs_dir: Path | None = None,
+        files_root: Path | None = None,
     ) -> None:
         """`logs_dir`: where the vitals log goes (app.py passes logs/).
         None keeps no log, for tests.
@@ -249,6 +252,13 @@ class ControlCenter:
             runs_dir=runs_dir,
         )
         self.agents_tab.hide()
+        self.files_tab = FilesTab(
+            self.gui,
+            Rect(MARGIN, top, width, bottom - top),
+            self.ask,
+            root=files_root,
+        )
+        self.files_tab.hide()
 
     # Widgets
 
@@ -545,6 +555,7 @@ class ControlCenter:
             "Runs": self.runs_tab,
             "Training": self.training_tab,
             "Agents": self.agents_tab,
+            "Files": self.files_tab,
         }
         for tab_name, tab in tabs.items():
             if tab_name != name:
@@ -584,6 +595,13 @@ class ControlCenter:
                     theme.TEXT_DIM,
                 )
             )
+        if self.files_tab.dirty:
+            lines.append(
+                (
+                    f"Unsaved changes in {self.files_tab.path} will be lost.",
+                    theme.WARN,
+                )
+            )
         self.ask(Confirm("QUIT?", lines, self.quit))
 
     def quit(self) -> None:
@@ -615,6 +633,8 @@ class ControlCenter:
             self.training_tab.handle(event)
         elif self.tab == "Agents":
             self.agents_tab.handle(event)
+        elif self.tab == "Files":
+            self.files_tab.handle(event)
         else:
             self._handle_commands(event)
 
@@ -706,6 +726,10 @@ class ControlCenter:
         elif self.tab == "Agents":
             self.agents_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
+        elif self.tab == "Files":
+            self.files_tab.draw(self.screen)
+            self.gui.draw_ui(self.screen)
+            self.files_tab.draw_after(self.screen)
         else:
             self._draw_commands()
         if self.box:
@@ -936,6 +960,8 @@ class ControlCenter:
                 self.training_tab.refresh()
             elif self.tab == "Agents":
                 self.agents_tab.refresh()
+            elif self.tab == "Files":
+                self.files_tab.refresh()
             self.gui.update(elapsed)
             self.draw()
             pygame.display.flip()
