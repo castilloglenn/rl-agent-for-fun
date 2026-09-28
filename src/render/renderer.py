@@ -74,6 +74,7 @@ class Renderer:
             field_rect.width, field_rect.height, self.layout.field_view
         )
         self.show_minimap = True  # M: on stages bigger than the view
+        self.minimap_side = "right"  # moves off the car's top quarter
         # Debug lines (rays, hitbox, and future distance or boundary
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
@@ -306,9 +307,11 @@ class Renderer:
     MINIMAP_INSET = 10  # px from the view's edges
 
     def _draw_minimap(self, world: World, alpha: float) -> None:
-        """Follow mode on a big stage: the whole stage, small, in the
-        view's top right (top left while the car is under it): walls, the
-        checkpoint, the car, and the area the view shows.
+        """Follow mode on a big stage: the whole stage, small, in a top
+        corner of the view: walls, the checkpoint, the car, and the area
+        the view shows. It starts top right, moves to the top left when
+        the car heads up and to the right, and back when it heads up and
+        to the left.
         """
         cam = self.camera
         if not (self.show_minimap and cam.zoomable and cam.mode == FOLLOW):
@@ -316,10 +319,14 @@ class Renderer:
         s = self.MINIMAP / max(cam.stage_width, cam.stage_height)
         size = (round(cam.stage_width * s), round(cam.stage_height * s))
         view, inset = cam.view, self.MINIMAP_INSET
-        box = pygame.Rect(0, 0, *size)
-        box.topright = (view.right - inset, view.top + inset)
         car = self._first_car(world, alpha)
-        if car and box.inflate(24, 24).collidepoint(cam.to_screen(*car[:2])):
+        self.minimap_side = minimap_side(
+            self.minimap_side, self._travel(world)
+        )
+        box = pygame.Rect(0, 0, *size)
+        if self.minimap_side == "right":
+            box.topright = (view.right - inset, view.top + inset)
+        else:
             box.topleft = (view.left + inset, view.top + inset)
         shade = pygame.Surface(size, pygame.SRCALPHA)
         shade.fill((*theme.BACKGROUND, 235))
@@ -362,6 +369,18 @@ class Renderer:
             )
             pygame.draw.circle(self.display, theme.TRAIL_RECENT, head, 3)
         pygame.draw.rect(self.display, theme.PANEL_BORDER, box, 1)
+
+    def _travel(self, world: World) -> tuple[float, float] | None:
+        """The first car's direction of travel on screen (its heading,
+        or the opposite while reversing), or None while it stands still.
+        """
+        for _, (transform, motion) in world.query(Transform, Motion):
+            if motion.speed == 0:
+                return None
+            dx, dy = direction(transform.angle)
+            sign = 1.0 if motion.speed > 0 else -1.0
+            return dx * sign, dy * sign
+        return None
 
     def _first_car(self, world: World, alpha: float):
         """(x, y, angle) of the first car, where it's drawn, or None."""
@@ -733,6 +752,23 @@ class Renderer:
                     ),
                     end_pos=cam.to_screen(ray.end.x + dx, ray.end.y + dy),
                 )
+
+
+def minimap_side(side: str, travel: tuple[float, float] | None) -> str:
+    """The mini map's corner: it leaves its side when the car travels
+    toward it (up and to the right for the top right corner, up and to
+    the left for the top left), and stays put otherwise.
+    """
+    if travel is None:
+        return side
+    dx, dy = travel
+    if dy >= 0:  # not heading up (screen y grows downward)
+        return side
+    if side == "right" and dx > 0:
+        return "left"
+    if side == "left" and dx < 0:
+        return "right"
+    return side
 
 
 def _clock(seconds: float) -> str:

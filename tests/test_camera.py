@@ -135,16 +135,40 @@ def _minimap(renderer, boxes):
     ]
 
 
-def test_the_mini_map_is_top_right_and_moves_off_the_car():
-    renderer, boxes = _drawn_frame("arena")  # the car starts low
+def test_the_mini_map_starts_top_right():
+    renderer, boxes = _drawn_frame("arena")
     (mini,) = _minimap(renderer, boxes)
     view = renderer.camera.view
     assert mini.topright == (view.right - 10, view.top + 10)
-    # The car at the top right: the view there, and the car under the
-    # mini map's corner, so it moves to the top left.
-    renderer, boxes = _drawn_frame("arena", car_at=(1150, 60))
-    (mini,) = _minimap(renderer, boxes)
-    assert mini.topleft == (view.left + 10, view.top + 10)
+
+
+def test_the_mini_map_moves_away_from_where_the_car_heads():
+    from src.render.renderer import minimap_side
+
+    up_right, up_left = (0.7, -0.7), (-0.7, -0.7)
+    down_right, straight_up = (0.7, 0.7), (0.0, -1.0)
+    assert minimap_side("right", up_right) == "left"
+    assert minimap_side("left", up_right) == "left"  # stays
+    assert minimap_side("left", down_right) == "left"
+    assert minimap_side("left", straight_up) == "left"
+    assert minimap_side("left", up_left) == "right"
+    assert minimap_side("right", up_left) == "right"
+    assert minimap_side("right", None) == "right"  # standing still
+
+
+def test_reversing_travels_backward():
+    from src.envs.maze_car.env import MazeCarEnv
+    from src.sim.components import Motion, Transform
+
+    env = MazeCarEnv(get_maze_car_config(), stage=load_stage("arena"))
+    env.reset(seed=1)
+    world = env.world
+    world.component(env.car, Transform).angle = 225  # facing down, left
+    world.component(env.car, Motion).speed = -1.0  # rolling up and right
+    dx, dy = env.renderer._travel(world)
+    assert dx > 0 and dy < 0
+    world.component(env.car, Motion).speed = 0.0
+    assert env.renderer._travel(world) is None
 
 
 def test_no_mini_map_on_a_small_stage():
