@@ -25,11 +25,12 @@ import pygame_gui
 from pygame import Rect
 from pygame_gui.elements import UIButton, UIDropDownMenu, UISelectionList
 
-from src.control import runs
+from src.control import help, runs
 from src.control.charts import DOTS, LINE, Plot, Series, draw_chart
 from src.control.jobs import JobManager
 from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
 from src.control.text import fit, header
+from src.control.tooltips import Tooltips
 from src.render import theme
 from src.utils.ui import draw_text, get_font
 
@@ -55,6 +56,11 @@ HIT = 9  # px: how close a click must be to a suite dot
 POPOVER = (250, 96)  # the smallest size; it widens to fit its text
 POPOVER_PAD = 12
 POPOVER_BUTTONS = (("watch", "Watch it drive"), ("branch", "Branch from it"))
+CHART_TOPICS = {  # the main chart's help
+    runs.TRAINING: "chart:score",
+    runs.IMITATION: "chart:accuracy",
+    runs.EPISODES: "chart:episodes",
+}
 KIND_TITLES = {
     runs.TRAINING: "TRAINING RUN",
     runs.IMITATION: "IMITATION RUN",
@@ -122,6 +128,7 @@ class RunsTab:
         self.popover_buttons: dict[str, Rect] = {}
         self._pressed: str | None = None
         self._plot: Plot | None = None  # where the score chart drew
+        self.tips = Tooltips()  # the window shares its own
 
         box = self.list_box
         self.run_list = UISelectionList(
@@ -370,7 +377,9 @@ class RunsTab:
 
     def _dot_at(self, pos) -> tuple[str, float, float] | None:
         plot, data = self._plot, self.data
-        if not plot or not data or data.kind != runs.TRAINING:
+        if not plot or not plot.to_screen or not data:
+            return None
+        if data.kind != runs.TRAINING:
             return None
         if not plot.area.inflate(2 * HIT, 2 * HIT).collidepoint(pos):
             return None
@@ -471,15 +480,17 @@ class RunsTab:
         )
         self._draw_status(surface, data, row, x, d.y + 86, width)
         if self.compare_menu:
-            draw_text(
+            label = draw_text(
                 surface,
                 "COMPARE WITH",
-                (self.compare_menu.rect.x - 10, d.y + 19),
+                (self.compare_menu.rect.x - 24, d.y + 19),
                 theme.HEADER_SIZE,
                 theme.TEXT_DIM,
                 bold=True,
                 anchor="midright",
             )
+            mark = self.tips.marker(surface, label.right + 6, label.centery)
+            self.tips.add(label.union(mark), help.topic("compare"))
         mouse = pygame.mouse.get_pos()
         if self.dropdown_open() or self.picked:
             mouse = None  # an open list or box covers the chart
@@ -487,20 +498,26 @@ class RunsTab:
             data.main_chart(), lambda c: c.main_chart(), (LINE,)
         )
         self._plot = draw_chart(surface, self.main_rect, main, mouse)
+        self._chart_help(surface, self._plot, CHART_TOPICS[data.kind])
         option = self.choice.get(data.kind, data.options()[0])
         second = self._with_compare(
             data.second_chart(option),
             lambda c: c.second_chart(option),
             (LINE, DOTS),
         )
-        draw_chart(
+        plot = draw_chart(
             surface,
             self.second_rect,
             second,
             mouse,
             title=False,
-            reserved=MENU_WIDTH,
+            reserved=MENU_WIDTH + 22,
         )
+        if self.menu:
+            menu = self.menu.rect
+            mark = self.tips.marker(surface, menu.right + 8, menu.centery)
+            self.tips.add(menu.union(mark), help.topic(f"chart:{option}"))
+        self._chart_help(surface, plot, None)
         if self.message:
             text, color = self.message
             draw_text(
@@ -512,9 +529,20 @@ class RunsTab:
                 anchor="midleft",
             )
 
+    def _chart_help(self, surface, plot: Plot, title_topic) -> None:
+        """The chart title's marker and tooltip, and the legend's."""
+        if title_topic and plot.title.w:
+            mark = self.tips.marker(
+                surface, plot.title.right + 6, plot.title.centery
+            )
+            self.tips.add(plot.title.union(mark), help.topic(title_topic))
+        for rect, label in plot.legend:
+            key = label.split(" ")[0]  # "suite box-v1", "best d1700k"
+            self.tips.add(rect, help.topic(f"legend:{key}"))
+
     def draw_after(self, surface) -> None:
         """After the GUI: the checkpoint box, on top of everything."""
-        if self.picked and self._plot and self.data:
+        if self.picked and self._plot and self._plot.to_screen and self.data:
             self._draw_popover(surface)
 
     def _with_compare(self, chart, of, styles):
@@ -535,7 +563,7 @@ class RunsTab:
         return chart
 
     def _popover_rect(self) -> Rect:
-        if not (self.picked and self._plot):
+        if not (self.picked and self._plot and self._plot.to_screen):
             return Rect(0, 0, 0, 0)
         x, y = self._plot.to_screen(self.picked[1], self.picked[2])
         title, detail = self._popover_texts()
@@ -615,6 +643,7 @@ class RunsTab:
             color,
             bold=True,
         )
+        self.tips.add(rect, help.topic(f"status:{row.status}"))
         done, total, unit = data.counts()
         right = rect.right + 12
         if total:

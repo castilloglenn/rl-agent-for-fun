@@ -206,6 +206,8 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `agents_tab.py` | `AgentsTab`: the roster (cards or leaderboard), and the selected agent's profile, radar, skill history, lineage, and buttons |
 | `radar.py` | `draw_radar()`: a skill radar with a reference outline |
 | `files.py` | The Files tab's logic ([decision 029](decisions/029-file-editors.md)): `KINDS` (folder, defaults, validator), `items` and `rebuild` (a file as fields by path, and back), `check`, `dump` (the repo's layout), `save` (a changed suite gets the next version), `duplicate` |
+| `help.py` | The help texts ([decision 030](decisions/030-units-and-tooltips.md)): every file field by path with its unit, reward terms, form fields, and topics (charts, statuses, skills, columns, badges, vital signs) |
+| `tooltips.py` | `Tooltips`: tabs register help areas while drawing (and draw the "i" marker); the window draws the one under the mouse after 0.5 s |
 | `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete |
 | `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |

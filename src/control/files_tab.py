@@ -27,12 +27,13 @@ from pygame_gui.elements import (
     UITextEntryLine,
 )
 
-from src.control import files
+from src.control import files, help
 from src.control.actions import Field
 from src.control.confirm import Confirm
 from src.control.files import KINDS, FileError, Kind
 from src.control.form import Form
 from src.control.text import PAD, fit, header
+from src.control.tooltips import Tooltips
 from src.control.trash import Trash, TrashError
 from src.render import theme
 from src.utils.ui import draw_text
@@ -90,7 +91,9 @@ class FilesTab:
                 e.x + PAD, top, e.w - 2 * PAD - 12, self.status_y - 12 - top
             ),
             label_width=LABEL,
+            help_for=lambda path: help.field(self.kind.folder, path),
         )
+        self.tips = Tooltips()  # the window shares its own
         x = e.x + PAD
         self.buttons: dict[str, UIButton] = {}
         for name, width in (("Save", 100), ("Revert", 100)):
@@ -110,7 +113,7 @@ class FilesTab:
             Rect(e.right - PAD - 100, self.buttons_y, 100, ROW), "Delete", gui
         )
 
-        self.kind: Kind = KINDS[0]
+        self.kind: Kind = KINDS[0]  # (help_for above reads it)
         self.name: str | None = None
         self.original: dict = {}
         self.problem: str | None = None
@@ -347,6 +350,11 @@ class FilesTab:
             )
         )
 
+    def dropdown_open(self) -> bool:
+        menu = self.kind_menu
+        expanded = menu.current_state is menu.menu_states["expanded"]
+        return expanded or self.form.dropdown_open()
+
     # Events
 
     def handle(self, event) -> None:
@@ -428,7 +436,7 @@ class FilesTab:
             theme.TEXT_SIZE,
             theme.TEXT_DIM,
         )
-        self.form.draw_labels(surface)
+        self.form.draw_labels(surface, self.tips)
         if self.problem:
             status, color = f"Can't save: {self.problem}", theme.BAD
         elif self.dirty:

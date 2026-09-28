@@ -23,7 +23,7 @@ import pygame_gui
 from pygame import Rect
 from pygame_gui.elements import UIButton, UIDropDownMenu, UISelectionList
 
-from src.control import agents_data, runs
+from src.control import agents_data, help, runs
 from src.control.agents_data import HISTORY, SKILLS, AgentInfo
 from src.control.charts import (
     LEVEL,
@@ -36,6 +36,7 @@ from src.control.charts import (
 from src.control.jobs import JobManager
 from src.control.radar import draw_radar
 from src.control.text import PAD, fit, header, wrap
+from src.control.tooltips import Tooltips
 from src.control.training_plan import busy_agents
 from src.render import theme
 from src.utils.ui import draw_text
@@ -195,6 +196,7 @@ class AgentsTab:
         self.message: tuple[str, tuple] | None = None
         self._refreshed = 0.0
         self.visible = True
+        self.tips = Tooltips()  # the window shares its own
         self.refresh(force=True)
 
     # Showing and hiding with the tab
@@ -472,13 +474,14 @@ class AgentsTab:
             )
             ratio = agents_data.heuristic_ratio(agent, self.base)
             if ratio:
-                draw_text(
+                shown = draw_text(
                     surface,
                     f"{ratio:.1f}× heuristic",
                     (score.right + 8, y + 4),
                     theme.HEADER_SIZE,
                     theme.GOOD if ratio >= 1 else theme.TEXT_DIM,
                 )
+                self.tips.add(shown, help.topic("heuristic ratio"))
         else:
             draw_text(
                 surface,
@@ -509,6 +512,7 @@ class AgentsTab:
                 surface, badge, (bx + 6, by + 3), 11, color, bold=True
             )
             pygame.draw.rect(surface, color, label.inflate(12, 6), 1)
+            self.tips.add(label.inflate(12, 6), help.topic(f"badge:{badge}"))
             bx = label.right + 14
             if bx > rect.right - 100:
                 break
@@ -524,9 +528,10 @@ class AgentsTab:
         x0, y = self.content.x, self.content.y - self.scroll
         x = x0
         for title, width, _ in COLUMNS:
-            draw_text(
+            rect = draw_text(
                 surface, title, (x, y), theme.HEADER_SIZE, theme.TEXT_DIM, True
             )
+            self.tips.add(rect.inflate(6, 6), help.topic(f"column:{title}"))
             x += width
         y += 24
         for rank in self.ranks:
@@ -550,10 +555,11 @@ class AgentsTab:
                 x += width
             y += 26
         y += 18
-        draw_text(
+        self.tips.label(
             surface,
             "HIGH SCORES",
             (x0, y),
+            help.topic("high scores"),
             theme.HEADER_SIZE,
             theme.ACCENT,
             True,
@@ -635,8 +641,11 @@ class AgentsTab:
             self._history_chart(agent),
             None if self.dropdown_open() else pygame.mouse.get_pos(),
             title=False,
-            reserved=HISTORY_MENU,
+            reserved=HISTORY_MENU + 22,
         )
+        menu = self.history_menu.rect
+        mark = self.tips.marker(surface, menu.right + 8, menu.centery)
+        self.tips.add(menu.union(mark), help.topic("history"))
         draw_text(
             surface,
             "LINEAGE",
@@ -652,10 +661,11 @@ class AgentsTab:
         title = "SKILLS"
         if agent.best_checkpoint:
             title += f" · {agent.best_checkpoint}"
-        draw_text(
+        self.tips.label(
             surface,
             title,
             (rect.x + 12, rect.y + 10),
+            help.topic("skills"),
             theme.HEADER_SIZE,
             theme.ACCENT,
             bold=True,
@@ -672,7 +682,7 @@ class AgentsTab:
             )
             return
         heuristic = self.base.get("heuristic")
-        draw_radar(
+        drawn = draw_radar(
             surface,
             center,
             60,
@@ -682,6 +692,8 @@ class AgentsTab:
             ),
             labels=[label for label, _, _ in SKILLS],
         )
+        for area, label in drawn:
+            self.tips.add(area.inflate(8, 6), help.topic(f"skill:{label}"))
         draw_text(
             surface,
             "outline: heuristic",

@@ -35,7 +35,9 @@ from src.control.confirm import Confirm
 from src.control.files_tab import FilesTab
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
+from src.control import help
 from src.control.text import fit, header, wrap
+from src.control.tooltips import Tooltips
 from src.control.training_plan import Plan
 from src.control.training_tab import TrainingTab
 from src.control.vitals import VitalsLog
@@ -185,6 +187,8 @@ class ControlCenter:
             self.jobs.on_event = self.vitals.note
         self.running = True
         self.box: Confirm | None = None  # an open confirmation box
+        self.tips = Tooltips()  # decision 030
+        self._frame_seconds = 1 / 60
         self.tab = "Commands"
         self.stats = SystemStats()
         if self.vitals:
@@ -259,6 +263,13 @@ class ControlCenter:
             root=files_root,
         )
         self.files_tab.hide()
+        for tab in (
+            self.runs_tab,
+            self.training_tab,
+            self.agents_tab,
+            self.files_tab,
+        ):
+            tab.tips = self.tips
 
     # Widgets
 
@@ -711,6 +722,7 @@ class ControlCenter:
 
     def draw(self) -> None:
         self.screen.fill(theme.BACKGROUND)
+        self.tips.begin()
         for rect in (self.stats_bar, self.tab_bar):
             pygame.draw.rect(self.screen, theme.PANEL_BORDER, rect, 1)
         self._draw_stats()
@@ -734,6 +746,23 @@ class ControlCenter:
             self._draw_commands()
         if self.box:
             self.box.draw(self.screen)
+        self.tips.draw(
+            self.screen,
+            pygame.mouse.get_pos(),
+            self._frame_seconds,
+            blocked=bool(self.box) or self._any_dropdown_open(),
+        )
+
+    def _any_dropdown_open(self) -> bool:
+        tab = {
+            "Runs": self.runs_tab,
+            "Training": self.training_tab,
+            "Agents": self.agents_tab,
+            "Files": self.files_tab,
+        }.get(self.tab)
+        if tab is None:
+            return self._dropdown_open()
+        return tab.dropdown_open()
 
     def _draw_commands(self) -> None:
         for rect in (self.commands_box, self.jobs_box, self.console):
@@ -780,6 +809,7 @@ class ControlCenter:
             levels["cpu"],
             x,
             y,
+            self.tips,
         )
         x = _stat_gauge(
             self.screen,
@@ -790,6 +820,7 @@ class ControlCenter:
             levels["memory"],
             x,
             y,
+            self.tips,
         )
         if snap.battery is not None:
             where = "on power" if snap.plugged else "ON BATTERY"
@@ -802,6 +833,7 @@ class ControlCenter:
                 levels["battery"],
                 x,
                 y,
+                self.tips,
             )
         x = _stat_text(
             self.screen,
@@ -810,8 +842,11 @@ class ControlCenter:
             levels["disk"],
             x,
             y,
+            self.tips,
         )
-        _stat_text(self.screen, "JOBS", f"{snap.jobs} running", 0, x, y)
+        _stat_text(
+            self.screen, "JOBS", f"{snap.jobs} running", 0, x, y, self.tips
+        )
 
     # Tabs and the quit box
 
@@ -868,6 +903,16 @@ class ControlCenter:
             return  # the open list would get the hint drawn over it
         for field in self.selected.fields:
             widget = self.field_widgets.get(field.name)
+            unit, _ = help.form(field.name)
+            if unit and isinstance(widget, UITextEntryLine) and widget.visible:
+                draw_text(  # the unit, dim, inside the field's right end
+                    self.screen,
+                    unit,
+                    (widget.rect.right - 10, widget.rect.centery),
+                    theme.HEADER_SIZE,
+                    theme.TEXT_DIM,
+                    anchor="midright",
+                )
             if not field.hint or not isinstance(widget, UITextEntryLine):
                 continue
             if widget.get_text() or widget.is_focused or not widget.visible:
@@ -912,13 +957,11 @@ class ControlCenter:
         self.screen.set_clip(view)  # what scrolled out isn't drawn
         for field in action.fields:
             fy = view.y + self.offsets[field.name] - self.scroll
-            draw_text(
-                self.screen,
-                fit(field.name, LABEL - 12),
-                (x, fy + 7),
-                theme.TEXT_SIZE,
-                theme.TEXT,
-            )
+            if fy < view.top or fy + ROW > view.bottom:
+                continue
+            _, text = help.form(field.name)
+            label = fit(field.name, LABEL - 12 - (18 if text else 0))
+            self.tips.label(self.screen, label, (x, fy + 7), text)
         # The command it runs, beside Run, wrapped to the space left.
         side = x + 120 + PAD
         py = self.run_y
@@ -951,6 +994,7 @@ class ControlCenter:
         clock = pygame.time.Clock()
         while self.running:
             elapsed = clock.tick(60) / 1000
+            self._frame_seconds = elapsed
             for event in pygame.event.get():
                 self.handle(event)
             self._refresh()
@@ -971,9 +1015,11 @@ class ControlCenter:
 LEVEL_COLORS = {0: theme.GOOD, CAUTION: theme.WARN, DANGER: theme.BAD}
 
 
-def _stat_gauge(surface, label, share, value, note, level, x, y) -> int:
+def _stat_gauge(
+    surface, label, share, value, note, level, x, y, tips=None
+) -> int:
     """LABEL ■■■■□□□□ value (note), in the level's color. Returns where
-    the next stat starts.
+    the next stat starts. Hovering it explains it (with `tips`).
     """
     color = LEVEL_COLORS[level]
     label_rect = draw_text(
@@ -1010,10 +1056,13 @@ def _stat_gauge(surface, label, share, value, note, level, x, y) -> int:
         theme.WARN if note.isupper() else theme.TEXT_DIM,
         anchor="midleft",
     )
+    if tips:
+        area = Rect(x, y - 12, note_rect.right - x, 24)
+        tips.add(area, help.topic(f"stat:{label}"))
     return note_rect.right + 26
 
 
-def _stat_text(surface, label, value, level, x, y) -> int:
+def _stat_text(surface, label, value, level, x, y, tips=None) -> int:
     label_rect = draw_text(
         surface,
         label,
@@ -1031,6 +1080,9 @@ def _stat_text(surface, label, value, level, x, y) -> int:
         bold=True,
         anchor="midleft",
     )
+    if tips:
+        area = Rect(x, y - 12, value_rect.right - x, 24)
+        tips.add(area, help.topic(f"stat:{label}"))
     return value_rect.right + 26
 
 

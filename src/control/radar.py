@@ -30,10 +30,11 @@ def draw_radar(
     color: tuple = theme.ACCENT,
     reference: list[float] | None = None,
     labels: list[str] | None = None,
-) -> None:
+) -> list:
+    """Draws it; returns (Rect, label) for each label drawn."""
     n = len(values)
     if n < 3:
-        return
+        return []
     for ring in (0.5, 1.0):  # the grid: half and full
         points = [_point(center, radius, i, n, ring) for i in range(n)]
         pygame.draw.polygon(surface, GRID, points, 1)
@@ -57,6 +58,7 @@ def draw_radar(
     pygame.draw.polygon(layer, (*color, FILL_ALPHA), local)
     surface.blit(layer, offset)
     pygame.draw.polygon(surface, color, points, 2)
+    drawn = []
     if labels:
         for i, label in enumerate(labels):
             x, y = _point(center, radius + 14, i, n, 1.0)
@@ -64,7 +66,7 @@ def draw_radar(
                 anchor = "midbottom" if y < center[1] else "midtop"
             else:
                 anchor = "midleft" if x > center[0] else "midright"
-            draw_text(
+            rect = draw_text(
                 surface,
                 label,
                 (x, y),
@@ -72,3 +74,5 @@ def draw_radar(
                 theme.TEXT_DIM,
                 anchor=anchor,
             )
+            drawn.append((rect, label))
+    return drawn

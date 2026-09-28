@@ -23,11 +23,12 @@ import pygame_gui
 from pygame import Rect
 from pygame_gui.elements import UIButton
 
-from src.control import actions, runs
+from src.control import actions, help, runs
 from src.control.actions import REWARD, RULES, SECONDS, STAGE, Field
 from src.control.form import Form
 from src.control.jobs import JobManager
 from src.control.text import PAD, fit, header, wrap
+from src.control.tooltips import Tooltips
 from src.control.training_plan import (
     FRESH,
     MODES,
@@ -150,7 +151,9 @@ class TrainingTab:
             Rect(
                 box.x + PAD, top, box.w - 2 * PAD - 12, box.bottom - PAD - top
             ),
+            help_for=help.form,
         )
+        self.tips = Tooltips()  # the window shares its own
         self.form.build(form_fields(RL, NEW_AGENT, FRESH, agents_dir))
         plan = self.plan_box
         self.start_button = UIButton(
@@ -319,7 +322,7 @@ class TrainingTab:
                 theme.TEXT_DIM,
             )
             y += 20
-        self.form.draw_labels(surface)
+        self.form.draw_labels(surface, self.tips)
         self._draw_plan(surface)
         if self.message:
             text, color = self.message
@@ -355,7 +358,12 @@ class TrainingTab:
                 y += 20
             y += 6
         y += 8
-        y = _section(surface, "ESTIMATE", x, y)
+        title = draw_text(
+            surface, "ESTIMATE", (x, y), theme.HEADER_SIZE, theme.ACCENT, True
+        )
+        mark = self.tips.marker(surface, title.right + 6, title.centery)
+        self.tips.add(title.union(mark), help.topic("estimate"))
+        y += 22
         rect = draw_text(
             surface, plan.estimate, (x, y), theme.BIG_SIZE, theme.TEXT, True
         )

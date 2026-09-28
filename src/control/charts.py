@@ -39,10 +39,14 @@ class Series:
 
 @dataclass(frozen=True)
 class Plot:
-    """Where a chart drew: for finding what a click landed on."""
+    """Where a chart drew: for finding what a click (or the mouse, for a
+    tooltip) is on. `to_screen` is None when it had no data.
+    """
 
     area: Rect
-    to_screen: Callable[[float, float], tuple[float, float]]
+    to_screen: Callable[[float, float], tuple[float, float]] | None
+    title: Rect  # the title's area (empty without a title)
+    legend: list  # (Rect, series label) per legend item
 
 
 @dataclass
@@ -118,26 +122,28 @@ def draw_chart(
     mouse: tuple[int, int] | None = None,
     title: bool = True,
     reserved: int = 0,
-) -> Plot | None:
+) -> Plot:
     """The chart inside `rect` (its box border included), and where it
-    drew (None without data). `title` False leaves `reserved` pixels of
-    the title's place free, for a dropdown over it.
+    drew. `title` False leaves `reserved` pixels of the title's place
+    free, for a dropdown over it.
     """
     pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
     title_width = reserved
+    title_rect = Rect(rect.x + 12, rect.y + 10, 0, 0)
     if title:
-        title_width = draw_text(
+        title_rect = draw_text(
             surface,
             chart.title,
             (rect.x + 12, rect.y + 10),
             theme.HEADER_SIZE,
             theme.ACCENT,
             bold=True,
-        ).w
+        )
+        title_width = title_rect.w + 22  # room for its help marker
     left = rect.x + 12 + title_width + 16  # where the legend must stop
     area = plot_area(rect)
     if chart.empty:
-        _legend(surface, rect, chart, None, left)
+        legend = _legend(surface, rect, chart, None, left)
         draw_text(
             surface,
             "No data yet",
@@ -146,7 +152,7 @@ def draw_chart(
             theme.TEXT_DIM,
             anchor="center",
         )
-        return None
+        return Plot(area, None, title_rect, legend)
     xs = [x for s in chart.series if s.style != LEVEL for x, _ in s.points]
     ys = [y for s in chart.series for _, y in s.points]
     x_low, x_high = min(xs), max(xs)
@@ -216,8 +222,8 @@ def draw_chart(
                     surface, theme.TEXT, to_screen(*point), DOT + 1, 1
                 )
         hovered["_x"] = x_value
-    _legend(surface, rect, chart, hovered, left)
-    return Plot(area, to_screen)
+    legend = _legend(surface, rect, chart, hovered, left)
+    return Plot(area, to_screen, title_rect, legend)
 
 
 def nearest(series: Series, x: float) -> tuple[float, float] | None:
@@ -259,7 +265,7 @@ def _draw_series(surface, series: Series, to_screen, area: Rect) -> None:
 
 def _legend(
     surface, rect: Rect, chart: Chart, hovered: dict | None, left: int
-) -> None:
+) -> list:
     """Right-aligned in the header row: each series with its latest value,
     or the hovered one. Hovering also shows the x value first. Past
     `left` there's no room: the highest-priority-number items go first.
@@ -291,10 +297,11 @@ def _legend(
         items.remove(max(droppable, key=lambda i: i[0].priority))
     x = rect.right - 12
     y = rect.y + 10 + font.get_height() // 2
+    drawn = []
     for series, text in reversed(items):
         width = font.size(text)[0]
         x -= width
-        draw_text(
+        label = draw_text(
             surface,
             text,
             (x, y),
@@ -305,7 +312,10 @@ def _legend(
         if series:
             x -= 18
             _swatch(surface, series, (x + 6, y))
+            swatch = Rect(x, label.y, 18, label.h)
+            drawn.append((label.union(swatch), series.label))
         x -= 16
+    return drawn
 
 
 def _swatch(surface, series: Series, center: tuple[int, int]) -> None:

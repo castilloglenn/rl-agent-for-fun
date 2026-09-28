@@ -7,6 +7,8 @@ The scrolling is done by hand, like the Commands tab's: pygame_gui's
 scrolling container would clip an open dropdown's list at its edge.
 """
 
+from typing import Callable
+
 import pygame
 from pygame import Rect
 from pygame_gui.elements import UIDropDownMenu, UITextEntryLine
@@ -29,13 +31,17 @@ class Form:
         viewport: Rect,
         extra_height: int = 0,
         label_width: int = LABEL,
+        help_for: Callable[[str], tuple[str, str]] | None = None,
     ) -> None:
         """`viewport`: where the fields go. `extra_height`: room below the
         fields for the caller's own widgets (they scroll too).
+        `help_for(field name)`: its (unit, help text), shown as a unit
+        inside the field and a tooltip on the label (decision 030).
         """
         self.gui = gui
         self.viewport = viewport
         self.label_width = label_width
+        self.help_for = help_for or (lambda name: ("", ""))
         self.extra_height = extra_height
         self.fields: list[Field] = []
         self.widgets: dict[str, object] = {}
@@ -159,21 +165,29 @@ class Form:
 
     # Drawing
 
-    def draw_labels(self, surface) -> None:
-        """Before the GUI: each field's label, and the scroll indicator."""
+    def draw_labels(self, surface, tips=None) -> None:
+        """Before the GUI: each field's label (with its help marker and
+        tooltip, given `tips`), and the scroll indicator.
+        """
         view = self.viewport
         surface.set_clip(view)
         for field in self.fields:
             y = self.y_of(self.offsets[field.name])
             if y < view.top or y + ROW > view.bottom:
                 continue  # its widget is hidden: so is its label
-            draw_text(
-                surface,
-                fit(field.name, self.label_width - 12),
-                (view.x, y + 7),
-                theme.TEXT_SIZE,
-                theme.TEXT,
-            )
+            _, text = self.help_for(field.name)
+            room = self.label_width - 12 - (18 if text and tips else 0)
+            label = fit(field.name, room)
+            if tips:
+                tips.label(surface, label, (view.x, y + 7), text)
+            else:
+                draw_text(
+                    surface,
+                    label,
+                    (view.x, y + 7),
+                    theme.TEXT_SIZE,
+                    theme.TEXT,
+                )
         surface.set_clip(None)
         if self.max_scroll:  # a thin indicator at the right
             track = Rect(view.right + 7, view.y, 3, view.h)
@@ -193,6 +207,16 @@ class Form:
             return  # the open list would get the hint drawn over it
         for field in self.fields:
             widget = self.widgets.get(field.name)
+            unit, _ = self.help_for(field.name)
+            if unit and isinstance(widget, UITextEntryLine) and widget.visible:
+                draw_text(  # the unit, dim, inside the field's right end
+                    surface,
+                    unit,
+                    (widget.rect.right - 10, widget.rect.centery),
+                    theme.HEADER_SIZE,
+                    theme.TEXT_DIM,
+                    anchor="midright",
+                )
             if not field.hint or not isinstance(widget, UITextEntryLine):
                 continue
             if widget.get_text() or widget.is_focused or not widget.visible:
