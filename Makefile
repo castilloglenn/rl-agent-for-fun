@@ -8,7 +8,7 @@
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
 	resume_last eval eval_baselines agents agent dataset imitate \
 	showcase showcase_all control vitals delete_run trash restore \
-	empty_trash delete_agent keep unkeep delete_recording
+	empty_trash delete_agent keep unkeep delete_recording edit_map
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -55,6 +55,7 @@ help:
 	@echo "  make agents                          list agents: best score, milestone"
 	@echo "  make agent AGENT=id                  an agent's digest: lineage, scores, trend"
 	@echo "  make showcase AGENT=id               watch its progression: highlight checkpoints"
+	@echo "  make edit_map STAGE=name             the map editor: open a stage, or start a new one"
 	@echo "  make showcase_all AGENT=id           watch every scored checkpoint"
 	@echo "  make dataset                         preview your recordings as an imitation dataset"
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
@@ -247,6 +248,10 @@ imitate:
 
 control:
 	python app.py -control
+
+edit_map:
+	$(call require,STAGE,my_map)
+	python app.py -edit_map $(STAGE)
 
 vitals:
 	python app.py -vitals

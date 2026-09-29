@@ -105,11 +105,15 @@ class Stage:
         if not self.spawns:
             raise StageError("a stage needs at least one spawn")
         for spawn in self.spawns:
+            where = f"({spawn.x:g}, {spawn.y:g})"
             if not self.contains(spawn.x, spawn.y):
-                raise StageError(f"spawn {spawn} is outside the stage")
+                raise StageError(f"the spawn at {where} is outside the stage")
             near = [b.distance(spawn.x, spawn.y) for b in boxes]
             if any(d < SPAWN_CLEARANCE for d in near):
-                raise StageError(f"spawn {spawn} is on or next to a wall")
+                raise StageError(
+                    f"the spawn at {where} is on or next to a wall "
+                    f"(keep {SPAWN_CLEARANCE:g} px clear)"
+                )
         rules = self.checkpoints
         if rules.mode not in SCHEDULE_MODES:
             raise StageError(f"unknown checkpoint mode {rules.mode!r}")
@@ -118,9 +122,11 @@ class Stage:
                 raise StageError("scripted checkpoints need points")
             for x, y in rules.points:
                 if not self.contains(x, y):
-                    raise StageError(f"checkpoint {(x, y)} is outside")
+                    raise StageError(f"checkpoint ({x:g}, {y:g}) is outside")
                 if any(b.distance(x, y) < rules.radius for b in boxes):
-                    raise StageError(f"checkpoint {(x, y)} touches a wall")
+                    raise StageError(
+                        f"checkpoint ({x:g}, {y:g}) touches a wall"
+                    )
         elif 2 * rules.border_margin >= min(self.width, self.height):
             raise StageError("checkpoint border_margin leaves no room")
 

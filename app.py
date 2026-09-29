@@ -75,6 +75,13 @@ def _dispatch(cl_args) -> None:
         from src.control.window import ControlCenter
 
         ControlCenter(logs_dir=LOGS_DIR).run()
+    elif cl_args.edit_map:
+        from src.editor.model import NAME
+        from src.editor.window import run_editor
+
+        if not NAME.match(cl_args.edit_map):
+            raise SystemExit("a stage name uses letters, digits, - and _")
+        run_editor(cl_args.edit_map)
     elif cl_args.vitals:
         from src.control.vitals import tail
 

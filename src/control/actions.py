@@ -285,6 +285,15 @@ ACTIONS = (
         opens_window=True,
     ),
     Action(
+        "Edit a map",
+        "Play",
+        "The map editor: draw walls, place the spawn and checkpoints, and "
+        "save to stages/. An existing stage opens; a new name starts one.",
+        (Field("Map", None, "my_map", "a stage in stages/, or a new name"),),
+        lambda v: ["-edit_map", v["Map"].strip()],
+        opens_window=True,
+    ),
+    Action(
         "Watch a driver",
         "Play",
         "Watch a baseline or an agent drive (an agent uses its best "
@@ -553,6 +562,7 @@ MAKE_TARGETS = {
     "maze_car_rules": "Drive",
     "maze_car_seconds": "Drive",
     "maze_car_fps": "Drive",
+    "edit_map": "Edit a map",
     "maze_car_heuristic": "Watch a driver",
     "maze_car_random": "Watch a driver",
     "maze_car_driver": "Watch a driver",

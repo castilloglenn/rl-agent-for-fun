@@ -339,6 +339,8 @@ FORM_FIELDS: dict[str, tuple[str, str]] = {
     "Checkpoints": ("", "highlights: the key checkpoints. all: every scored "
                     "one."),
     "Run": ("", "A run folder in runs/, newest first."),
+    "Map": ("", "A stage's name: an existing one in stages/ opens, a new "
+            "one starts from the box's size."),
     "File": ("", "A replay or recording file (or, for tests, a test file)."),
     "Entry": ("", "A trash entry: one per delete, holding everything that "
               "delete moved."),
