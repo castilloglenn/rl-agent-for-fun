@@ -180,6 +180,11 @@ class RunsTab:
 
     # Reading the runs
 
+    def on_data(self, kinds: set[str]) -> None:
+        """Runs or agents changed elsewhere (7c7): read them again."""
+        if kinds & {"runs", "agents", "checkpoints", "suites"}:
+            self.refresh(force=True)
+
     def refresh(self, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self._refreshed < REFRESH:

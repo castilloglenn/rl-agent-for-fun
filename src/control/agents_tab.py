@@ -226,6 +226,11 @@ class AgentsTab:
 
     # Reading the agents
 
+    def on_data(self, kinds: set[str]) -> None:
+        """Agents, runs, or suites changed elsewhere (7c7)."""
+        if kinds & {"agents", "checkpoints", "runs", "suites"}:
+            self.refresh(force=True)
+
     def refresh(self, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self._refreshed < REFRESH:

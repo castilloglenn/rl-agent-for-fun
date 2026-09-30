@@ -132,13 +132,16 @@ class MapsTab:
         self.refresh(force=True)
 
     def _build_driver_menu(self) -> None:
+        picked = None
         if self.driver_menu:
+            option = self.driver_menu.selected_option
+            picked = option[0] if isinstance(option, tuple) else option
             self.driver_menu.kill()
         options = actions._drivers(False)()
         top = self.detail.bottom - PAD - 2 * ROW - GAP
         self.driver_menu = UIDropDownMenu(
             options,
-            options[0],
+            picked if picked in options else options[0],
             Rect(self.driver_x, top, 220, ROW),
             self.gui,
         )
@@ -165,6 +168,15 @@ class MapsTab:
         self.visible = False
         for widget in self.widgets():
             widget.hide()
+
+    def on_data(self, kinds: set[str]) -> None:
+        """Maps, suites, or runs changed elsewhere (7c7): read them again;
+        agents too: the driver picker's choices.
+        """
+        if kinds & {"agents", "checkpoints"}:
+            self._build_driver_menu()
+        if kinds & {"stages", "suites", "runs", "agents"}:
+            self.refresh(force=True)
 
     def dropdown_open(self) -> bool:
         return any(

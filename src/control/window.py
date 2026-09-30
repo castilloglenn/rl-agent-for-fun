@@ -35,6 +35,7 @@ from src.control.confirm import Confirm
 from src.control.files_tab import FilesTab
 from src.control.maps_tab import MapsTab
 from src.control.settings_tab import SettingsTab
+from src.control.watch import DataWatch
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
 from src.control import help
@@ -301,6 +302,11 @@ class ControlCenter:
             self.settings_tab,
         ):
             tab.tips = self.tips
+        # Data in sync (7c7): what changed, per tab, until it's applied
+        # (a tab you're not looking at catches up when you open it).
+        self.watch = DataWatch(files_root, runs_dir, agents_dir)
+        self.watch.changed()  # the first look
+        self._pending: dict[str, set[str]] = {name: set() for name, _ in TABS}
         self.open_tab(TABS[0][0])  # the Commands widgets were built shown
 
     # Widgets
@@ -365,7 +371,11 @@ class ControlCenter:
         self.action_list.set_item_list(names)
         self._select(names[0] if names else None)
 
-    def _select(self, name: str | None) -> None:
+    def _select(self, name: str | None, values: dict | None = None) -> None:
+        """Shows an action's fields, at `values` where given (a rebuild
+        keeps what you picked), else at their defaults.
+        """
+        values = values or {}
         for widget in self.field_widgets.values():
             widget.kill()
         self.field_widgets = {}
@@ -393,11 +403,17 @@ class ControlCenter:
         for field in self.selected.fields:
             rect = Rect(self.detail_x + LABEL, top + y, width, ROW)
             options = field.options() if field.options else None
+            value = values.get(field.name, field.default)
             if options:
-                shown = [(fit(o, width - 40), o) for o in options]
-                start = next(
+                # A file of yours shows its tag ("ruins · yours", 7d1b).
+                shown = [
+                    (fit(getattr(o, "label", o), width - 40), str(o))
+                    for o in options
+                ]
+                default = next(
                     (s for s in shown if s[1] == field.default), shown[0]
                 )
+                start = next((s for s in shown if s[1] == value), default)
                 widget = UIDropDownMenu(shown, start, rect, self.gui)
             elif field.options:  # nothing to pick yet
                 widget = UIDropDownMenu(
@@ -406,7 +422,7 @@ class ControlCenter:
                 widget.disable()
             else:
                 widget = UITextEntryLine(rect, self.gui)
-                widget.set_text(field.default)
+                widget.set_text(value)
             self.field_widgets[field.name] = widget
             self.offsets[field.name] = y
             y += ROW + GAP
@@ -622,6 +638,40 @@ class ControlCenter:
             action(self.selected_job)
         self._refresh(force=True)
 
+    # Data in sync (7c7)
+
+    def _tab_object(self, name: str):
+        """The tab's object (None for Commands, which is the window's)."""
+        return {
+            "Runs": self.runs_tab,
+            "Training": self.training_tab,
+            "Agents": self.agents_tab,
+            "Maps": self.maps_tab,
+            "Files": self.files_tab,
+            "Settings": self.settings_tab,
+        }.get(name)
+
+    def _watch_data(self) -> None:
+        """Queues what changed for every tab, and applies it to the open
+        one, unless one of its dropdowns is open (then it waits).
+        """
+        kinds = self.watch.changed()
+        for pending in self._pending.values():
+            pending |= kinds
+        if not self._any_dropdown_open():
+            self._apply_data(self.tab)
+
+    def _apply_data(self, name: str) -> None:
+        kinds, self._pending[name] = self._pending[name], set()
+        if not kinds:
+            return
+        tab = self._tab_object(name)
+        if tab is not None:
+            if hasattr(tab, "on_data"):
+                tab.on_data(kinds)
+        elif self.selected and any(f.options for f in self.selected.fields):
+            self._select(self.selected.name, self.values())
+
     def open_tab(self, name: str) -> None:
         if name == self.tab:
             return
@@ -655,6 +705,8 @@ class ControlCenter:
                 widget.show()
             if self.selected:
                 self._place()  # hides the fields scrolled out of view
+        if hasattr(self, "_pending"):
+            self._apply_data(name)  # what changed while it was hidden
 
     def ask(self, box: Confirm) -> None:
         """Opens a confirmation box: nothing else reacts until it's
@@ -780,6 +832,7 @@ class ControlCenter:
         self._refreshed = now
         for chain in self.chains:
             chain.tick()  # the next step, once the last one succeeded
+        self._watch_data()
         snapshot = self.stats.sample(self._job_pids())
         was_tripped = self.jobs.tripped
         self.jobs.watch_memory(snapshot, now)

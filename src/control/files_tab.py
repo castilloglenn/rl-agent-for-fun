@@ -322,6 +322,32 @@ class FilesTab:
                 self.dirty = files.dump(data) != files.dump(self.original)
         self._update_buttons()
 
+    def on_data(self, kinds: set[str]) -> None:
+        """Files or recordings changed elsewhere (7c7). The list updates
+        in place: the open file stays open, with its unsaved edits, unless
+        it's the one that was deleted.
+        """
+        if self.mode == "recordings":
+            if "recordings" in kinds:
+                found = players(self.root / "recordings")
+                self.file_list.set_item_list([f"{p}  ({n})" for p, n in found])
+                self.view.reload()
+            return
+        if self.kind.folder not in kinds:
+            return
+        found = list(named_files.ordered(self.kind.folder, self.root))
+        if self.name and self.name not in found:
+            gone = self.path
+            self._show_kind(self.kind)
+            self.message = (f"{gone} is gone (deleted elsewhere).", theme.WARN)
+            return
+        rows = [self._row(n) for n in found]
+        if rows != [item["text"] for item in self.file_list.item_list]:
+            self.file_list.set_item_list(rows)
+            self._highlight()
+        if not self.visible:
+            self.file_list.hide()
+
     def refresh(self, force: bool = False) -> None:
         if self.mode == "files":
             self.check(force)

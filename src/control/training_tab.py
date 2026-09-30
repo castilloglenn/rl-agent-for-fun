@@ -200,6 +200,32 @@ class TrainingTab:
             self.form.hide()
         self.refresh(force=True)
 
+    # Data changed elsewhere (7c7)
+
+    WATCHES = frozenset(
+        {
+            "agents", "checkpoints", "models", "trainers", "stages",
+            "rules", "rewards", "datasets", "recordings",
+        }
+    )
+
+    def on_data(self, kinds: set[str]) -> None:
+        """New dropdown choices, keeping your picks that still exist. A
+        pick that's gone (a deleted agent) falls back, and says so.
+        """
+        if not kinds & self.WATCHES:
+            return
+        before = self.values()
+        self.rebuild()
+        after = self.values()
+        gone = [
+            f"{before[name]} is gone ({name.lower()}: now {after[name]})"
+            for name in before
+            if name in after and before[name] and before[name] != after[name]
+        ]
+        if gone:
+            self.message = ("; ".join(gone) + ".", theme.WARN)
+
     def train(self, agent: str) -> None:
         """RL for an existing agent, from its newest checkpoint."""
         values = {**self.values(), "Mode": RL, "Agent": agent}
