@@ -6,8 +6,6 @@ import json
 
 import pytest
 
-from src.sim.components import Motion
-
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
 from src.sim.components import Score
@@ -61,24 +59,34 @@ def _events(**overrides) -> StepEvents:
 # Profiles
 
 
-def test_default_profile_is_points_and_wall_penalties():
+def test_default_profile_is_progress_checkpoints_and_wall_penalties():
+    """7e (decision 041): progress along the path, a big prize per
+    checkpoint, and wall costs by how bad. Game points don't count.
+    """
     profile = load_reward_profile("default")
     assert profile.name == "default"
     assert dict(profile.terms) == {
-        "points": 1.0,
-        "damage": -500.0,
+        "progress": 0.1,
+        "checkpoints": 500.0,
         "contact": -100.0,
+        "damage": -1000.0,
+        "wrecked": -3000.0,
         "stopped": -0.25,
     }
-    assert profile(_events(points=3)) == 3
+    assert profile(_events(points=3)) == 0  # the score isn't the lesson
+    assert profile(_events(progress=3.0)) == pytest.approx(0.3)
+    assert profile(_events(progress=3.0, reversing=True)) == pytest.approx(
+        0.15
+    )
+    assert profile(_events(progress=-3.0)) == pytest.approx(-0.3)
+    assert profile(_events(checkpoints=1)) == 500
     assert profile(_events(stopped=True)) == -0.25  # idle or pinned
     assert profile(_events(contacts=1)) == -100  # a harmless bump
-    assert profile(_events(contacts=1, damage=0.25)) == -100 - 125
-    # A full loss of health costs -500 on top of the contact.
-    assert profile(_events(contacts=1, damage=1.0, wrecked=True)) == -600
+    assert profile(_events(contacts=1, damage=0.25)) == -100 - 250
+    # A fatal hit from full health: the contact, the health, the wreck.
     assert profile(
-        _events(contacts=1, damage=1.0, wrecked=True, stopped=True)
-    ) == pytest.approx(-600.25)
+        _events(contacts=1, damage=1.0, wrecked=True)
+    ) == -100 - 1000 - 3000
 
 
 def test_round_trip_matches_the_file():
@@ -143,19 +151,16 @@ def test_env_uses_the_default_profile():
     env = _env()
     assert env.reward_profile.name == "default"
     env.reset()
-    health = env.info()["health"]
     for _ in range(400):
         _, reward, terminated, truncated, info = env.step(GAS)
-        damage = (health - info["health"]) / 100
-        health = info["health"]
-        contact = 100 if terminated else 0  # its one contact is the wreck
-        stopped = 0.25 if env.world.component(env.car, Motion).speed == 0 else 0
-        assert reward == pytest.approx(
-            info["points"] - 500 * damage - contact - stopped
-        )
         if terminated or truncated:
             break
     assert terminated  # full speed into the wall: wrecked
+    terms = env.round_terms
+    assert terms["wrecked"] == -3000
+    assert terms["damage"] == pytest.approx(-1000)  # all of its health
+    assert terms["contact"] == -100  # one contact: the wreck
+    assert sum(terms.values()) == pytest.approx(env.round_reward)
 
 
 def test_a_wreck_penalty_never_changes_the_game_score():
@@ -227,7 +232,7 @@ def test_unknown_profile_name_fails_early():
 
 def test_description_is_optional():
     assert _profile(points=1.0).description == ""
-    assert load_reward_profile("default").description.startswith("Game points")
+    assert load_reward_profile("default").description.startswith("Progress")
 
 
 def test_demo_path_tracks_the_reward_too():

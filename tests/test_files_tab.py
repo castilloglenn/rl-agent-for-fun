@@ -94,13 +94,13 @@ def test_reward_terms_can_be_added_and_dropped(repo):
         i.path: i.text for i in files.items("rewards", reward)
         if i.type != "readonly"
     }
-    assert values["terms.wrecked"] == ""  # known, unused
+    assert values["terms.time_up"] == ""  # known, unused
     values["terms.stopped"] = ""  # dropped
-    values["terms.wrecked"] = "-50"  # added
+    values["terms.time_up"] = "-50"  # added
     edited = files.rebuild("rewards", reward, values)
     assert "stopped" not in edited["terms"]
-    assert edited["terms"]["wrecked"] == -50
-    assert list(edited["terms"])[:3] == ["points", "damage", "contact"]
+    assert edited["terms"]["time_up"] == -50
+    assert list(edited["terms"])[:3] == ["progress", "checkpoints", "contact"]
     values["terms.checkpoint_speed.window"] = "5"  # a parameter, no weight
     with pytest.raises(FileError, match="needs a weight"):
         files.rebuild("rewards", reward, values)

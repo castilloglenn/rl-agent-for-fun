@@ -208,18 +208,26 @@ def test_health_is_observed_and_damage_is_rewarded():
     env = MazeCarEnv(config)
     env.reset(seed=0)
     _aim_at_right_wall(env.world, env.car, speed=150)
-    rewards, observation = [], None
+    walls, observation = [], None
     for _ in range(600):
+        before = dict(env.round_terms)
         observation, reward, *_, info = env.step((False,) * 5)
-        rewards.append(reward - info["points"])
+        walls.append(
+            {
+                term: env.round_terms[term] - before[term]
+                for term in ("contact", "damage", "stopped")
+            }
+        )
         if info["health"] < 100:
             break
     lost = (100 - info["health"]) / 100
     assert observation[-1] == pytest.approx(1 - lost)
-    # The default profile: -100 for the contact, -500 per full health,
+    # The default profile: -100 for the contact, -1000 per full health,
     # and -0.25 for ending the step stopped against the wall.
-    assert rewards[-1] == pytest.approx(-100 - 500 * lost - 0.25)
-    assert all(r == 0 for r in rewards[:-1])
+    assert walls[-1]["contact"] == -100
+    assert walls[-1]["damage"] == pytest.approx(-1000 * lost)
+    assert walls[-1]["stopped"] == -0.25
+    assert all(v == 0 for step in walls[:-1] for v in step.values())
 
 
 # The window

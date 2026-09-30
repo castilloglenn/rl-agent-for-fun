@@ -173,6 +173,9 @@ TERMS: dict[str, tuple[str, str]] = {
                  "negative weight is a time cost."),
     "distance": ("per px", "Px moved forward (0 when stopped or "
                  "reversing)."),
+    "progress": ("per px closer", "Px closer to the checkpoint along a "
+                 "drivable path around the walls (negative when farther). "
+                 "It can't be farmed: circling or rocking nets 0 or less."),
     "speed": ("per max speed", "Speed as a share of max speed, negative "
               "while reversing."),
     "steering_change": ("per full turn", "How far the steering wheel "
@@ -182,6 +185,8 @@ TERMS: dict[str, tuple[str, str]] = {
                      "walls."),
 }
 TERM_PARAMS: dict[str, tuple[str, str]] = {
+    "progress.reverse": ("share", "What a gain while reversing counts "
+                         "(0.5: half); a loss always counts in full."),
     "checkpoint_speed.window": ("s", "After this long, a checkpoint is "
                                 "worth 0 of this term."),
 }

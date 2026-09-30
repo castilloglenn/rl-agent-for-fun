@@ -37,10 +37,19 @@ def _window():
     pygame.display.set_mode((1, 1))
 
 
-def _env():
+def _env(**kwargs):
     config = get_maze_car_config()
     config.show_gui = False
-    return MazeCarEnv(config)
+    return MazeCarEnv(config, **kwargs)
+
+
+def _points_only():
+    """A reward that is the game score, to check the bookkeeping."""
+    from src.envs.maze_car.rewards import RewardProfile
+
+    return RewardProfile.from_dict(
+        {"format": 1, "name": "points", "terms": {"points": 1.0}}
+    )
 
 
 # Canonical actions
@@ -134,12 +143,12 @@ def test_heuristic_beats_random_by_far():
 
 
 def test_run_episode_result():
-    env = _env()
+    env = _env(reward=_points_only())
     result = run_episode(env, CompassDriver(), seed=5, max_steps=240)
     assert result.steps == 240
     assert result.seed == 5
     assert result.ended_by is None  # cut short, not finished
-    assert result.score == result.reward  # default reward profile
+    assert result.score == result.reward  # a reward of game points
 
     full = run_episode(env, RandomDriver(), seed=5)
     assert full.ended_by in ("time", "wall")

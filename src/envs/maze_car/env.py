@@ -1,3 +1,4 @@
+import math
 import random
 from dataclasses import astuple
 from typing import Optional
@@ -13,7 +14,14 @@ from src.envs.maze_car.rewards import (
 )
 from src.render.panels import RewardStatus
 from src.render.renderer import Command, Renderer
-from src.sim.components import ActionInput, Eliminated, Health, Motion
+from src.sim.components import (
+    ActionInput,
+    Checkpoint,
+    Eliminated,
+    Health,
+    Motion,
+    Transform,
+)
 from src.sim.components import Score as CarScore
 from src.sim.factories import create_game
 from src.sim.observation import (
@@ -21,7 +29,8 @@ from src.sim.observation import (
     OBSERVATION_VERSION,
     observe,
 )
-from src.sim.resources import RoundState, SimClock, SimConfig
+from src.sim.paths import PathField
+from src.sim.resources import Field, RoundState, SimClock, SimConfig, Walls
 from src.sim.rules import Rules, load_rules
 from src.sim.stage import Stage
 from src.sim.systems.sensors import RAY_LAYOUT
@@ -93,6 +102,7 @@ class MazeCarEnv(Environment):
             rules=self.rules,
         )
         self.running: bool = True
+        self._paths: dict[tuple, PathField] = {}  # by goal, this stage
         self.last_reward = 0.0
         self.round_reward = 0.0  # agent reward summed over this game
         # Each term's share of it, summed over this game (for the HUD).
@@ -123,6 +133,50 @@ class MazeCarEnv(Environment):
             self._time_up(),
             info,
         )
+
+    # Progress along the path (7e)
+
+    def _goal(self) -> tuple[float, float] | None:
+        """The checkpoint the agent's compass points at: the nearest."""
+        car = self.world.component(self.car, Transform)
+        spots = [
+            (spot.x, spot.y)
+            for _, (spot, _) in self.world.query(Transform, Checkpoint)
+        ]
+        if not spots:
+            return None
+        return min(spots, key=lambda s: math.dist(s, (car.x, car.y)))
+
+    def _path_distance(self, goal) -> float:
+        """The car's path length to `goal` around the walls (inf: none)."""
+        if goal is None:
+            return math.inf
+        path = self._paths.get(goal)
+        if path is None:
+            if len(self._paths) > 64:  # random checkpoints never repeat
+                self._paths.clear()
+            field = self.world.resource(Field)
+            walls = self.world.resource(Walls).boxes
+            path = PathField(
+                (field.x, field.y, field.width, field.height),
+                [(w.left, w.top, w.right, w.bottom) for w in walls],
+                goal,
+            )
+            self._paths[goal] = path
+        car = self.world.component(self.car, Transform)
+        return path.distance(car.x, car.y)
+
+    def _progress(self, goal, before: float, round_before: int) -> float:
+        """px closer to the same checkpoint as before the step (reaching
+        it spawns the next one, which isn't a step away). 0 across rounds
+        or where there's no path.
+        """
+        if self.world.resource(RoundState).number != round_before:
+            return 0.0
+        after = self._path_distance(goal)
+        if math.isinf(before) or math.isinf(after):
+            return 0.0
+        return before - after
 
     def _is_out(self) -> bool:
         return self.world.try_component(self.car, Eliminated) is not None
@@ -186,6 +240,11 @@ class MazeCarEnv(Environment):
         health_before = health.current
         contacts_before = health.contacts
         was_out = self._is_out()
+        # Progress along the path (7e), only for a profile that uses it.
+        tracking = "progress" in self.reward_profile.terms
+        goal = self._goal() if tracking else None
+        round_before = self.world.resource(RoundState).number
+        path_before = self._path_distance(goal)
 
         action_input = ActionInput(*action) if action else ActionInput()
         if self.recorder:
@@ -213,6 +272,12 @@ class MazeCarEnv(Environment):
                 age / sim.steps_per_second for age in score.checkpoint_ages
             ),
             distance_points=score.distance_points - distance_points_before,
+            progress=(
+                self._progress(goal, path_before, round_before)
+                if tracking
+                else 0.0
+            ),
+            reversing=motion.speed < 0,
         )
         parts = self.reward_profile.contributions(events)
         self.last_reward = sum(parts.values())  # = reward_profile(events)

@@ -138,7 +138,15 @@ def test_time_up_truncates():
 
 
 def test_step_rewards_sum_to_the_score():
+    """With a reward of game points, the steps' rewards add up to the
+    score exactly (the default profile rewards progress instead, 7e).
+    """
+    from src.envs.maze_car.rewards import RewardProfile
+
     env = _env()
+    env.reward_profile = RewardProfile.from_dict(
+        {"format": 1, "name": "points", "terms": {"points": 1.0}}
+    )
     env.reset()
     total = 0.0
     for _ in range(300):

@@ -41,6 +41,10 @@ class StepEvents:
     # Seconds each checkpoint reached this step had been on the field.
     checkpoint_seconds: tuple[float, ...] = ()
     distance_points: float = 0.0  # game points from driving only
+    # px closer to the checkpoint along a drivable path this step (7e:
+    # negative when farther), and whether the car was reversing.
+    progress: float = 0.0
+    reversing: bool = False
 
 
 @dataclass(frozen=True)
@@ -56,6 +60,16 @@ class Term:
         self, events: StepEvents, params: Mapping[str, float] | None = None
     ) -> float:
         return self.compute(events, {**self.params, **(params or {})})
+
+
+def _progress(events: StepEvents, params: Mapping) -> float:
+    """px closer along the path; a gain while reversing counts `reverse`
+    (a share), a loss always in full, so no back-and-forth can gain.
+    """
+    gain = events.progress
+    if gain > 0 and events.reversing:
+        return gain * params["reverse"]
+    return gain
 
 
 def _checkpoint_speed(events: StepEvents, params: Mapping) -> float:
@@ -83,6 +97,7 @@ TERMS: Mapping[str, Term] = MappingProxyType(
         "time_up": Term(lambda e, p: float(e.time_up)),
         "per_step": Term(lambda e, p: 1.0),
         "distance": Term(lambda e, p: e.distance),
+        "progress": Term(_progress, MappingProxyType({"reverse": 0.5})),
         "speed": Term(lambda e, p: e.speed),
         "steering_change": Term(lambda e, p: e.steering_change),
         "closest_wall": Term(lambda e, p: e.closest_wall),
