@@ -59,7 +59,11 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 7c1 | Map editor: `make edit_map STAGE=name` (and "Edit a map" in the control center), tools to draw, move, resize, and delete walls, place and turn the spawn, and add checkpoints in order or random; a 10 px grid, undo and redo, the game's own validation as you edit, and save ([decision 035](decisions/035-map-editor.md)) | Done |
 | 7c2 | Map editor: test drive the map being edited in the same window and come back (T; Shift+T watches the heuristic), never recorded, and resize the stage by dragging its edges ([decision 035](decisions/035-map-editor.md)) | Done |
 | 7c3 | Maps tab in the control center: a card per stage (a drawn preview, size, walls, checkpoint mode), which agents trained on it and whether a suite uses it, and buttons to edit, drive, watch an agent on it, duplicate, and delete into the trash (the box and any stage a suite uses are protected) ([decision 036](decisions/036-maps-tab.md)) | Done |
-| 7d | Map skills: a suite with map scenarios (corridors, a stage the agent never trained on), and a reward term for progress toward the checkpoint measured around walls | Next |
+| 7d1 | Built-in and your files: the named files that ship with the app (stages, rules, rewards, trainers, models, suites) are read-only in every screen and change only in code; everything you make goes to `user/<kind>/`, out of git (your maps, rules, datasets). One name per kind (yours can't reuse a built-in's), and Duplicate instead of Edit and Delete for a built-in ([decision 039](decisions/039-skills-suite-and-built-in-files.md)) | Next |
+| 7d2 | A fixed distance scale for the agent: rays and the checkpoint distance divided by 978 px (the box's diagonal) on every map, not the current map's, clipped at 1. Identical on the box, so box agents and the behavior tests don't change; agents trained on other maps need retraining ([decision 039](decisions/039-skills-suite-and-built-in-files.md)) | Planned |
+| 7d3 | Skills suite: 7 skills in 3 groups (Handling: Braking, Threading; Hunting: Open field, Long range; Walls: Obstacles, Corridor, Detour) on the box and 5 new built-in `skill_` maps, 5 episodes each, scored per skill at every checkpoint (about 8 s per checkpoint), replacing box-v1 for new scores (its history stays). Training on a test map warns ([decision 039](decisions/039-skills-suite-and-built-in-files.md)) | Planned |
+| 7d4 | Skills chart and radar: a second Runs tab chart with one line per skill, each as a share of the heuristic's score on it (1.0 = the heuristic), marked "trained here" for a map it trained on; the best checkpoint is the one with the best average share; the Score chart keeps the training line and names its map; the Agents tab radar shows the 7 skills ([decision 039](decisions/039-skills-suite-and-built-in-files.md)) | Planned |
+| 7e | A reward term for progress toward the checkpoint measured around walls, so backing out of a dead end pays off (the Detour skill shows the need) | Planned |
 | 8 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels | Planned |
 | 10 | Parallel environments for faster training, with a live grid view and spectate mode | Planned |
@@ -412,6 +416,23 @@ A map is a **stage file** in `stages/` (format from step 4b). This step fills in
   - Select, move, delete, undo.
   - Save and load stage files in `stages/`.
   - **Test drive:** switch to live play on the map being edited, then back.
+
+**7d: map skills** ([decision 039](decisions/039-skills-suite-and-built-in-files.md)). The box-v1 suite scores every agent on the box only, so an agent trained on the arena was judged by a map it never saw, and the Runs chart mixed the two (the training line on the arena, the suite dots on the box).
+
+| Group | Skill | Map | What it shows |
+|---|---|---|---|
+| Handling | Braking | box (box-v1's braking test) | stops before a wall from full speed |
+| Handling | Threading | `skill_gaps`: wall rows with gaps about 2.5 cars wide | precise steering |
+| Hunting | Open field | box (box-v1's round) | fast checkpoint hunting, no walls |
+| Hunting | Long range | `skill_long`: big and empty | far checkpoints, the follow camera |
+| Walls | Obstacles | `skill_pillars`: scattered pillars | steering around things |
+| Walls | Corridor | `skill_corridor`: a winding path with corners and curves | following a path, checkpoints in order |
+| Walls | Detour | `skill_detour`: a checkpoint behind a U-shaped wall | going around when the direct line is blocked |
+
+- **Built-in test maps** (7d1): never edited in the app, and a map you never trained on measures skill, not memory. Training on one warns, and its skill line is marked "trained here".
+- **5 episodes per skill**, the map tests with 20 to 30 s rounds: about 8 s per checkpoint (an estimate), against about 5 s for box-v1. Scores are saved per skill; today only the combined number is.
+- **One scale:** each skill as a share of the heuristic's score on it, since raw points don't compare across maps. Best checkpoint: the best average share.
+- **Detour will score near 0** for today's agents and the heuristic (both steer straight at the checkpoint) until the progress reward (7e).
 
 ### 8. Multiple cars and local multiplayer
 
