@@ -294,6 +294,8 @@ every drawn frame:
 
 `FixedStepClock` (`src/utils/timing.py`) turns real time into a whole number of steps. After a stall it skips the backlog (at most 8 steps per frame).
 
+`share_the_machine()` (`src/utils/resources.py`) runs heavy jobs (training, resuming, evaluation, imitation) at a low priority with torch's threads capped, so the machine stays responsive ([decision 038](decisions/038-jobs-share-the-machine.md)). `app.py` calls it before those commands.
+
 ## Not built yet
 
 Maze walls, multiple cars, and the control center. See [roadmap](roadmap.md).

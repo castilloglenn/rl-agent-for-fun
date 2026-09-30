@@ -21,6 +21,8 @@ def _dispatch(cl_args) -> None:
     if cl_args.rules:
         config.rules = cl_args.rules
 
+    if _heavy(cl_args):
+        _share_the_machine()
     if cl_args.tests:
         print("TODO: Run unittests")
     elif cl_args.new_agent:
@@ -218,6 +220,29 @@ def _dispatch(cl_args) -> None:
                 pass
     else:
         Main()
+
+
+def _heavy(cl_args) -> bool:
+    """Commands that keep the CPU busy for minutes."""
+    return bool(
+        cl_args.train
+        or cl_args.resume
+        or cl_args.resume_last
+        or cl_args.eval
+        or cl_args.eval_baselines
+        or cl_args.imitate
+    )
+
+
+def _share_the_machine() -> None:
+    from src.utils.resources import FREE_CORES, share_the_machine
+
+    niceness, threads = share_the_machine()
+    print(
+        f"Low priority (nice {niceness}), torch threads {threads}: "
+        f"at least {FREE_CORES} cores stay free for your system",
+        flush=True,
+    )
 
 
 def _train(cl_args, config) -> None:

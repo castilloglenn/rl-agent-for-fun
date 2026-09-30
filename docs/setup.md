@@ -56,7 +56,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make new_agent AGENT=id` | Create an untrained agent in `agents/<id>/` from `models/small.json` |
 | `make maze_car_agent AGENT=id` | Watch an agent drive (its best scored checkpoint, else its newest) |
 | `make run_agent AGENT=id` | Run an agent for 100 episodes, headless, into `runs/` |
-| `make train AGENT=id` | Train an agent for one phase with `trainers/default.json` (2M decisions, about 7 min). Checkpoints go to `agents/<id>/checkpoints/`, the learning curve to a `runs/` folder. Ctrl+C stops and keeps the weights. Another trainer: `python app.py -train <id> --trainer <name>` |
+| `make train AGENT=id` | Train an agent for one phase with `trainers/default.json` (2M decisions, about 7 min). Checkpoints go to `agents/<id>/checkpoints/`, the learning curve to a `runs/` folder. Training, evaluation, and imitation run at a low priority, so your system stays responsive (slower when it's busy). Ctrl+C stops and keeps the weights. Another trainer: `python app.py -train <id> --trainer <name>` |
 | `make resume RUN=folder` | Resume a stopped training run exactly, with its own trainer, stage, rules, and reward |
 | `make eval AGENT=id` | Score an agent's checkpoints with the evaluation suite (`suites/box.json`), shown next to the baselines, best marked. Watching the agent then uses the best one |
 | `make eval_baselines` | Score the heuristic and random baselines only |
