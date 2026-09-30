@@ -50,7 +50,7 @@ All `car.*` driving values go into `SimConfig`, and `create_car` converts them t
 
 | Key | Default | Used by |
 |---|---|---|
-| `jobs.max_heavy` | 2 | Heavy jobs (training, resuming, evaluation, imitation) running at once. One more is refused with a message |
+| `jobs.max_heavy` | 0 | Heavy jobs (training, resuming, evaluation, imitation, runs) at once. 0: the machine decides: the cores minus the 2 kept free, and each job only if its memory estimate fits below amber (88 %). A number sets a fixed cap instead |
 | `jobs.burst_starts`, `jobs.burst_seconds` | 5, 10.0 s | The dead switch: more starts than this within that time means something is looping. Every job stops, and starts are refused until you reset it (its box: Enter) |
 | `jobs.memory_trip_gb`, `jobs.memory_trip_seconds` | 1.0 GB, 5.0 s | The dead switch also trips when memory stays red (95 %) this long while our jobs hold this much (one training holds about 0.2 GB). While memory is red, heavy jobs don't start |
 

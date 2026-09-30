@@ -126,9 +126,10 @@ def get_control_config() -> ConfigDict:
     """The control center's settings (decision 038)."""
     config = ConfigDict()
     config.jobs = ConfigDict()
-    # Heavy jobs (training, evaluation, imitation) running at once. One
-    # training takes about 1 core and 0.2 GB here.
-    config.jobs.max_heavy = 2
+    # Heavy jobs (training, evaluation, imitation, runs) at once. 0: the
+    # machine decides: the cores minus the 2 kept free, and each one only
+    # if its memory estimate fits below amber (src/control/guard.py).
+    config.jobs.max_heavy = 0
     # The dead switch: more starts than this within burst_seconds means
     # something is looping. Every job stops, and new ones are refused
     # until you reset it.

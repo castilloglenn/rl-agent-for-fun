@@ -3,6 +3,8 @@ scans or signals your real jobs: processes are fakes, or ones these tests
 start in tmp_path, and the guard's stop and end are replaced.
 """
 
+import json
+import os
 import subprocess
 import sys
 import time
@@ -11,14 +13,21 @@ from pathlib import Path
 import psutil
 
 from src.control.guard import (
+    ACTIONS,
+    BASE_GB,
+    INPUTS,
     GuardLimits,
     JobGuard,
     ProjectProcess,
     Reading,
     ahead_of,
+    estimate_gb,
+    model_params,
     project_processes,
+    room_for,
     stop_every_job,
 )
+from src.utils.resources import is_heavy
 
 REPO = Path(__file__).resolve().parents[1]
 FINE = Reading(80.0, 0.2, 100.0, 90.0, True)
@@ -194,3 +203,97 @@ def test_stop_all_stops_jobs_but_not_the_control_center(tmp_path):
     finally:
         job.kill()
         center.kill()
+
+
+# Fix 6: the machine decides how many (memory estimates)
+
+
+def _model(folder, hidden):
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "model.json").write_text(json.dumps({"hidden": hidden}))
+
+
+def test_the_parameter_count_matches_the_real_network():
+    from src.agents.model import ModelSpec
+    from src.agents.network import PolicyNetwork
+    from src.drivers.actions import CANONICAL_ACTIONS
+    from src.sim.observation import OBSERVATION_NAMES
+
+    assert (INPUTS, ACTIONS) == (
+        len(OBSERVATION_NAMES),
+        len(CANONICAL_ACTIONS),
+    )
+    for hidden in ([64, 64], [128, 128], [300, 200, 50]):
+        spec = ModelSpec.from_dict(
+            {
+                "format": 1, "name": "x", "description": "",
+                "hidden": hidden, "activation": "tanh",
+                "observation_version": 1, "actions": "canonical12",
+                "action_repeat": 4,
+            }
+        )
+        network = PolicyNetwork(spec, INPUTS, ACTIONS)
+        real = sum(p.numel() for p in network.parameters())
+        assert model_params(hidden) == real
+
+
+def test_the_estimate_reads_each_commands_model(tmp_path):
+    _model(tmp_path / "agents" / "big", [4096, 4096])
+    _model(tmp_path / "agents" / "tiny", [64, 64])
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "wide.json").write_text('{"hidden": [2048, 2048]}')
+    (tmp_path / "models" / "small.json").write_text('{"hidden": [64, 64]}')
+    run = tmp_path / "runs" / "2026-09-30_000000_train-big_seed0"
+    run.mkdir(parents=True)
+    (run / "config.json").write_text(
+        '{"kind": "training", "agent": {"id": "big"}}'
+    )
+    (run / "summary.json").write_text('{"interrupted": true}')
+    (run / "resume.pt").write_bytes(b"")
+
+    def gb(*argv):
+        return round(estimate_gb(["app.py", *argv], tmp_path), 2)
+
+    assert gb("-train", "big") == 1.56  # 33.7 M parameters
+    assert gb("-train", "tiny") == 0.3
+    assert gb("-eval", "big") == gb("-train", "big")
+    assert gb("-imitate", "new_one", "--model", "wide") == 0.62
+    assert gb("-imitate", "new_one") == 0.3  # the default model: small
+    assert gb("-resume", run.name) == gb("-train", "big")
+    assert gb("-resume_last") == gb("-train", "big")
+    assert gb("-run", "r", "--driver", "agent:big@d0100k") == 1.56
+    assert gb("-run", "r", "--driver", "heuristic") == BASE_GB
+    assert gb("-eval_baselines") == BASE_GB
+
+
+def test_room_for_a_job_below_amber_and_under_the_cap(tmp_path):
+    _model(tmp_path / "agents" / "big", [4096, 4096])
+    train = ["app.py", "-train", "big"]
+    limits = GuardLimits(max_heavy=8)
+    # 16 GB: amber at 14.08 GB. It needs 1.56 GB.
+    assert room_for(train, 12.0, 16.0, 0, limits, tmp_path) is None
+    why = room_for(train, 13.2, 16.0, 0, limits, tmp_path)
+    assert why.startswith("it needs about 1.6 GB, and 0.9 GB is free")
+    why = room_for(train, 1.0, 16.0, 8, limits, tmp_path)
+    assert why.startswith("8 heavy jobs are running, at most 8")
+
+
+def test_by_default_the_cap_is_the_cores_minus_two():
+    cores = os.cpu_count() or 1
+    assert GuardLimits().heavy_cap == max(cores - 2, 1)
+    assert GuardLimits(max_heavy=3).heavy_cap == 3
+
+
+def test_a_job_far_over_its_estimate_is_stopped():
+    guard, _ = _guard()
+    guard.expected_gb = 0.3  # a small training: its limit is 1.1 GB
+    assert guard.check(_reading(own_memory=0.9), 0.0) is None
+    why = guard.check(_reading(own_memory=4.2), 0.0)
+    assert why == (
+        "it holds 4.2 GB, far more than its estimate (0.3 GB, limit 1.1 GB)"
+    )
+
+
+def test_runs_count_as_heavy():
+    assert is_heavy(["app.py", "-run", "r", "--driver", "heuristic"])
+    assert not is_heavy(["app.py", "-run_best", "r"])  # a replay window

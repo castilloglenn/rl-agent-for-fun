@@ -115,7 +115,11 @@ def test_no_heavy_job_starts_while_memory_is_red(manager):
         manager.start("heavy", HEAVY_SLEEP)
     assert not no.value.tripped and manager.jobs == []
     manager.start("light", SLEEP)  # watching still works
-    manager.readings = lambda: _reading(90)  # amber: fine
+    manager.readings = lambda: _reading(90)  # amber: no room below it
+    manager._starts = []
+    with pytest.raises(JobRefused, match="needs about 0.3 GB, and 0.0 GB"):
+        manager.start("heavy", HEAVY_SLEEP)
+    manager.readings = lambda: _reading(80)  # 1.3 GB below amber
     manager.start("heavy", HEAVY_SLEEP)
 
 

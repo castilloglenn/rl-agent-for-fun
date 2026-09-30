@@ -256,8 +256,7 @@ def _guard() -> None:
     the heavy jobs' limit or on a red reading, and then stops itself when
     the machine or its parent calls for it.
     """
-    import os
-    import time
+    import sys
 
     from src.config import get_control_config
     from src.control import guard
@@ -266,25 +265,17 @@ def _guard() -> None:
     limits = guard.GuardLimits(
         jobs.max_heavy, jobs.memory_trip_gb, jobs.memory_trip_seconds
     )
-    ahead = guard.ahead_of(
-        os.getpid(), guard.project_processes(), limits.max_heavy
-    )
-    if ahead:
-        pids = ", ".join(str(p.pid) for p in ahead)
-        raise SystemExit(
-            f"Not started: {len(ahead)} heavy jobs of this project are "
-            f"running (pids {pids}), at most {limits.max_heavy}. Wait for "
-            "one, or stop them all: make stop_all"
-        )
-    watcher = guard.JobGuard(limits)
-    reading = watcher.readings()
-    why = watcher.check(reading, time.monotonic())
-    if not why and reading.memory_percent >= guard.MEMORY_RED:
-        why = f"memory is at {reading.memory_percent:.0f}% (red)"
+    why = guard.start_problem(sys.argv, limits)
     if why:
         raise SystemExit(f"Not started: {why}")
-    watcher.start()
-    print("Guard: on (limits, memory, disk, battery, parent)", flush=True)
+    expected = guard.estimate_gb(sys.argv)
+    guard.JobGuard(limits, expected_gb=expected).start()
+    print(
+        f"Guard: on (about {expected:.1f} GB expected, up to "
+        f"{guard.job_limit_gb(expected):.1f} GB; at most "
+        f"{limits.heavy_cap} heavy jobs; memory, disk, battery, parent)",
+        flush=True,
+    )
 
 
 def _train(cl_args, config) -> None:

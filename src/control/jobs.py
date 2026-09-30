@@ -25,8 +25,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from src.control.guard import GuardLimits, room_for
 from src.control.stats import DANGER, MEMORY_LEVELS, Snapshot
-from src.utils.resources import is_heavy
+from src.utils.resources import FREE_CORES, is_heavy
 
 MEMORY_RED = MEMORY_LEVELS[1]  # % in use: the vitals bar's red
 
@@ -45,11 +46,15 @@ class JobRefused(Exception):
 
 @dataclass(frozen=True)
 class JobLimits:
-    max_heavy: int = 2  # training, evaluation, imitation at once
+    max_heavy: int = 0  # heavy jobs at once; 0: cores minus FREE_CORES
     burst_starts: int = 5  # more starts than this within burst_seconds
     burst_seconds: float = 10.0  # ... trip the dead switch
     memory_trip_gb: float = 1.0  # our jobs holding this while memory is red
     memory_trip_seconds: float = 5.0  # ... this long trip it too
+
+    @property
+    def heavy_cap(self) -> int:
+        return self.max_heavy or max((os.cpu_count() or 1) - FREE_CORES, 1)
 
 
 @dataclass
@@ -142,12 +147,24 @@ class JobManager:
                     "plug in first"
                 )
             heavy = [j for j in self.running if is_heavy(j.argv)]
-            if len(heavy) >= self.limits.max_heavy:
+            cap = self.limits.heavy_cap
+            if len(heavy) >= cap:
                 numbers = ", ".join(f"#{j.number}" for j in heavy)
                 raise JobRefused(
                     f"{len(heavy)} heavy jobs are running ({numbers}), at "
-                    f"most {self.limits.max_heavy}: wait for one, or stop one"
+                    f"most {cap}: wait for one, or stop one"
                 )
+            if snapshot:  # its memory estimate must fit below amber
+                why = room_for(
+                    argv,
+                    snapshot.memory_used,
+                    snapshot.memory_total,
+                    0,
+                    GuardLimits(max_heavy=cap),
+                    self.cwd,
+                )
+                if why:
+                    raise JobRefused(why)
         self._starts.append(now)
 
     def watch_memory(self, snapshot: Snapshot, now: float) -> None:

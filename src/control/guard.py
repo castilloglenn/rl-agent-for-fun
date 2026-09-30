@@ -2,14 +2,17 @@
 control center or a terminal, so the last safety gate needs nothing else
 running:
 
-- **At start:** if `max_heavy` heavy jobs of this project already run, it
-  doesn't start. The oldest ones run, so even a burst of starts ends with
-  `max_heavy` jobs.
+- **At start (fix 6: the machine decides how many):** it starts only if
+  there's room: its estimated memory (`estimate_gb`, from its model's size)
+  fits below amber, and fewer heavy jobs of this project run than the cores
+  minus the ones kept free. The oldest ones run, so even a burst of starts
+  ends within the limit.
 - **While it runs,** a watcher thread checks every second, and stops the
   job like Ctrl+C (a training keeps its resume state) when the program that
   started it ended (the control center closed or crashed), the disk is
-  nearly full, the battery is nearly empty and unplugged, or memory stays
-  red while this project's heavy jobs fill it.
+  nearly full, the battery is nearly empty and unplugged, it holds far more
+  memory than its estimate, or memory stays red while this project's heavy
+  jobs fill it.
 
 `stop_every_job` is the manual switch (`make stop_all`).
 """
@@ -22,24 +25,38 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+import json
+
 import psutil
 
 from src.control.stats import BATTERY_LEVELS, DISK_LEVELS, GB, MEMORY_LEVELS
-from src.utils.resources import is_heavy
+from src.utils.resources import FREE_CORES, is_heavy
 
 REPO = Path(__file__).resolve().parents[2]
-MEMORY_RED = MEMORY_LEVELS[1]  # % in use
+MEMORY_AMBER, MEMORY_RED = MEMORY_LEVELS  # % in use
 DISK_RED = DISK_LEVELS[1]  # GB free
 BATTERY_RED = BATTERY_LEVELS[1]  # % left, unplugged
 STOP_GRACE = 60.0  # s after its Ctrl+C before the guard ends it
 ORPHANED = 1  # the parent of a process whose parent ended (launchd)
+# Memory a heavy job needs, measured on 2026-09-30 (a process with the env,
+# torch, a model, Adam steps, and a checkpoint saved and loaded): 0.31 GB
+# for 64x64 and 128x128, 0.62 GB for 2048x2048, 1.41 GB for 4096x4096.
+BASE_GB = 0.30  # the process, with a small model
+BYTES_PER_PARAM = 40  # measured 33 to 38: weights, gradients, Adam, a save
+INPUTS, ACTIONS = 15, 12  # observation layout 1, canonical12 (tested)
+DEFAULT_MODEL = "small"  # app.py's --model default
 
 
 @dataclass(frozen=True)
 class GuardLimits:
-    max_heavy: int = 2
+    max_heavy: int = 0  # 0: the cores minus FREE_CORES
     memory_trip_gb: float = 1.0
     memory_trip_seconds: float = 5.0
+
+    @property
+    def heavy_cap(self) -> int:
+        cores = os.cpu_count() or 1
+        return self.max_heavy or max(cores - FREE_CORES, 1)
 
 
 @dataclass(frozen=True)
@@ -67,6 +84,113 @@ class Reading:
     disk_free: float  # GB
     battery: float | None  # % left
     plugged: bool | None
+    own_memory: float = 0.0  # GB this job holds
+
+
+# Memory estimates
+
+
+def model_params(hidden: list[int]) -> int:
+    """The policy and value networks' parameters (src/agents/network.py:
+    two separate MLPs over the same hidden sizes)."""
+
+    def mlp(sizes: list[int]) -> int:
+        return sum((a + 1) * b for a, b in zip(sizes, sizes[1:]))
+
+    return mlp([INPUTS, *hidden, ACTIONS]) + mlp([INPUTS, *hidden, 1])
+
+
+def estimate_gb(argv: list[str], repo: Path = REPO) -> float:
+    """About how much memory a heavy command line needs."""
+    hidden = _hidden(argv, repo)
+    params = model_params(hidden) if hidden else 0
+    return BASE_GB + params * BYTES_PER_PARAM / GB
+
+
+def _after(argv: list[str], flag: str) -> str | None:
+    if flag in argv and argv.index(flag) + 1 < len(argv):
+        return argv[argv.index(flag) + 1]
+    return None
+
+
+def _hidden(argv: list[str], repo: Path) -> list[int] | None:
+    agent = _agent(argv, repo)
+    model = repo / "agents" / agent / "model.json" if agent else None
+    if not (model and model.exists()):  # a new agent (imitate): --model
+        name = _after(argv, "--model") or DEFAULT_MODEL
+        model = repo / "models" / f"{name}.json"
+    return _read(model).get("hidden")
+
+
+def _agent(argv: list[str], repo: Path) -> str | None:
+    for flag in ("-train", "-eval", "-imitate"):
+        if _after(argv, flag):
+            return _after(argv, flag)
+    driver = _after(argv, "--driver") or ""
+    if driver.startswith("agent:"):
+        return driver[len("agent:"):].split("@")[0]
+    run = _after(argv, "-resume")
+    folder = repo / "runs" / run if run else None
+    if "-resume_last" in argv:
+        folder = _last_stopped_run(repo / "runs")
+    if folder:
+        return (_read(folder / "config.json").get("agent") or {}).get("id")
+    return None
+
+
+def _last_stopped_run(runs: Path) -> Path | None:
+    """Like src/experiments/training.last_stopped_run, without torch."""
+    for folder in sorted(runs.glob("*/"), reverse=True):
+        config = _read(folder / "config.json")
+        summary = _read(folder / "summary.json")
+        if (
+            config.get("kind") == "training"
+            and summary.get("interrupted")
+            and (folder / "resume.pt").exists()
+        ):
+            return folder
+    return None
+
+
+def _read(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def room_for(
+    argv: list[str],
+    used_gb: float,
+    total_gb: float,
+    heavy_running: int,
+    limits: GuardLimits = GuardLimits(),
+    repo: Path = REPO,
+) -> str | None:
+    """Why there's no room for this heavy job now, or None: fewer heavy
+    jobs than the cap, and its estimate fits while memory stays below
+    amber.
+    """
+    cap = limits.heavy_cap
+    if heavy_running >= cap:
+        return (
+            f"{heavy_running} heavy jobs are running, at most {cap} "
+            f"({os.cpu_count()} cores, {FREE_CORES} kept free)"
+        )
+    need = estimate_gb(argv, repo)
+    room = total_gb * MEMORY_AMBER / 100 - used_gb
+    if need > room:
+        return (
+            f"it needs about {need:.1f} GB, and {max(room, 0):.1f} GB is "
+            f"free below amber ({MEMORY_AMBER:g}%): close some apps, stop "
+            "a job, or pick a smaller model"
+        )
+    return None
+
+
+def job_limit_gb(expected: float) -> float:
+    """More than this and its estimate was badly wrong: stop it."""
+    return 2 * expected + 0.5
 
 
 def project_processes(repo: Path = REPO) -> list[ProjectProcess]:
@@ -123,7 +247,34 @@ def read_machine(repo: Path = REPO) -> Reading:
         disk_free=psutil.disk_usage(str(repo)).free / GB,
         battery=battery.percent if battery else None,
         plugged=battery.power_plugged if battery else None,
+        own_memory=psutil.Process().memory_info().rss / GB,
     )
+
+
+def start_problem(
+    argv: list[str], limits: GuardLimits = GuardLimits(), repo: Path = REPO
+) -> str | None:
+    """Why this heavy job (this process) mustn't start, or None. The
+    oldest jobs go first, so a burst of starts ends within the cap.
+    """
+    processes = project_processes(repo)
+    ahead = ahead_of(os.getpid(), processes, limits.heavy_cap)
+    if ahead:
+        pids = ", ".join(str(p.pid) for p in ahead)
+        return (
+            f"{len(ahead)} heavy jobs of this project are running (pids "
+            f"{pids}), at most {limits.heavy_cap}. Wait for one, or stop "
+            "them all: make stop_all"
+        )
+    reading = read_machine(repo)
+    if reading.memory_percent >= MEMORY_RED:
+        return f"memory is at {reading.memory_percent:.0f}% (red)"
+    memory = psutil.virtual_memory()
+    used = (memory.total - memory.available) / GB - reading.own_memory
+    why = room_for(argv, used, memory.total / GB, 0, limits, repo)
+    if why:
+        return why
+    return JobGuard(limits).check(reading, time.monotonic())
 
 
 def _interrupt_self() -> None:
@@ -149,8 +300,11 @@ class JobGuard:
         end: Callable[[], None] = _end_self,
         interval: float = 1.0,
         grace: float = STOP_GRACE,
+        expected_gb: float = BASE_GB,
     ) -> None:
+        """`expected_gb`: its memory estimate (the per-job cap)."""
         self.limits = limits
+        self.expected_gb = expected_gb
         self.readings = readings
         self.parent = parent
         self.started_by = parent()
@@ -170,6 +324,12 @@ class JobGuard:
             return (
                 f"the disk has {reading.disk_free:.1f} GB free "
                 f"(red: under {DISK_RED:g} GB)"
+            )
+        limit = job_limit_gb(self.expected_gb)
+        if reading.own_memory > limit:
+            return (
+                f"it holds {reading.own_memory:.1f} GB, far more than its "
+                f"estimate ({self.expected_gb:.1f} GB, limit {limit:.1f} GB)"
             )
         battery = reading.battery
         if reading.plugged is False and battery is not None:
