@@ -4,6 +4,10 @@ run this way (create, then imitate, then train), so they need no command
 of their own: in a terminal it's `... && ...`.
 
 Stopping a step, or a step failing, cancels the rest.
+
+Starting a step can tick the chain again from inside (the window
+refreshes, and the refresh ticks every chain), before the new job is
+recorded. Those ticks are ignored, so each step starts once.
 """
 
 from dataclasses import dataclass, field
@@ -28,6 +32,7 @@ class Chain:
     agent: str = ""  # what it works on, so nothing else trains it meanwhile
     jobs: list[Job] = field(default_factory=list)
     state: str = WAITING
+    starting: bool = False  # inside `start`: ticks meanwhile are ignored
 
     @property
     def job(self) -> Job | None:
@@ -47,7 +52,7 @@ class Chain:
         """Starts the first step, or the next one once the current one
         succeeded. Call it often.
         """
-        if not self.active:
+        if not self.active or self.starting:
             return
         job = self.job
         if job is None:
@@ -73,7 +78,11 @@ class Chain:
 
     def _next(self) -> None:
         i = len(self.jobs)
-        job = self.start(self.steps[i], i, len(self.steps))
+        self.starting = True
+        try:
+            job = self.start(self.steps[i], i, len(self.steps))
+        finally:
+            self.starting = False
         if job is None:  # it couldn't start (a field was missing)
             self.state = FAILED
             return

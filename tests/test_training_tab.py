@@ -267,6 +267,33 @@ def test_start_runs_the_plan_as_a_chain(window, monkeypatch):
     assert "brand_new_agent" in window._chain_agents()
 
 
+def test_the_next_step_starts_once(window, monkeypatch):
+    """Starting a step refreshes the window, which ticks the chains: the
+    chain must not start its step again from inside that tick (it once
+    started 141 trainings in 4 s, until a RecursionError).
+    """
+    started = []
+
+    def start(label, argv):
+        started.append(label)
+        if len(started) > 5:
+            raise AssertionError(f"started {len(started)} jobs")
+        return _job()
+
+    monkeypatch.setattr(window.jobs, "start", start)
+    window.open_tab("Training")
+    tab = window.training_tab
+    tab.form.widgets["Name"].set_text("brand_new_agent")
+    tab.start()
+    first = window.chains[0].job
+    first.process.alive, first.process.returncode = False, 0
+    window._refresh(force=True)
+    assert started == [
+        "Create an agent: brand_new_agent (1/2)",
+        "Train: brand_new_agent (2/2)",
+    ]
+
+
 def test_mode_changes_rebuild_the_form(window):
     window.open_tab("Training")
     tab = window.training_tab
