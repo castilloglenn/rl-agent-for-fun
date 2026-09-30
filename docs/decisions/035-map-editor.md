@@ -1,6 +1,6 @@
 # 035: The map editor
 
-**Date:** 2026-09-28. **Status:** Accepted. 7c1 implemented (`src/editor/`, `make edit_map STAGE=name`); test drive and stage size follow in 7c2.
+**Date:** 2026-09-28. **Status:** Accepted. Implemented in roadmap steps 7c1 and 7c2 (`src/editor/`, `make edit_map STAGE=name`).
 
 ## Context
 
@@ -18,7 +18,9 @@ Stages are JSON files ([decision 009](009-stage-format-and-spawn-schedules.md)),
 - **The camera:** a big stage opens whole (fit); F switches to 1:1, where the arrow keys or a right-drag pan.
 - **Quitting:** Esc asks first when there are unsaved changes (Enter quits, Esc goes back); with none it quits at once. The top bar says saved or unsaved.
 
+- **Test drive (7c2):** T drives the map as it is now, saved or not (it must be valid), in the real game in the same window: the same physics, and on a big stage the camera, map card, and intro. Shift+T watches the heuristic instead. The DRIVER card says "TEST DRIVE · unsaved" (or saved). Test rounds are never recorded, so they can't reach an imitation dataset. T goes back at once; Esc asks "BACK TO THE EDITOR?"; closing the window goes back too. The editor returns exactly as it was: tool, selection, undo history, unsaved changes. (The game window lets a mode take over a key: here T, which is the trail key elsewhere.)
+- **The stage's size (7c2):** with Select, drag the stage's right edge, bottom edge, or bottom right corner (its handle), snapped. The top left stays at (0, 0), so nothing inside moves. It never shrinks past what's inside (walls, the spawn with its 16 px, checkpoints with their radius) or under 200 × 200. The camera refits after the drag; each resize is one undo.
+
 ## Consequences
 
-- Test driving the map being edited, and changing a stage's size, come in 7c2.
 - The editor edits one spawn, the first (the game uses the first).

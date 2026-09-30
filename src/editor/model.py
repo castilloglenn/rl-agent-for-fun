@@ -17,6 +17,8 @@ from src.sim.stage import STAGES_DIR, Stage, StageError
 NAME = re.compile(r"^[A-Za-z0-9_-]+$")  # a stage's name
 GRID = 10  # px: positions snap to it
 SPAWN_TURN = 15  # degrees per Q, E, or mouse wheel notch
+MIN_STAGE = 200  # px: the smallest stage side
+SPAWN_ROOM = 16  # px the spawn keeps from the stage's edge (its clearance)
 SPAWN_PICK = 16  # px around the spawn that selects it
 CHECKPOINT_PICK = 6  # px beyond a checkpoint's radius that selects it
 TOOLS = ("select", "wall", "spawn", "checkpoint")
@@ -212,6 +214,49 @@ class EditorModel:
             if abs(x - cx) <= slack and abs(y - cy) <= slack:
                 return i
         return None
+
+    def stage_edge_at(self, x: float, y: float, slack: float):
+        """The stage's resizable edge at (x, y): "corner" (bottom right),
+        "right", or "bottom"; or None. The top left stays at (0, 0).
+        """
+        width, height = self.size
+        near_right = abs(x - width) <= slack and -slack <= y <= height + slack
+        near_bottom = abs(y - height) <= slack and -slack <= x <= width + slack
+        if near_right and near_bottom:
+            return "corner"
+        if near_right:
+            return "right"
+        if near_bottom:
+            return "bottom"
+        return None
+
+    def content_size(self) -> tuple[float, float]:
+        """The smallest stage that keeps everything inside: the walls,
+        the spawn with its clearance, and the checkpoints, at least
+        MIN_STAGE.
+        """
+        right = bottom = MIN_STAGE
+        for x, y, w, h in self.walls:
+            right, bottom = max(right, x + w), max(bottom, y + h)
+        spawn = self.spawn
+        right = max(right, spawn["x"] + SPAWN_ROOM)
+        bottom = max(bottom, spawn["y"] + SPAWN_ROOM)
+        radius = self.checkpoints.get("radius", 15)
+        for x, y in self.points:
+            right, bottom = max(right, x + radius), max(bottom, y + radius)
+        return right, bottom
+
+    def resize_stage(self, edge: str, x: float, y: float) -> None:
+        """Drags the stage's right edge, bottom edge, or bottom right
+        corner to (x, y), snapped, never cutting off what's inside.
+        """
+        width, height = self.size
+        least_w, least_h = self.content_size()
+        if edge in ("right", "corner"):
+            width = max(snap(x, self.snapping), least_w)
+        if edge in ("bottom", "corner"):
+            height = max(snap(y, self.snapping), least_h)
+        self.stage["size"] = [_number(width), _number(height)]
 
     # Edits (each caller commits when the gesture ends)
 

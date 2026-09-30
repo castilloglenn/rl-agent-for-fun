@@ -39,11 +39,19 @@ class MazeCarDemo:
         round_seconds: float = 0.0,
         record: bool = True,
         autorun: bool = True,
+        stage=None,
+        test_drive: str = "",
     ) -> None:
         """round_seconds: above 0, overrides the rules' round length (the
         rules get a new name, so leaderboards don't mix them). autorun:
         start the window loop at once (tests step it with `frame`).
+        stage: play this Stage instead of `config.stage`. test_drive: the
+        map editor's (7c2) label, for example "saved": never recorded, and
+        T or Esc then Enter goes back to the editor.
         """
+        self.test_drive = test_drive
+        if test_drive:
+            record = False
         config = config.copy_and_resolve_references()
         config.show_gui = True  # the demo is always drawn
         self.driver = make_driver(driver, player=player)
@@ -62,7 +70,14 @@ class MazeCarDemo:
             reward=reward,
             rules=rules,
             recorder=self.recorder,
+            stage=stage,
         )
+        if test_drive:
+            self.env.renderer.mode_keys = {pygame.K_t}  # T: back
+            self.env.renderer.quit_words = (
+                "BACK TO THE EDITOR?",
+                "Enter goes back  ·  Esc keeps driving",
+            )
         # You start a round with your first driving key, so the timer
         # doesn't run while you get ready. Other drivers start at once.
         self.wait_for_keys = isinstance(self.driver, KeyboardDriver)
@@ -95,6 +110,8 @@ class MazeCarDemo:
         if self.env.world is not self.world:  # R started a new game
             self._new_round()
         keys = self.env.renderer.keys_pressed
+        if self.test_drive and pygame.K_t in keys:
+            self.env.running = False  # back to the editor
         if self.recorder and pygame.K_k in keys:
             self.recorder.keep_last()
         if pygame.K_p in keys:
@@ -130,6 +147,13 @@ class MazeCarDemo:
             messages = (("Press a driving key to start", theme.ACCENT),)
         else:
             messages = self._saved_messages()
+        if self.test_drive:
+            return ModeInfo(
+                f"TEST DRIVE · {self.test_drive}",
+                theme.ACCENT,
+                (("T", "back to the editor"), *LIVE_SHORTCUTS),
+                messages,
+            )
         if not self.recorder:
             return ModeInfo(
                 "Live play", theme.TEXT_DIM, LIVE_SHORTCUTS, messages

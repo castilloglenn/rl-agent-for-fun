@@ -206,3 +206,86 @@ def test_a_big_stage_opens_whole_and_f_goes_1_to_1(root):
     window.key(pygame.K_RIGHT)
     window.draw()
     assert window.camera.mode == FOLLOW and window.camera.scale == 1
+
+
+# The stage's size (7c2)
+
+
+def test_resizing_the_stage(root):
+    model = EditorModel("box", root=root)
+    assert model.stage_edge_at(855, 480, 6) == "corner"
+    assert model.stage_edge_at(853, 200, 6) == "right"
+    assert model.stage_edge_at(400, 482, 6) == "bottom"
+    assert model.stage_edge_at(400, 200, 6) is None
+    model.resize_stage("corner", 1203, 597)
+    assert model.size == (1200, 600)
+    model.resize_stage("right", 50, 0)  # the spawn (213.75) stops it
+    assert model.size == (229.75, 600)
+    model.move_spawn(60, 60)
+    model.resize_stage("corner", 10, 10)  # never under 200 x 200
+    assert model.size == (200, 200)
+    model.commit()
+    assert model.undo() and model.size == (855, 480)
+
+
+def test_walls_and_checkpoints_limit_shrinking(root):
+    model = EditorModel("s_curve", root=root)
+    model.resize_stage("corner", 300, 300)
+    # The last checkpoint (720, 80) + its radius, and a wall to y 480.
+    assert model.size == (735, 480)
+
+
+def test_dragging_the_stage_corner_refits_the_camera(root):
+    window = _window(root)
+    _mouse(window, pygame.MOUSEBUTTONDOWN, (855, 480))
+    assert window.drag == ("stage", "corner")
+    _mouse(window, pygame.MOUSEMOTION, (1200, 900))
+    _mouse(window, pygame.MOUSEBUTTONUP, (1200, 900))
+    assert window.model.size == (1200, 900)
+    assert window.camera.zoomable and window.camera.scale < 1
+    window.draw()
+
+
+# Test drive (7c2)
+
+
+def test_an_invalid_map_cant_be_test_driven(root):
+    window = _window(root)
+    window.model.add_wall(200, 220, 230, 260)  # onto the spawn
+    played = []
+    window.play = played.append
+    window.key(pygame.K_t)
+    assert played == [] and window.message[0].startswith("Can't test")
+
+
+def test_test_drive_plays_the_map_and_comes_back(root):
+    window = _window(root, "s_curve")
+    window.model.add_wall(700, 300, 760, 340)  # unsaved
+    before = json.dumps(window.model.stage)
+    seen = {}
+
+    def play(demo):
+        seen["demo"] = demo
+        demo.frame(0.1)
+        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_t))
+        demo.frame(0.1)  # the window reads the key
+        demo.frame(0.1)  # the game sees T: back to the editor
+        seen["running"] = demo.env.running
+
+    window.play = play
+    window.key(pygame.K_t)
+    demo = seen["demo"]
+    assert demo.test_drive == "unsaved" and demo.recorder is None
+    assert list(map(list, demo.env.stage.walls))[-1] == [700, 300, 60, 40]
+    assert demo.mode().label == "TEST DRIVE · unsaved"
+    assert seen["running"] is False
+    assert json.dumps(window.model.stage) == before  # the editor as it was
+    assert window.screen.get_size() == window.layout.window.size
+
+
+def test_shift_t_watches_the_heuristic(root):
+    window = _window(root)
+    seen = []
+    window.play = seen.append
+    window.key(pygame.K_t, pygame.KMOD_SHIFT)
+    assert seen[0].driver.label == "heuristic (baseline)"

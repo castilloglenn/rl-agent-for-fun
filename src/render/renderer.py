@@ -96,6 +96,10 @@ class Renderer:
         self._logged_world = None  # the game whose events were printed
         self._logged = 0  # how many of its events
         self.confirm_quit = False  # Esc asks first, Enter confirms
+        # The quit box's words (a test drive goes back to the editor).
+        self.quit_words = ("QUIT?", "Enter quits  ·  Esc goes back")
+        # Keys a mode takes over from the window (a test drive's T).
+        self.mode_keys: set[int] = set()
         self.keys_pressed: list[int] = []  # this frame's keys, for modes
         # The playback state last drawn (speed, paused), and when it
         # changed (ms), for the flash.
@@ -158,6 +162,9 @@ class Renderer:
         return commands
 
     def _key(self, key: int, game_over: bool, commands: set) -> None:
+        if key in self.mode_keys:
+            self.keys_pressed.append(key)
+            return
         if key == pygame.K_ESCAPE:
             if self.show_shortcuts:
                 self.show_shortcuts = False
@@ -229,9 +236,9 @@ class Renderer:
         if self.confirm_quit:
             self._draw_centered_lines(
                 [
-                    ("QUIT?", theme.BIG_SIZE, theme.WARN, True),
+                    (self.quit_words[0], theme.BIG_SIZE, theme.WARN, True),
                     (
-                        "Enter quits  ·  Esc goes back",
+                        self.quit_words[1],
                         theme.TEXT_SIZE,
                         theme.TEXT,
                         False,

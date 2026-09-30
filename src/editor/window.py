@@ -40,8 +40,10 @@ TOOL_ROWS = (
     ("checkpoint", "Checkpoint", "C"),
 )
 HELP = (
+    ("T", "test drive (Shift+T: heuristic)"),
     ("drag", "move"),
     ("drag a corner", "resize a wall"),
+    ("drag the edge", "resize the stage"),
     ("Del", "delete"),
     ("Q E / wheel", "turn the spawn"),
     ("M", "checkpoints: random / in order"),
@@ -122,6 +124,9 @@ class EditorWindow:
             model.redo()
         elif command and key == pygame.K_s:
             self.save()
+        elif key == pygame.K_t:
+            heuristic = bool(mods & pygame.KMOD_SHIFT)
+            self.test_drive("heuristic" if heuristic else "keyboard")
         elif key in TOOL_KEYS:
             model.tool = TOOL_KEYS[key]
         elif key == pygame.K_g:
@@ -170,7 +175,9 @@ class EditorWindow:
         return HANDLE / self.camera.scale
 
     def press(self, pos) -> None:
-        if not self.camera.view.collidepoint(pos):
+        # A little past the view too: the stage's edge can sit right on it.
+        reach = self.camera.view.inflate(2 * HANDLE + 2, 2 * HANDLE + 2)
+        if not reach.collidepoint(pos):
             return
         model = self.model
         x, y = self._world(pos)
@@ -184,6 +191,10 @@ class EditorWindow:
             corner = model.corner_at(x, y, self._slack())
             if corner is not None:
                 self.drag = ("resize", model.selection[1], corner)
+                return
+            edge = model.stage_edge_at(x, y, self._slack())
+            if edge and model.tool == "select":
+                self.drag = ("stage", edge)
                 return
             found = model.pick(x, y, self._slack() / 2)
             if found is None and model.tool == "checkpoint":
@@ -225,6 +236,8 @@ class EditorWindow:
                 model.move_checkpoint(index, x + dx, y + dy)
         elif drag[0] == "resize":
             model.resize_wall(drag[1], drag[2], x, y)
+        elif drag[0] == "stage":
+            model.resize_stage(drag[1], x, y)
 
     def release(self, pos) -> None:
         drag, self.drag = self.drag, None
@@ -234,6 +247,57 @@ class EditorWindow:
             x, y = self._world(pos)
             self.model.add_wall(drag[1], drag[2], x, y)
         self.model.commit()
+        if drag[0] == "stage":
+            self.refit()
+
+    def refit(self) -> None:
+        """A new stage size: the camera fits it again (fit, unless 1:1
+        was chosen and the stage is still bigger than the view).
+        """
+        width, height = self.model.size
+        mode = self.camera.mode
+        self.camera = cameras.Camera.for_stage(
+            width, height, self.layout.field_view
+        )
+        self.camera.mode = mode if self.camera.zoomable else FIT
+        self.pan = [
+            min(self.pan[0], width),
+            min(self.pan[1], height),
+        ]
+
+    def test_drive(self, driver: str = "keyboard") -> None:
+        """Drives the map as it is now (saved or not) in the real game,
+        in this window, then comes back to the editor as it was.
+        """
+        from src.config import get_maze_car_config
+        from src.envs.maze_car.demo import MazeCarDemo
+        from src.sim.stage import Stage
+
+        problem = self.model.problem()
+        if problem:
+            self.message = (f"Can't test drive: {problem}", theme.BAD)
+            return
+        stage = Stage.from_dict(self.model.stage)
+        state = "unsaved" if self.model.dirty else "saved"
+        demo = MazeCarDemo(
+            get_maze_car_config(),
+            driver=driver,
+            record=False,
+            autorun=False,
+            stage=stage,
+            test_drive=state,
+        )
+        self.play(demo)
+        self.screen = pygame.display.set_mode(self.layout.window.size)
+        pygame.display.set_caption(
+            f"Maze Car · Map editor · {self.model.name}"
+        )
+        pygame.event.clear()  # the last keys were the game's
+        self.message = ("Back from the test drive", theme.TEXT_DIM)
+
+    def play(self, demo) -> None:
+        """The test drive's loop (tests replace it)."""
+        demo.run()
 
     # The loop
 
@@ -281,7 +345,7 @@ class EditorWindow:
             for gy in range(0, int(height) + 1, step):
                 start, end = cam.to_screen(0, gy), cam.to_screen(width, gy)
                 pygame.draw.line(screen, GRID_COLOR, start, end)
-        self._box(0, 0, width, height, None, theme.FIELD_BORDER)
+        stage = self._box(0, 0, width, height, None, theme.FIELD_BORDER)
         checkpoints = model.checkpoints
         if checkpoints.get("mode") == "random":
             margin = checkpoints.get("border_margin", 40)
@@ -310,6 +374,10 @@ class EditorWindow:
             preview = (min(x0, x1), min(y0, y1), abs(x1 - x0), abs(y1 - y0))
             self._box(*preview, None, theme.ACCENT)
         screen.set_clip(None)
+        if model.tool == "select":  # the stage resizes from its corner
+            handle = Rect(0, 0, HANDLE + 4, HANDLE + 4)
+            handle.center = (stage.right - 1, stage.bottom - 1)
+            pygame.draw.rect(screen, theme.TEXT_DIM, handle)
 
     def _box(self, x, y, width, height, fill, outline) -> Rect:
         """A stage rectangle on screen (filled and/or outlined)."""

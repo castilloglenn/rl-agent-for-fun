@@ -223,8 +223,8 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 | File | Contents |
 |---|---|
-| `model.py` | `EditorModel`: the stage being edited and every edit (walls, the spawn, checkpoints), snapping to a 10 px grid, picking what's under the mouse, undo and redo (a snapshot per gesture), `problem()` (the game's `Stage.from_dict`), and `save()`. `dump_stage`: the stage file's layout |
-| `window.py` | `EditorWindow`: a game window mode with the game's layout and camera: tools, selection, and stage cards, help, the field with its grid, and the mouse and keys turned into edits |
+| `model.py` | `EditorModel`: the stage being edited and every edit (walls, the spawn, checkpoints), snapping to a 10 px grid, picking what's under the mouse, undo and redo (a snapshot per gesture), `problem()` (the game's `Stage.from_dict`), and `save()`; `resize_stage` and `content_size` (7c2). `dump_stage`: the stage file's layout |
+| `window.py` | `EditorWindow`: a game window mode with the game's layout and camera: tools, selection, and stage cards, help, the field with its grid, and the mouse and keys turned into edits. `test_drive` runs the real game (`MazeCarDemo` with the edited stage, never recorded) in the same window, then comes back |
 
 ## Replays (`src/replay/`)
 
