@@ -7,7 +7,9 @@ from src.envs.maze_car.env import MazeCarEnv
 from src.render import theme
 from src.render.panels import LIVE_SHORTCUTS, ModeInfo
 from src.replay.recordings import LibraryRecorder, RecordingLibrary
-from src.sim.resources import Rng, RoundState
+from src.replay.viewer import TRAIL_EVERY
+from src.sim.components import Transform
+from src.sim.resources import Rng, RoundState, SimClock
 from src.sim.rules import load_rules
 from src.utils.timing import FixedStepClock
 
@@ -21,6 +23,12 @@ RECORDING_SHORTCUTS = (
     ("F", "camera: follow or fit (big stages)"),
     ("?", "these shortcuts"),
     ("Esc", "quit (asks first)"),
+)
+# Watching a driver (not the keyboard): T shows its trail, as in replays.
+WATCH_SHORTCUTS = (
+    *LIVE_SHORTCUTS[2:-2],
+    ("T", "trail: where the car has been"),
+    *LIVE_SHORTCUTS[-2:],
 )
 
 
@@ -81,6 +89,8 @@ class MazeCarDemo:
         # You start a round with your first driving key, so the timer
         # doesn't run while you get ready. Other drivers start at once.
         self.wait_for_keys = isinstance(self.driver, KeyboardDriver)
+        self.watching = not self.wait_for_keys  # a driver drives: a trail
+        self.trail: list[tuple[float, float]] = []  # where the car has been
         self.paused = False
         self.clock = FixedStepClock(self.env.config.sim.steps_per_second)
         self._new_round()
@@ -91,6 +101,9 @@ class MazeCarDemo:
         self.world = self.env.world
         self.driver.reset(self._seed())
         self.waiting = self.wait_for_keys
+        self.trail = []
+        if self.watching:
+            self._add_trail_point()
 
     def run(self) -> None:
         """Fixed-rate simulation steps, drawn at the display's rate."""
@@ -131,6 +144,7 @@ class MazeCarDemo:
             for _ in range(self.clock.advance(elapsed)):
                 action = self.driver.act(self.env.last_observation)
                 self.env.step_world(action)
+                self._grow_trail()
         alpha = 1.0 if frozen or self.waiting else self.clock.alpha
         return self.env.render(alpha, self.mode())
 
@@ -154,11 +168,30 @@ class MazeCarDemo:
                 (("T", "back to the editor"), *LIVE_SHORTCUTS),
                 messages,
             )
+        if self.watching:
+            return ModeInfo(
+                "Live play",
+                theme.TEXT_DIM,
+                WATCH_SHORTCUTS,
+                messages,
+                trail=self.trail,
+            )
         if not self.recorder:
             return ModeInfo(
                 "Live play", theme.TEXT_DIM, LIVE_SHORTCUTS, messages
             )
         return ModeInfo("REC", theme.BAD, RECORDING_SHORTCUTS, messages)
+
+    def _grow_trail(self) -> None:
+        """A point every TRAIL_EVERY steps while the round runs."""
+        if not self.watching or self.env.is_game_over:
+            return
+        if self.world.resource(SimClock).step % TRAIL_EVERY == 0:
+            self._add_trail_point()
+
+    def _add_trail_point(self) -> None:
+        transform = self.world.component(self.env.car, Transform)
+        self.trail.append((transform.x, transform.y))
 
     def _saved_messages(self) -> tuple:
         if not self.recorder:

@@ -31,7 +31,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make vitals` | The last 30 rows of the vitals log (`logs/vitals.csv`): the machine's readings and job events while the control center was open, kept under about 200 KB, for looking into a crash ([decision 024](decisions/024-vitals-log.md)) |
 | `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, P pauses, R restarts, H toggles lines, ? shows all shortcuts, Esc asks before quitting (Enter quits). A round starts with your first driving key. **Every round is recorded** to `recordings/<player>/` (REC in the left panel). K keeps the last recording for good |
 | `make maze_car_norecord` | Drive without recording |
-| `make maze_car_heuristic` | Watch the heuristic baseline drive |
+| `make maze_car_heuristic` | Watch the heuristic baseline drive (T shows its trail, as for any driver you watch) |
 | `make maze_car_random` | Watch the random baseline drive |
 | `make maze_car_driver DRIVER=name` | Any driver: `keyboard`, `random`, `heuristic`, `agent:<id>` |
 | `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |

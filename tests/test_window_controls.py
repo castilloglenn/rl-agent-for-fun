@@ -129,3 +129,23 @@ def test_an_open_box_freezes_the_game():
     for _ in range(5):
         demo.frame(0.1)
     assert _step(demo) == step
+
+
+def test_watching_a_driver_keeps_its_trail():
+    demo = _demo("heuristic")
+    demo.env.renderer.show_trail = True  # T: drawn under the car
+    for _ in range(3):
+        demo.frame(0.1)
+    mode = demo.mode()
+    assert mode.trail is demo.trail
+    assert len(demo.trail) == 1 + _step(demo) // 2  # 60 points per second
+    assert ("T", "trail: where the car has been") in mode.shortcuts
+    assert all(key != "SPACE" for key, _ in mode.shortcuts)  # no driving
+    demo.env.reset(seed=1)  # R: a new round, a new trail
+    demo.frame(0.1)
+    assert len(demo.trail) == 1 + _step(demo) // 2
+
+
+def test_your_own_driving_has_no_trail():
+    demo = _demo()
+    assert demo.mode().trail is None and demo.trail == []

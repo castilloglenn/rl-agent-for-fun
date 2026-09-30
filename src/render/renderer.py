@@ -92,7 +92,7 @@ class Renderer:
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
         self.show_shortcuts = False  # "?" toggles the shortcuts box
-        self.show_trail = False  # T toggles a replay's trail
+        self.show_trail = False  # T toggles the trail (replays, watching)
         self._logged_world = None  # the game whose events were printed
         self._logged = 0  # how many of its events
         self.confirm_quit = False  # Esc asks first, Enter confirms
