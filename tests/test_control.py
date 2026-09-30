@@ -395,14 +395,21 @@ def test_closing_the_window_asks_then_quits(window):
 
 
 def test_every_tab_opens(window):
-    assert window.tab == "Commands"
+    from src.control.window import TABS
+
+    assert window.tab == "Training"  # the first tab, where things start
+    assert [name for name, _ in TABS] == [
+        "Training", "Runs", "Agents", "Maps", "Files", "Commands", "Settings",
+    ]
     for name, rect in window.tab_rects.items():
+        before = window.tab
         window.handle(
             pygame.event.Event(
                 pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center
             )
         )
-        assert window.tab == name
+        coming = dict(TABS)[name]  # a planned tab (Settings: 7c6)
+        assert window.tab == (before if coming else name)
         window.draw()
 
 

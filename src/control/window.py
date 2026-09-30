@@ -57,13 +57,17 @@ SCROLL_STEP = 40  # px per mouse wheel notch
 PREVIEW_LINES = 4  # of the command, beside Run
 TAB_HEIGHT = 36
 STATS_HEIGHT = 32  # the machine's vital signs, at the bottom
-TABS = (  # (name, the step it arrives in: None if it's here)
-    ("Commands", None),
+# (name, the step it arrives in: None if it's here), in the order you'd
+# use them: train, follow it, see the agent, then what it trains on, and
+# every command last. The window opens on the first.
+TABS = (
     ("Training", None),
     ("Runs", None),
     ("Agents", None),
     ("Maps", None),
     ("Files", None),
+    ("Commands", None),
+    ("Settings", "7c6"),
 )
 LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
 CONSOLE_FONT = "menlo"  # monospace, like a terminal: tables line up
@@ -286,6 +290,7 @@ class ControlCenter:
             self.maps_tab,
         ):
             tab.tips = self.tips
+        self.open_tab(TABS[0][0])  # the Commands widgets were built shown
 
     # Widgets
 
