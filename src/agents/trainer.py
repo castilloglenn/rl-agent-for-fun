@@ -6,6 +6,8 @@ import json
 from dataclasses import MISSING, asdict, dataclass
 from pathlib import Path
 
+from src.utils import named_files
+
 TRAINER_FORMAT = 1
 TRAINERS_DIR = Path(__file__).resolve().parents[2] / "trainers"
 ALGORITHMS = ("ppo",)
@@ -151,9 +153,7 @@ def _check_keys(cls, data: dict) -> None:
 
 
 def _read(name_or_path: str) -> dict:
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = TRAINERS_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("trainers", name_or_path)
     if not path.exists():
         raise TrainerError(f"no trainer file {path}")
     return json.loads(path.read_text())

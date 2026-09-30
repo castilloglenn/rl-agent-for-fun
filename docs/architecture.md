@@ -16,7 +16,10 @@ stages/, rules/,       Data files: stages (where), rules (how the game is
 rewards/, models/,     played and scored), reward profiles (what agents
 trainers/, suites/,    learn), models (an agent's network shape), trainers
 datasets/              (how it learns), suites (how it's scored), and
-                       datasets (which recordings it imitates)
+                       datasets (which recordings it imitates): built-in,
+                       read-only in the app
+user/                  Your own named files, made in the app (out of git):
+                       user/stages/, user/rules/, ... (decision 039)
 ```
 
 Dependencies point one way: `replay` uses `envs`, `envs` uses `sim` and `render`, `render` reads `sim` components, and `sim` uses `ecs`. `sim` and `ecs` never import `render`, `envs`, or `replay`. The env never imports `replay` either: a recorder plugs in through hooks. `agents` uses `drivers` and `replay` (for its driver record), and only `drivers/registry.py` imports `agents`, lazily, so torch loads only when an agent drives.
@@ -294,6 +297,8 @@ every drawn frame:
 ```
 
 `FixedStepClock` (`src/utils/timing.py`) turns real time into a whole number of steps. After a stall it skips the backlog (at most 8 steps per frame).
+
+`named_files` (`src/utils/named_files.py`) finds a named file by kind and name: built-in (`stages/`, `rules/`, ...) first, then yours (`user/<kind>/`). Every loader (`load_stage`, `load_rules`, ...), every dropdown, and the Files and Maps tabs go through it; a new file goes to `user/`, and can't take a built-in's name ([decision 039](decisions/039-skills-suite-and-built-in-files.md)).
 
 `share_the_machine()` (`src/utils/resources.py`) runs heavy jobs (training, resuming, evaluation, imitation) at a low priority with torch's threads capped, so the machine stays responsive ([decision 038](decisions/038-jobs-share-the-machine.md)). `app.py` calls it before those commands.
 

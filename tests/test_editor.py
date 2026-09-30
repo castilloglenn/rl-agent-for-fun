@@ -46,7 +46,7 @@ def test_a_new_stage_is_the_box_and_valid(root):
     assert model.stage == new_stage("fresh")
     assert model.problem() is None
     model.save()
-    saved = json.loads((root / "stages/fresh.json").read_text())
+    saved = json.loads((root / "user/stages/fresh.json").read_text())
     assert Stage.from_dict(saved).name == "fresh"
     assert not model.dirty
 

@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from src.utils import named_files
+
 REPO = Path(__file__).resolve().parents[2]
 NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 WIDTH = 100  # an inline object's line stays within this
@@ -137,9 +139,9 @@ def _choices(folder: str, path: str, repo: Path) -> tuple[str, ...] | None:
 
         return tuple(ACTIVATIONS)
     if folder == "suites" and generic in ("scenarios.*.stage",):
-        return names(repo / "stages")
+        return tuple(named_files.names("stages", repo))
     if folder == "suites" and generic in ("scenarios.*.rules",):
-        return names(repo / "rules")
+        return tuple(named_files.names("rules", repo))
     return None
 
 
@@ -308,8 +310,9 @@ def _set(data, path: str, value) -> None:
 # Reading and writing
 
 
-def names(folder: Path) -> tuple[str, ...]:
-    return tuple(sorted(p.stem for p in folder.glob("*.json")))
+def names(repo: Path, kind: "Kind") -> tuple[str, ...]:
+    """The kind's files, built-in and yours."""
+    return tuple(named_files.names(kind.folder, repo))
 
 
 def dump(data: dict) -> str:
@@ -344,15 +347,18 @@ def _dump(value, indent: int, prefix: int) -> str:
 
 
 def load(repo: Path, kind: Kind, name: str) -> dict:
-    return json.loads((repo / kind.folder / f"{name}.json").read_text())
+    return json.loads(named_files.find(kind.folder, name, repo).read_text())
 
 
 def save(repo: Path, kind: Kind, name: str, data: dict) -> dict:
-    """Writes the file. A suite whose content changed gets the next
-    version, so old scores stay apart from new ones. Returns what was
-    written.
+    """Writes the file where it is (a new one: in user/). A suite whose
+    content changed gets the next version, so old scores stay apart from
+    new ones. Returns what was written.
     """
-    path = repo / kind.folder / f"{name}.json"
+    try:
+        path = named_files.find(kind.folder, name, repo)
+    except FileNotFoundError:
+        path = named_files.new_file(kind.folder, name, repo)
     if kind.folder == "suites" and path.exists():
         before = json.loads(path.read_text())
         if _without_version(before) != _without_version(data):
@@ -373,10 +379,11 @@ def duplicate(repo: Path, kind: Kind, name: str, new: str) -> Path:
     new = new.strip()
     if not NAME.match(new):
         raise FileError("a name uses letters, digits, - and _ only")
-    target = repo / kind.folder / f"{new}.json"
-    if target.exists():
-        raise FileError(f"{kind.folder}/{new}.json already exists")
     data = {**load(repo, kind, name), "name": new}
+    try:
+        target = named_files.new_file(kind.folder, new, repo)  # in user/
+    except FileExistsError as error:
+        raise FileError(str(error))
     if kind.folder == "suites":
         data["version"] = 1
     target.write_text(dump(data))

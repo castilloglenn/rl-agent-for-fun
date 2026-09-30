@@ -13,6 +13,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Callable, Mapping
 
+from src.utils import named_files
+
 PROFILE_FORMAT = 1
 PROFILES_DIR = Path(__file__).resolve().parents[3] / "rewards"
 
@@ -183,7 +185,5 @@ class RewardProfile:
 
 def load_reward_profile(name_or_path: str) -> RewardProfile:
     """A profile by name (rewards/<name>.json) or by file path."""
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = PROFILES_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("rewards", name_or_path)
     return RewardProfile.from_dict(json.loads(path.read_text()))

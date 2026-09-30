@@ -9,6 +9,8 @@ import json
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
+from src.utils import named_files
+
 RULES_FORMAT = 1
 RULES_DIR = Path(__file__).resolve().parents[2] / "rules"
 
@@ -124,7 +126,5 @@ class Rules:
 
 def load_rules(name_or_path: str) -> Rules:
     """Rules by name (rules/<name>.json) or by file path."""
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = RULES_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("rules", name_or_path)
     return Rules.from_dict(json.loads(path.read_text()))

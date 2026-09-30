@@ -13,6 +13,7 @@ from pathlib import Path
 
 from src.control import runs
 from src.control.agents_data import recording_game
+from src.utils import named_files
 
 REPO = Path(__file__).resolve().parents[2]
 RECORDINGS_DIR = REPO / "recordings"
@@ -67,8 +68,8 @@ def players(root: Path | None = None) -> list[tuple[str, int]]:
 def datasets_for(player: str, repo: Path = REPO) -> list[dict]:
     """The dataset files that read this player's recordings."""
     found = []
-    for path in sorted((repo / "datasets").glob("*.json")):
-        data = runs.read_json(path)
+    for name in named_files.names("datasets", repo):
+        data = runs.read_json(named_files.find("datasets", name, repo))
         if data.get("player") == player:
             found.append(data)
     return found

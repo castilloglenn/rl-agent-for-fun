@@ -7,6 +7,8 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from src.utils import named_files
+
 STAGE_FORMAT = 1
 STAGES_DIR = Path(__file__).resolve().parents[2] / "stages"
 SCHEDULE_MODES = ("random", "scripted")
@@ -136,7 +138,5 @@ class Stage:
 
 def load_stage(name_or_path: str) -> Stage:
     """A stage by name (stages/<name>.json) or by file path."""
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = STAGES_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("stages", name_or_path)
     return Stage.from_dict(json.loads(path.read_text()))

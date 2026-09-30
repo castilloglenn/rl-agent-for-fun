@@ -145,7 +145,7 @@ def test_duplicate_selects_the_copy(window, root):
     tab.select("s_curve")
     tab.new_name.set_text("s_curve_copy")
     tab.press("Duplicate")
-    assert (root / "stages/s_curve_copy.json").exists()
+    assert (root / "user/stages/s_curve_copy.json").exists()
     assert tab.selected == "s_curve_copy"
 
 

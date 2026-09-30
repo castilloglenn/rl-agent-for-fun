@@ -31,6 +31,7 @@ from src.sim.resources import Field, SimConfig
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.sim.systems.sensors import cast_rays
+from src.utils import named_files
 from src.utils.version import code_version
 
 SUITE_FORMAT = 1
@@ -111,9 +112,7 @@ class Suite:
 
 def load_suite(name_or_path: str = DEFAULT_SUITE) -> Suite:
     """A suite by name (suites/<name>.json) or by file path."""
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = SUITES_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("suites", name_or_path)
     if not path.exists():
         raise SuiteError(f"no suite file {path}")
     return Suite.from_dict(json.loads(path.read_text()))

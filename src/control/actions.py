@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable
 
 from src.control import choices
+from src.utils import named_files
 
 REPO = Path(__file__).resolve().parents[2]
 NONE = "(none)"
@@ -62,16 +63,17 @@ class Action:
 
 
 def _files(folder: str) -> Callable[[], list[str]]:
-    return lambda: sorted(p.stem for p in (REPO / folder).glob("*.json"))
+    return lambda: named_files.names(folder)  # built-in and yours
 
 
 def _trainers(kind: str) -> Callable[[], list[str]]:
     def names() -> list[str]:
         found = []
-        for path in sorted((REPO / "trainers").glob("*.json")):
+        for name in named_files.names("trainers"):
+            path = named_files.find("trainers", name)
             algorithm = json.loads(path.read_text()).get("algorithm")
             if (algorithm == "imitation") == (kind == "imitation"):
-                found.append(path.stem)
+                found.append(name)
         return found
 
     return names

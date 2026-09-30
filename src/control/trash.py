@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.control import runs
+from src.utils import named_files
 
 REPO = Path(__file__).resolve().parents[2]
 TRASH_FORMAT = 1
@@ -97,9 +98,12 @@ class Trash:
         return self._move("agent", agent_id, [plan.folder, *plan.runs])
 
     def delete_file(self, folder: str, name: str) -> Entry:
-        """Moves a named file (rules/sprint.json, ...) into the trash."""
-        path = self.root / folder / f"{name}.json"
-        if not path.exists():
+        """Moves a named file (rules/sprint.json, user/stages/x.json, ...)
+        into the trash.
+        """
+        try:
+            path = named_files.find(folder, name, self.root)
+        except FileNotFoundError:
             raise TrashError(f"no file {folder}/{name}.json")
         return self._move("file", f"{folder}-{name}", [path])
 

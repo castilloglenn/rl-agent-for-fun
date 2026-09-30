@@ -13,6 +13,7 @@ from pathlib import Path
 from src.control import runs
 from src.editor.model import NAME, dump_stage
 from src.render.camera import fit_scale
+from src.utils import named_files
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT = "box"
@@ -83,13 +84,15 @@ def load_maps(
     """Every stage file, with what uses it, by name."""
     root = root or REPO
     found = []
-    for path in sorted((root / "stages").glob("*.json")):
+    for name in named_files.names("stages", root):
+        path = named_files.find("stages", name, root)
         data = runs.read_json(path)
         if not data:
             continue
         found.append(MapInfo(path.stem, data, path.stat().st_mtime))
     by_name = {m.name: m for m in found}
-    for suite in sorted((root / "suites").glob("*.json")):
+    for suite_name in named_files.names("suites", root):
+        suite = named_files.find("suites", suite_name, root)
         for scenario in runs.read_json(suite).get("scenarios", []):
             info = by_name.get(scenario.get("stage"))
             if info and suite.stem not in info.suites:
@@ -110,7 +113,7 @@ def watch_stage(name: str | None, root: Path | None = None) -> str:
     stage), or the box if it has none or its file is gone.
     """
     root = root or REPO
-    if name and (root / "stages" / f"{name}.json").exists():
+    if name and name in named_files.names("stages", root):
         return name
     return DEFAULT
 
@@ -129,16 +132,16 @@ def check_new_name(root: Path, name: str) -> str:
     name = name.strip()
     if not NAME.match(name):
         raise MapError("a map's name uses letters, digits, - and _ only")
-    if (root / "stages" / f"{name}.json").exists():
-        raise MapError(f"stages/{name}.json already exists")
+    if name in named_files.names("stages", root):
+        raise MapError(f"a map named {name} already exists")
     return name
 
 
 def duplicate(root: Path, name: str, new: str) -> Path:
     """A copy of the map under a new name (its `name` set to it)."""
     new = check_new_name(root, new)
-    data = json.loads((root / "stages" / f"{name}.json").read_text())
+    data = json.loads(named_files.find("stages", name, root).read_text())
     data["name"] = new
-    target = root / "stages" / f"{new}.json"
+    target = named_files.new_file("stages", new, root)  # in user/stages
     target.write_text(dump_stage(data))
     return target

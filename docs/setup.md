@@ -36,7 +36,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make maze_car_random` | Watch the random baseline drive |
 | `make maze_car_driver DRIVER=name` | Any driver: `keyboard`, `random`, `heuristic`, `agent:<id>` |
 | `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |
-| `make maze_car_stage STAGE=name` | Another stage: a name in `stages/` (`box`, `pillars`, `s_curve`, `arena`), or a path. On a big stage (like `arena`) the view follows the car, a MAP card at the top right shows the whole stage, each round starts with a 3 s look at the whole map (a key zooms in sooner), green edge markers point to a checkpoint out of view, and F switches to an overview of the whole stage |
+| `make maze_car_stage STAGE=name` | Another stage: a built-in name in `stages/` (`box`, `pillars`, `s_curve`, `arena`), one of yours in `user/stages/`, or a path. On a big stage (like `arena`) the view follows the car, a MAP card at the top right shows the whole stage, each round starts with a 3 s look at the whole map (a key zooms in sooner), green edge markers point to a checkpoint out of view, and F switches to an overview of the whole stage |
 | `make maze_car_reward REWARD=name` | Another reward profile: a name in `rewards/`, or a path |
 | `make maze_car_rules RULES=name` | Other game rules: `standard`, `sprint` (30 s), `marathon` (120 s), a name in `rules/`, or a path |
 | `make maze_car_seconds SECONDS=n` | Another round length (the rules get renamed, for example `standard-90s`) |
@@ -64,7 +64,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make agents` | List every agent: model, decisions, best checkpoint and score, milestone, last update |
 | `make dataset` | Preview your recordings as an imitation dataset (`datasets/mine.json`): rounds, samples, your mean score, and skipped recordings with why |
 | `make imitate AGENT=id` | Clone your driving into an agent (created if new) with `trainers/imitate.json`, then score the clone. Continue with RL: `make train AGENT=id` |
-| `make edit_map STAGE=name` | The map editor: open a stage in `stages/`, or start a new one. W draws walls, P places the spawn, C adds checkpoints, V selects and moves (drag the stage's edge to resize it); T test drives it (Shift+T: the heuristic); Ctrl+Z undoes, Ctrl+S saves (only a valid stage) ([decision 035](decisions/035-map-editor.md)) |
+| `make edit_map STAGE=name` | The map editor: open a stage (built-in or yours), or start a new one (saved in `user/stages/`, out of git). W draws walls, P places the spawn, C adds checkpoints, V selects and moves (drag the stage's edge to resize it); T test drives it (Shift+T: the heuristic); Ctrl+Z undoes, Ctrl+S saves (only a valid stage) ([decision 035](decisions/035-map-editor.md)) |
 | `make showcase AGENT=id` | Watch an agent's progression: highlight checkpoints on the same round, each after a title card (decisions, training time, suite scores, badges) that stays until Enter. Each round's result also waits for Enter. SPACE or P pause, 1-4 speed, Left/Right checkpoint, R restart, Esc quit |
 | `make showcase_all AGENT=id` | The same, for every scored checkpoint |
 | `make agent AGENT=id` | An agent's digest: lineage, best scores next to the heuristic, score trend, totals, milestone |

@@ -24,13 +24,18 @@ from src.control.training_tab import form_fields  # noqa: E402
 from src.envs.maze_car.rewards import TERMS  # noqa: E402
 
 
+def _built_in(kind) -> list[str]:
+    """The kind's built-in files: yours (user/) never change a test."""
+    return sorted(p.stem for p in (files.REPO / kind.folder).glob("*.json"))
+
+
 def _generic(path: str) -> str:
     return re.sub(r"\.\d+(\.|$)", r".*\1", path)
 
 
 def test_every_file_field_has_help():
     for kind in files.KINDS:
-        for name in files.names(files.REPO / kind.folder):
+        for name in _built_in(kind):
             data = files.load(files.REPO, kind, name)
             for item in files.items(kind.folder, data):
                 _, text = help.field(kind.folder, item.path)
@@ -41,7 +46,7 @@ def test_every_help_key_is_a_real_field():
     paths = {}
     for kind in files.KINDS:
         found = paths.setdefault(kind.folder, set())
-        for name in files.names(files.REPO / kind.folder):
+        for name in _built_in(kind):
             data = files.load(files.REPO, kind, name)
             for item in files.items(kind.folder, data):
                 found.add(item.path)

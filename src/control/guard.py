@@ -30,6 +30,7 @@ import json
 import psutil
 
 from src.control.stats import BATTERY_LEVELS, DISK_LEVELS, GB, MEMORY_LEVELS
+from src.utils import named_files
 from src.utils.resources import FREE_CORES, is_heavy
 
 REPO = Path(__file__).resolve().parents[2]
@@ -118,7 +119,7 @@ def _hidden(argv: list[str], repo: Path) -> list[int] | None:
     model = repo / "agents" / agent / "model.json" if agent else None
     if not (model and model.exists()):  # a new agent (imitate): --model
         name = _after(argv, "--model") or DEFAULT_MODEL
-        model = repo / "models" / f"{name}.json"
+        model = named_files.path_of("models", name, repo)
     return _read(model).get("hidden")
 
 

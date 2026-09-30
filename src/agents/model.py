@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.utils import named_files
+
 MODEL_FORMAT = 1
 MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
 ACTIVATIONS = ("tanh", "relu")
@@ -77,7 +79,5 @@ class ModelSpec:
 
 def load_model_spec(name_or_path: str) -> ModelSpec:
     """A model by name (models/<name>.json) or by file path."""
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = MODELS_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("models", name_or_path)
     return ModelSpec.from_dict(json.loads(path.read_text()))

@@ -215,7 +215,7 @@ class FilesTab:
         self.mode = "files"
         self._show_mode()
         self._tracked = files.tracked(self.root, kind)
-        found = files.names(self.root / kind.folder)
+        found = files.names(self.root, kind)
         self.file_list.set_item_list(
             [n + (DEFAULT_TAG if n in kind.defaults else "") for n in found]
         )

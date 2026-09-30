@@ -12,7 +12,8 @@ import math
 import re
 from pathlib import Path
 
-from src.sim.stage import STAGES_DIR, Stage, StageError
+from src.sim.stage import Stage, StageError
+from src.utils import named_files
 
 NAME = re.compile(r"^[A-Za-z0-9_-]+$")  # a stage's name
 GRID = 10  # px: positions snap to it
@@ -85,9 +86,17 @@ def _number(value: float):
 
 class EditorModel:
     def __init__(self, name: str, root: Path | None = None) -> None:
-        """`root`: where stages/ is (tests use a scratch folder)."""
-        self.folder = root / "stages" if root else STAGES_DIR
-        self.path = self.folder / f"{name}.json"
+        """`root`: where stages/ and user/ are (tests use a scratch
+        folder). An existing map saves where it is; a new one goes to
+        user/stages/.
+        """
+        root = root or named_files.REPO
+        try:
+            self.path = named_files.find("stages", name, root)
+        except FileNotFoundError:
+            folder = named_files.user_folder("stages", root)
+            self.path = folder / f"{name}.json"
+        self.folder = self.path.parent
         self.is_new = not self.path.exists()
         if self.is_new:
             self.stage = new_stage(name)

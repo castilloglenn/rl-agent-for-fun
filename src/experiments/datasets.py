@@ -22,6 +22,7 @@ from src.replay.format import read_replay
 from src.replay.recordings import RECORDINGS_DIR, RecordingLibrary
 from src.replay.replayer import Replayer
 from src.sim.observation import OBSERVATION_VERSION
+from src.utils import named_files
 
 DATASET_FORMAT = 1
 DATASETS_DIR = Path(__file__).resolve().parents[2] / "datasets"
@@ -68,9 +69,7 @@ class DatasetSpec:
 
 def load_dataset_spec(name_or_path: str = "mine") -> DatasetSpec:
     """A dataset by name (datasets/<name>.json) or by file path."""
-    path = Path(name_or_path)
-    if path.suffix != ".json":
-        path = DATASETS_DIR / f"{name_or_path}.json"
+    path = named_files.path_of("datasets", name_or_path)
     if not path.exists():
         raise DatasetError(f"no dataset file {path}")
     return DatasetSpec.from_dict(json.loads(path.read_text()))

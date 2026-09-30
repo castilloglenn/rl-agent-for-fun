@@ -6,6 +6,8 @@ player) are typed instead.
 
 from pathlib import Path
 
+from src.utils import named_files
+
 REPO = Path(__file__).resolve().parents[2]
 BASELINES = ("heuristic", "random")
 # Commands whose AGENT is a new name, not an existing agent.
@@ -14,7 +16,7 @@ TYPED = ("PLAYER", "SECONDS", "FPS", "EPISODES")
 
 
 def _names(folder: str) -> list[str]:
-    return sorted(p.stem for p in (REPO / folder).glob("*.json"))
+    return named_files.names(folder)  # built-in and yours
 
 
 def agents() -> list[str]:

@@ -31,8 +31,8 @@ def repo(tmp_path):
 def test_every_file_round_trips_exactly():
     """Saving an unchanged file changes nothing (read-only on the repo)."""
     for kind in KINDS:
-        for name in files.names(files.REPO / kind.folder):
-            path = files.REPO / kind.folder / f"{name}.json"
+        built_in = files.REPO / kind.folder  # yours never change a test
+        for path in sorted(built_in.glob("*.json")):
             data = json.loads(path.read_text())
             assert files.dump(data) == path.read_text(), path
             values = {
@@ -214,5 +214,5 @@ def test_the_tab_duplicates_and_opens_the_copy(window, repo):
     tab.new_name.set_text("quick")
     tab.duplicate()
     assert tab.name == "quick"
-    assert (repo / "trainers" / "quick.json").exists()
+    assert (repo / "user" / "trainers" / "quick.json").exists()
     window.draw()

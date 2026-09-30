@@ -170,3 +170,6 @@ recordings/
 trash/
 # The control center's vitals log (size-capped, for crash investigation)
 logs/
+
+# Your own named files (maps, rules, datasets, ...), made in the app (decision 039)
+/user/

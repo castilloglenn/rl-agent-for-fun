@@ -17,6 +17,7 @@ from pathlib import Path
 
 from src.control import runs
 from src.control.actions import ACTIONS, NONE
+from src.utils import named_files
 
 REPO = Path(__file__).resolve().parents[2]
 RL = "Reinforcement learning"
@@ -210,7 +211,7 @@ def busy_agents(rows: list) -> dict[str, str]:
 
 def _trainer(name: str) -> dict:
     try:
-        return json.loads((REPO / "trainers" / f"{name}.json").read_text())
+        return json.loads(named_files.find("trainers", name).read_text())
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
