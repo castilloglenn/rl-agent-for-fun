@@ -84,6 +84,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - **Calibrated for human play:** at max speed, the car crosses the field in about 2.9 s. One reaction time (about 0.25 s) covers 75 px (3 car lengths), and so does the braking distance, so an obstacle 150 px ahead is always avoidable. Turning radius: 72 px at max speed, 29 px at 120 px/s.
 - All values are in config (`car.*`, see [config](config.md)). **Implemented in step 3b.**
 - The HUD shows the current pedal state (Idle, Gas, Coasting, Braking, Reverse) and the wheel position (for example "Left 60 %").
+- **O** opens your display settings in any game window (7c5, [decision 040](decisions/040-settings-of-yours.md)): the car's bars above or below it, which lines show, the trail, the camera on big stages, the map intro, and the FPS cap.
 
 The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 

@@ -162,6 +162,9 @@ def get_maze_car_config() -> ConfigDict:
     # On a stage bigger than the view, each round starts with the whole
     # map for 3 s, then zooms into the car (any key skips it).
     config.window.map_intro = True
+    # Your display settings (7c5): app.py points game windows at
+    # user/settings.json. Empty keeps the defaults in memory (tests).
+    config.window.settings_file = ""
 
     # The playing area: a stage file in stages/, by name or path. It holds
     # the size, spawns, and checkpoint rules. See docs/decisions/009.

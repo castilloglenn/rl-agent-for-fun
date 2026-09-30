@@ -553,7 +553,7 @@ def draw_car_panel(
     )
     column.row("Vsync", "on" if vsync else "off")
     column.row("Camera", camera)
-    column.note("?  shortcuts")
+    column.note("?  shortcuts  ·  O  settings")
     column.finish()
 
 

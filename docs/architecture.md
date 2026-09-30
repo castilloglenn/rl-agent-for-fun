@@ -263,7 +263,7 @@ A controller decides the car's `ActionInput` before each step. Live, that's a **
 
 | File | Contents |
 |---|---|
-| `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view through its camera, and calls the panels |
+| `renderer.py` | `Renderer`: owns the pygame window and clock, draws the field view through its camera, and calls the panels. O opens the SETTINGS box (7c5): your display settings, applied live |
 | `camera.py` | `Camera` ([decision 034](decisions/034-camera.md)): stage to screen and back (`to_screen`, `to_world`). The field view is the box's size; a bigger stage is followed at 1:1 (the default) or fitted (F), and gets a MAP card at the top right (`map_size`; the renderer draws it, the layout's `map_box`), the view growing as tall. `start_intro`, `update`, `hurry_intro`: the map intro at a round's start, blending the fit and follow mappings (`modal_open` holds the game meanwhile). The renderer's `offscreen_marker` places the edge markers |
 | `layout.py` | `Layout.for_field`: screen rects for the left panel, top bar, field view, right panel, the optional playback bar under the field, and a map card at the top right for a big stage ([decision 021](decisions/021-window-layout-on-four-sides.md)). The window size follows from the field view's size (the box's, on every stage) |
 | `panels.py` | Top bar, one row (round, time, score, status on the right; the car's health is a bar above the car, drawn by `renderer.py`, 7c4). Left game boxes (driver and mode; game: stage, rules, spawns, seed; score; leaderboard; agent: reward profile, gains, costs, net, the biggest cost, and the sim step and rate, [decision 032](decisions/032-reward-by-term.md)). Right car boxes (car and inputs, sensors, objective, display: FPS, vsync). Every section is its own box, with even 16 px gaps. Text is shortened with "…" to fit. `?` toggles a shortcuts box over the field (each mode's `ModeInfo.shortcuts`). **Retro style: lines and text only**, with colors and bold for distinction. Graphics belong inside the field |
@@ -299,6 +299,8 @@ every drawn frame:
 `FixedStepClock` (`src/utils/timing.py`) turns real time into a whole number of steps. After a stall it skips the backlog (at most 8 steps per frame).
 
 `named_files` (`src/utils/named_files.py`) finds a named file by kind and name: built-in (`stages/`, `rules/`, ...) first, then yours (`user/<kind>/`). Every loader (`load_stage`, `load_rules`, ...), every dropdown, and the Files and Maps tabs go through it; a new file goes to `user/`, and can't take a built-in's name. Built-ins can't be saved or trashed from the app (`files.save`, `Trash.delete_file`, and the editor refuse them), and dropdowns list them first, yours tagged `· yours` (`choices.named`) ([decision 039](decisions/039-skills-suite-and-built-in-files.md)).
+
+`Settings` (`src/utils/settings.py`) holds your display settings: `OPTIONS` (each setting, its group, and its choices, the first the default), loaded from `user/settings.json` (a bad value falls back to the default) and saved on each change. The renderer's SETTINGS box (O) edits them ([decision 040](decisions/040-settings-of-yours.md)).
 
 `share_the_machine()` (`src/utils/resources.py`) runs heavy jobs (training, resuming, evaluation, imitation) at a low priority with torch's threads capped, so the machine stays responsive ([decision 038](decisions/038-jobs-share-the-machine.md)). `app.py` calls it before those commands.
 

@@ -20,6 +20,10 @@ def _dispatch(cl_args) -> None:
         config.stage = cl_args.stage
     if cl_args.rules:
         config.rules = cl_args.rules
+    if not config.window.settings_file:  # your settings (7c5), display only
+        from src.utils.settings import SETTINGS_PATH
+
+        config.window.settings_file = str(SETTINGS_PATH)
 
     if _heavy(cl_args):
         _share_the_machine()

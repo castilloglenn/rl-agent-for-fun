@@ -6,7 +6,7 @@ from pygame import Rect, Surface
 
 from src.ecs import World
 from src.render import camera, panels, theme, warnings
-from src.render.camera import FOLLOW, MAP_CARD_EXTRA, MAP_TOP
+from src.render.camera import FIT, FOLLOW, MAP_CARD_EXTRA, MAP_TOP
 from src.render.layout import MARGIN, Layout
 from src.sim.components import (
     Checkpoint,
@@ -36,6 +36,7 @@ from src.utils.common import (
     lerp,
     lerp_angle,
 )
+from src.utils.settings import OPTIONS, Settings
 from src.utils.types import Colors, ColorValue
 from src.utils.ui import draw_text, get_font
 
@@ -92,6 +93,11 @@ class Renderer:
         # lines). H toggles them; the config flags pick which kinds exist.
         self.show_lines = True
         self.show_shortcuts = False  # "?" toggles the shortcuts box
+        # Your display settings (7c5): O opens their box. No file in the
+        # config (tests, headless) keeps them in memory, at the defaults.
+        self.settings = Settings.load(config.window.get("settings_file"))
+        self.show_settings = False
+        self.setting = 0  # the box's selected row
         self.show_trail = False  # T toggles the trail (replays, watching)
         self._logged_world = None  # the game whose events were printed
         self._logged = 0  # how many of its events
@@ -122,6 +128,28 @@ class Renderer:
         )
         self.clock = pygame.time.Clock()
         self._car_surfaces: dict[tuple, Surface] = {}
+        for option in OPTIONS:
+            self._apply(option.key)
+
+    def _apply(self, key: str) -> None:
+        """A setting that lives in the window's state (the rest are read
+        as the frame is drawn).
+        """
+        value = self.settings[key]
+        if key == "trail":
+            self.show_trail = value
+        elif key == "big_stage_camera" and self.camera.zoomable:
+            self.camera.mode = FIT if value == "fit" else FOLLOW
+        elif key == "map_intro":
+            wanted = self.config.window.get("map_intro", True)
+            self.map_intro = wanted and value
+        elif key == "fps_cap":
+            self.frame_rate = (
+                value
+                or self.config.display.max_fps
+                or pygame.display.get_current_refresh_rate()
+                or self.FALLBACK_FPS
+            )
 
     @property
     def offset(self) -> tuple[float, float]:
@@ -133,7 +161,12 @@ class Renderer:
         """The game waits: a box is open (shortcuts, quit prompt), or the
         map intro plays.
         """
-        return self.show_shortcuts or self.confirm_quit or self.camera.in_intro
+        return (
+            self.show_shortcuts
+            or self.show_settings
+            or self.confirm_quit
+            or self.camera.in_intro
+        )
 
     def poll_events(self, game_over: bool = False) -> set[str]:
         """Handles window events. Returns the commands asked for.
@@ -162,6 +195,9 @@ class Renderer:
         return commands
 
     def _key(self, key: int, game_over: bool, commands: set) -> None:
+        if self.show_settings:
+            self._settings_key(key)
+            return
         if key in self.mode_keys:
             self.keys_pressed.append(key)
             return
@@ -180,6 +216,9 @@ class Renderer:
             return  # only Enter or Esc answer the prompt
         elif key in (pygame.K_SLASH, pygame.K_QUESTION):
             self.show_shortcuts = not self.show_shortcuts
+        elif key == pygame.K_o:
+            self.show_shortcuts = False
+            self.show_settings = True
         elif key == pygame.K_h:
             self.show_lines = not self.show_lines
         elif key == pygame.K_t:
@@ -192,6 +231,22 @@ class Renderer:
             self.keys_pressed.append(key)
             if key == pygame.K_r:
                 commands.add(Command.RESTART)
+
+    def _settings_key(self, key: int) -> None:
+        """The SETTINGS box: Up and Down pick a setting, Left and Right
+        change it (applied and saved at once), Esc or O closes it.
+        """
+        if key in (pygame.K_ESCAPE, pygame.K_o):
+            self.show_settings = False
+        elif key in (pygame.K_UP, pygame.K_w):
+            self.setting = (self.setting - 1) % len(OPTIONS)
+        elif key in (pygame.K_DOWN, pygame.K_s):
+            self.setting = (self.setting + 1) % len(OPTIONS)
+        elif key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_a, pygame.K_d):
+            by = -1 if key in (pygame.K_LEFT, pygame.K_a) else 1
+            option = OPTIONS[self.setting]
+            self.settings.step(option.key, by)
+            self._apply(option.key)
 
     def draw(
         self,
@@ -245,6 +300,8 @@ class Renderer:
                     ),
                 ]
             )
+        elif self.show_settings:
+            self._draw_settings()
         elif self.show_shortcuts:
             self._draw_shortcuts(mode)
         else:
@@ -675,7 +732,13 @@ class Renderer:
         """Every key of the current mode, in a box over the field: keys
         right-aligned in one column, what they do in the next.
         """
-        shortcuts = mode.shortcuts if mode else panels.LIVE_SHORTCUTS
+        shortcuts = list(mode.shortcuts if mode else panels.LIVE_SHORTCUTS)
+        if all(key != "O" for key, _ in shortcuts):  # every mode has it
+            at = next(
+                (i for i, (key, _) in enumerate(shortcuts) if key == "?"),
+                len(shortcuts),
+            )
+            shortcuts.insert(at, ("O", "settings"))
         # Keys are drawn bold, so they're measured bold.
         key_font = get_font(theme.TEXT_SIZE, True)
         keys = max(key_font.size(key)[0] for key, _ in shortcuts)
@@ -722,6 +785,68 @@ class Renderer:
             self.display,
             "? closes",
             (backdrop.centerx, y + 26),
+            theme.TEXT_SIZE,
+            theme.TEXT_DIM,
+            anchor="center",
+        )
+
+    SETTINGS_HINT = (
+        "Up/Down pick · Left/Right change · saved as you go · Esc closes"
+    )
+
+    def _draw_settings(self) -> None:
+        """Your display settings in a box over the field: a row each
+        (label, value), the picked one lit.
+        """
+        font, bold = get_font(theme.TEXT_SIZE), get_font(theme.TEXT_SIZE, True)
+        labels = max(font.size(o.label)[0] for o in OPTIONS)
+        values = max(
+            bold.size(text)[0] for o in OPTIONS for _, text in o.choices
+        )
+        pad = 24
+        width = max(labels + 32 + values, font.size(self.SETTINGS_HINT)[0])
+        backdrop = pygame.Rect(0, 0, width + 2 * pad, 26 * (len(OPTIONS) + 3))
+        backdrop.center = self.layout.field_view.center
+        self._draw_backdrop(backdrop)
+        y = backdrop.y + 8 + 13
+        draw_text(
+            self.display,
+            "SETTINGS",
+            (backdrop.centerx, y),
+            theme.BIG_SIZE,
+            theme.ACCENT,
+            bold=True,
+            anchor="center",
+        )
+        y += 8
+        value_x = backdrop.x + pad + labels + 32
+        for i, option in enumerate(OPTIONS):
+            y += 26
+            picked = i == self.setting
+            if picked:
+                row = pygame.Rect(backdrop.x + 8, y - 12, backdrop.w - 16, 24)
+                pygame.draw.rect(self.display, theme.PANEL_BORDER, row)
+            draw_text(
+                self.display,
+                option.label,
+                (backdrop.x + pad, y),
+                theme.TEXT_SIZE,
+                theme.TEXT if picked else theme.TEXT_DIM,
+                anchor="midleft",
+            )
+            draw_text(
+                self.display,
+                self.settings.shown(option.key),
+                (value_x, y),
+                theme.TEXT_SIZE,
+                theme.ACCENT if picked else theme.TEXT,
+                bold=picked,
+                anchor="midleft",
+            )
+        draw_text(
+            self.display,
+            self.SETTINGS_HINT,
+            (backdrop.centerx, y + 34),
             theme.TEXT_SIZE,
             theme.TEXT_DIM,
             anchor="center",
@@ -797,7 +922,7 @@ class Renderer:
         else:  # rotated and scaled together, smoothly
             rotated = pygame.transform.rotozoom(surface, angle, scale)
         screen_center = cam.to_screen(center_x, center_y)
-        if self.show_lines:
+        if self.show_lines and self.settings["guide"]:
             # Guide to the checkpoint, under the car.
             for _, (spot, _) in self._checkpoints:
                 pygame.draw.line(
@@ -810,7 +935,7 @@ class Renderer:
 
         if not self.show_lines:
             return screen_center
-        if self.config.show_bounds:
+        if self.config.show_bounds and self.settings["hitbox"]:
             corners = car_corners(
                 screen_center[0],
                 screen_center[1],
@@ -819,7 +944,7 @@ class Renderer:
                 hitbox.height * scale,
             )
             pygame.draw.polygon(self.display, theme.HITBOX, corners, width=1)
-        if self.config.show_collision_distance:
+        if self.config.show_collision_distance and self.settings["rays"]:
             # Rays are cast at the current step. Shift them with the car.
             dx = center_x - transform.x
             dy = center_y - transform.y
@@ -842,13 +967,21 @@ class Renderer:
     HEALTH_BAR_MIN_WIDTH = 12  # px, when a big stage is shown small
 
     def _draw_health_bar(self, center, hitbox: Hitbox, share: float) -> None:
+        """Above the car (or below it: your settings), clear of its
+        farthest corner at any heading; not drawn at full health if your
+        settings say only when damaged.
+        """
+        if self.settings["bars_shown"] == "damaged" and share >= 1.0:
+            return
         scale = self.camera.scale
         width = max(round(hitbox.width * scale), self.HEALTH_BAR_MIN_WIDTH)
-        # Above the car's farthest corner at any heading.
         reach = math.hypot(hitbox.width, hitbox.height) / 2 * scale
         bar = pygame.Rect(0, 0, width, self.HEALTH_BAR_HEIGHT)
-        top = round(center[1] - reach) - self.HEALTH_BAR_GAP
-        bar.midbottom = (round(center[0]), top)
+        gap = self.HEALTH_BAR_GAP
+        if self.settings["bars"] == "below":
+            bar.midtop = (round(center[0]), round(center[1] + reach) + gap)
+        else:
+            bar.midbottom = (round(center[0]), round(center[1] - reach) - gap)
         pygame.draw.rect(self.display, theme.BAR_EMPTY, bar)
         filled = round(width * max(min(share, 1.0), 0.0))
         if filled:
