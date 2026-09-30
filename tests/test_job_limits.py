@@ -14,6 +14,7 @@ from absl import flags  # noqa: E402
 
 import src.config  # noqa: E402, F401  (defines the flags)
 from src.control.jobs import JobLimits, JobManager, JobRefused  # noqa: E402
+from src.control.stats import Snapshot  # noqa: E402
 from src.utils.resources import HEAVY, is_heavy  # noqa: E402
 
 SLEEP = [sys.executable, "-c", "import time; time.sleep(30)"]
@@ -91,6 +92,59 @@ def test_starts_spread_out_never_trip(manager):
     assert manager.tripped is None
 
 
+# Memory
+
+
+def _reading(percent, jobs_gb=0.2):
+    return Snapshot(
+        cpu=20.0,
+        jobs_cpu=10.0,
+        memory_used=16.0 * percent / 100,
+        memory_total=16.0,
+        jobs_memory=jobs_gb,
+        battery=None,
+        plugged=None,
+        disk_free=100.0,
+        jobs=1,
+    )
+
+
+def test_no_heavy_job_starts_while_memory_is_red(manager):
+    manager.readings = lambda: _reading(97)
+    with pytest.raises(JobRefused, match="memory is at 97% .red.") as no:
+        manager.start("heavy", HEAVY_SLEEP)
+    assert not no.value.tripped and manager.jobs == []
+    manager.start("light", SLEEP)  # watching still works
+    manager.readings = lambda: _reading(90)  # amber: fine
+    manager.start("heavy", HEAVY_SLEEP)
+
+
+def test_memory_red_while_our_jobs_fill_it_trips(manager):
+    manager.start("job", SLEEP)
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=100.0)
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=104.0)
+    assert manager.tripped is None  # not 5 s yet
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=105.0)
+    assert manager.tripped == "memory at 96% for 5 s, our jobs hold 3.0 GB"
+    assert _wait_stopped(manager)
+
+
+def test_memory_red_from_other_apps_never_trips(manager):
+    for second in range(60):  # our jobs hold only 0.2 GB
+        manager.watch_memory(_reading(97), now=float(second))
+    assert manager.tripped is None
+
+
+def test_a_dip_below_red_restarts_the_count(manager):
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=0.0)
+    manager.watch_memory(_reading(94, jobs_gb=3.0), now=3.0)  # amber
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=4.0)
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=8.0)
+    assert manager.tripped is None
+    manager.watch_memory(_reading(96, jobs_gb=3.0), now=9.0)
+    assert manager.tripped
+
+
 # The window
 
 
@@ -125,6 +179,20 @@ def test_the_dead_switch_box_resets_it(window):
     window.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
     assert window.jobs.tripped is None
     assert window._start("e", SLEEP, False)
+
+
+def test_a_memory_trip_opens_the_box(window, monkeypatch):
+    monkeypatch.setattr(
+        window.jobs,
+        "limits",
+        JobLimits(max_heavy=1, burst_starts=2, memory_trip_seconds=0),
+    )
+    monkeypatch.setattr(
+        window.stats, "sample", lambda pids, force=False: _reading(96, 2.0)
+    )
+    window._refresh(force=True)
+    assert window.jobs.tripped.startswith("memory at 96%")
+    assert window.box.title == "DEAD SWITCH"
 
 
 def test_a_runaway_loop_trips_instead_of_hanging(window):

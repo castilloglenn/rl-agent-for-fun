@@ -195,6 +195,7 @@ class ControlCenter:
         self._frame_seconds = 1 / 60
         self.tab = "Commands"
         self.stats = SystemStats()
+        self.jobs.readings = lambda: self.stats.sample(self._job_pids())
         if self.vitals:
             self.vitals.note("open", self.stats.sample([], force=True))
         self.message: tuple[str, tuple] | None = None  # next to Run
@@ -750,6 +751,9 @@ class ControlCenter:
         if answer == "confirm":
             box.on_confirm()
 
+    def _job_pids(self) -> list[int]:
+        return [job.process.pid for job in self.jobs.running]
+
     def _refresh(self, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self._refreshed < REFRESH:
@@ -757,9 +761,13 @@ class ControlCenter:
         self._refreshed = now
         for chain in self.chains:
             chain.tick()  # the next step, once the last one succeeded
+        snapshot = self.stats.sample(self._job_pids())
+        was_tripped = self.jobs.tripped
+        self.jobs.watch_memory(snapshot, now)
+        if self.jobs.tripped and not was_tripped:  # memory: its box
+            self._refused(JobRefused(self.jobs.tripped, tripped=True))
         if self.vitals:
-            pids = [job.process.pid for job in self.jobs.running]
-            self.vitals.record(self.stats.sample(pids), now)
+            self.vitals.record(snapshot, now)
         rows = [
             f"#{j.number}  {j.status:<8} {_clock(j.seconds):>5}  {j.label}"
             for j in reversed(self.jobs.jobs)
@@ -859,8 +867,7 @@ class ControlCenter:
     # The machine's vital signs
 
     def _draw_stats(self) -> None:
-        pids = [job.process.pid for job in self.jobs.running]
-        snap = self.stats.sample(pids)
+        snap = self.stats.sample(self._job_pids())
         levels = snap.levels()
         bar = self.stats_bar
         x, y = bar.x + PAD, bar.centery

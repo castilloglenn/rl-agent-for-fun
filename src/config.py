@@ -131,6 +131,11 @@ def get_control_config() -> ConfigDict:
     # until you reset it.
     config.jobs.burst_starts = 5
     config.jobs.burst_seconds = 10.0
+    # Memory red (95 %) this long while our jobs hold this much trips it
+    # too. One training holds about 0.2 GB. Heavy jobs don't start while
+    # memory is red.
+    config.jobs.memory_trip_gb = 1.0
+    config.jobs.memory_trip_seconds = 5.0
     return config
 
 

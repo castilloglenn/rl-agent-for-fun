@@ -8,10 +8,11 @@ continues it (SIGCONT).
 A job that writes a run folder names it first ("Run: <folder>"), so the
 runs tab knows which run is whose.
 
-Limits (decision 038): at most `max_heavy` heavy jobs at once, and a dead
-switch. More than `burst_starts` starts within `burst_seconds` means
-something is looping: every job stops, and starts are refused until
-`reset`.
+Limits (decision 038): at most `max_heavy` heavy jobs at once, none while
+memory is red, and a dead switch. More than `burst_starts` starts within
+`burst_seconds` means something is looping, and memory red for
+`memory_trip_seconds` while our jobs hold `memory_trip_gb` means they're
+filling it: every job stops, and starts are refused until `reset`.
 """
 
 import os
@@ -24,7 +25,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from src.control.stats import MEMORY_LEVELS, Snapshot
 from src.utils.resources import is_heavy
+
+MEMORY_RED = MEMORY_LEVELS[1]  # % in use: the vitals bar's red
 
 REPO = Path(__file__).resolve().parents[2]
 LOG_LINES = 2000  # kept per job
@@ -44,6 +48,8 @@ class JobLimits:
     max_heavy: int = 2  # training, evaluation, imitation at once
     burst_starts: int = 5  # more starts than this within burst_seconds
     burst_seconds: float = 10.0  # ... trip the dead switch
+    memory_trip_gb: float = 1.0  # our jobs holding this while memory is red
+    memory_trip_seconds: float = 5.0  # ... this long trip it too
 
 
 @dataclass
@@ -96,6 +102,9 @@ class JobManager:
         self.limits = limits
         self.tripped: str | None = None  # why the dead switch tripped
         self._starts: list[float] = []  # recent start times
+        # The latest readings (the window sets it), for the memory check.
+        self.readings: Callable[[], Snapshot | None] = lambda: None
+        self._red_since: float | None = None  # memory red, our jobs' fault
 
     def _event(self, text: str) -> None:
         if self.on_event:
@@ -116,6 +125,12 @@ class JobManager:
             )
             raise JobRefused(self.tripped, tripped=True)
         if is_heavy(argv):
+            snapshot = self.readings()
+            if snapshot and snapshot.memory_percent >= MEMORY_RED:
+                raise JobRefused(
+                    f"memory is at {snapshot.memory_percent:.0f}% (red): "
+                    "close some apps, or stop a job"
+                )
             heavy = [j for j in self.running if is_heavy(j.argv)]
             if len(heavy) >= self.limits.max_heavy:
                 numbers = ", ".join(f"#{j.number}" for j in heavy)
@@ -124,6 +139,25 @@ class JobManager:
                     f"most {self.limits.max_heavy}: wait for one, or stop one"
                 )
         self._starts.append(now)
+
+    def watch_memory(self, snapshot: Snapshot, now: float) -> None:
+        """Trips the dead switch when memory stays red while our jobs hold
+        a real share of it. Call it with each new reading.
+        """
+        limits = self.limits
+        ours = snapshot.jobs_memory >= limits.memory_trip_gb
+        if self.tripped or not ours or snapshot.memory_percent < MEMORY_RED:
+            self._red_since = None
+            return
+        if self._red_since is None:
+            self._red_since = now
+        if now - self._red_since >= limits.memory_trip_seconds:
+            self._red_since = None
+            self.trip(
+                f"memory at {snapshot.memory_percent:.0f}% for "
+                f"{limits.memory_trip_seconds:g} s, our jobs hold "
+                f"{snapshot.jobs_memory:.1f} GB"
+            )
 
     def trip(self, why: str) -> None:
         """The dead switch: stops every job and refuses new ones."""

@@ -1,6 +1,6 @@
 # 038: Jobs share the machine
 
-**Date:** 2026-09-30. **Status:** Accepted. Built in steps: fixes 1 to 3 so far; 4 and 5 follow.
+**Date:** 2026-09-30. **Status:** Accepted. Built in steps: fixes 1 to 4 so far; 5 follows.
 
 ## Context
 
@@ -18,6 +18,9 @@ Longer waits are fine; a hung machine never is. Progress stays visible.
    - **At most 2 heavy jobs at once.** One more is refused, with the running ones named. Watching and driving aren't limited. Two, not one: you ran two trainings side by side on 2026-09-30 without trouble (about 1 core each).
    - **The dead switch:** more than 5 starts within 10 s means something is looping, whatever the cause. Every job stops (Ctrl+C, so training keeps its resume state), and starts are refused until you reset it. A DEAD SWITCH box says why: Enter resets, Esc keeps it on, and the next start asks again. The vitals log notes the trip and the reset. With it, the 2026-09-30 loop would have ended after 5 jobs instead of 141.
    - A refused start doesn't refresh the window, so the error path can't tick the chains again.
+4. **Memory** (`jobs.py`, with the vitals bar's readings):
+   - **No heavy job starts while memory is red** (95 % in use, the vitals bar's red). Watching and driving still start.
+   - **The dead switch trips when memory stays red for 5 s while our jobs hold at least 1 GB.** macOS sits around 80 % with nothing heavy running, and two trainings hold about 0.4 GB, so it only fires when our jobs are filling memory, as the 141 trainings did. Memory filled by other apps only blocks new heavy jobs; it never stops yours.
 
 ## Consequences
 
