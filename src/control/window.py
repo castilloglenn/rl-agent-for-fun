@@ -34,6 +34,7 @@ from src.control.chains import Chain
 from src.control.confirm import Confirm
 from src.control.files_tab import FilesTab
 from src.control.maps_tab import MapsTab
+from src.control.settings_tab import SettingsTab
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
 from src.control import help
@@ -67,7 +68,7 @@ TABS = (
     ("Maps", None),
     ("Files", None),
     ("Commands", None),
-    ("Settings", "7c6"),
+    ("Settings", None),
 )
 LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
 CONSOLE_FONT = "menlo"  # monospace, like a terminal: tables line up
@@ -180,10 +181,13 @@ class ControlCenter:
         logs_dir: Path | None = None,
         files_root: Path | None = None,
         limits: JobLimits | None = None,
+        settings_file: Path | None = None,
     ) -> None:
         """`logs_dir`: where the vitals log goes (app.py passes logs/).
         None keeps no log, for tests. `limits`: the jobs' limits and dead
-        switch (app.py passes the control config's).
+        switch (app.py passes the control config's). `settings_file`: your
+        display settings for the Settings tab (app.py passes
+        user/settings.json; None keeps them in memory, for tests).
         """
         pygame.init()
         pygame.display.set_caption("Maze Car · Control Center")
@@ -282,12 +286,19 @@ class ControlCenter:
             runs_dir=runs_dir,
         )
         self.maps_tab.hide()
+        self.settings_tab = SettingsTab(
+            self.gui,
+            Rect(MARGIN, top, width, bottom - top),
+            path=settings_file,
+        )
+        self.settings_tab.hide()
         for tab in (
             self.runs_tab,
             self.training_tab,
             self.agents_tab,
             self.files_tab,
             self.maps_tab,
+            self.settings_tab,
         ):
             tab.tips = self.tips
         self.open_tab(TABS[0][0])  # the Commands widgets were built shown
@@ -630,6 +641,7 @@ class ControlCenter:
             "Agents": self.agents_tab,
             "Maps": self.maps_tab,
             "Files": self.files_tab,
+            "Settings": self.settings_tab,
         }
         for tab_name, tab in tabs.items():
             if tab_name != name:
@@ -711,6 +723,8 @@ class ControlCenter:
             self.files_tab.handle(event)
         elif self.tab == "Maps":
             self.maps_tab.handle(event)
+        elif self.tab == "Settings":
+            self.settings_tab.handle(event)
         else:
             self._handle_commands(event)
 
@@ -818,6 +832,9 @@ class ControlCenter:
             self.maps_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
             self.maps_tab.draw_after(self.screen)
+        elif self.tab == "Settings":
+            self.settings_tab.draw(self.screen)
+            self.gui.draw_ui(self.screen)
         else:
             self._draw_commands()
         if self.box:
@@ -836,6 +853,7 @@ class ControlCenter:
             "Agents": self.agents_tab,
             "Maps": self.maps_tab,
             "Files": self.files_tab,
+            "Settings": self.settings_tab,
         }.get(self.tab)
         if tab is None:
             return self._dropdown_open()
@@ -1084,6 +1102,8 @@ class ControlCenter:
                 self.files_tab.refresh()
             elif self.tab == "Maps":
                 self.maps_tab.refresh()
+            elif self.tab == "Settings":
+                self.settings_tab.refresh()
             self.gui.update(elapsed)
             self.draw()
             pygame.display.flip()

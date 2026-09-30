@@ -17,5 +17,5 @@ Display choices were code defaults in `src/config.py`, changed only by command-l
 
 ## Consequences
 
-- The control center's Settings tab (7c6) edits the same file, so both places always agree.
+- The control center's Settings tab (7c6) edits the same file, so both places always agree: it saves on each pick and reads the file again every 2 s. `app.py` hands it `user/settings.json`; without a file (tests) it keeps them in memory.
 - Future display choices (fuel's bar in step 9, more cars' bars in step 8) join the same list.

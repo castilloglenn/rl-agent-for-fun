@@ -90,7 +90,11 @@ def _dispatch(cl_args) -> None:
         from src.control.window import ControlCenter
 
         limits = JobLimits(**get_control_config().jobs)
-        ControlCenter(logs_dir=LOGS_DIR, limits=limits).run()
+        ControlCenter(
+            logs_dir=LOGS_DIR,
+            limits=limits,
+            settings_file=config.window.settings_file,
+        ).run()
     elif cl_args.edit_map:
         from src.editor.model import NAME
         from src.editor.window import run_editor
