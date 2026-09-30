@@ -1,5 +1,6 @@
-"""Roadmap step 7c3: the Maps tab. Stages and suites are copied into
-tmp_path; the repo's are only read.
+"""Roadmap step 7c3: the Maps tab. Four stages and the suites are copied
+into tmp_path (not every stage: maps you add would change the results);
+the repo's are only read.
 """
 
 import json
@@ -15,11 +16,16 @@ from src.control import maps_data  # noqa: E402
 from src.control.maps_data import MapError  # noqa: E402
 from tests.test_runs_tab import _folder, _job  # noqa: E402
 
+STAGES = ("arena", "box", "pillars", "s_curve")
+
 
 @pytest.fixture
 def root(tmp_path):
-    for folder in ("stages", "suites"):
-        shutil.copytree(maps_data.REPO / folder, tmp_path / folder)
+    shutil.copytree(maps_data.REPO / "suites", tmp_path / "suites")
+    (tmp_path / "stages").mkdir()
+    for stage in STAGES:
+        name = f"{stage}.json"
+        shutil.copy(maps_data.REPO / "stages" / name, tmp_path / "stages")
     runs_dir = tmp_path / "runs"
     for name, stage, kind in (
         ("r1", "pillars", "training"),

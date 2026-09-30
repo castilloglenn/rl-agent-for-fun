@@ -119,6 +119,21 @@ def _merge_known(config: ConfigDict, data: dict) -> None:
             config[key] = value
 
 
+def get_control_config() -> ConfigDict:
+    """The control center's settings (decision 038)."""
+    config = ConfigDict()
+    config.jobs = ConfigDict()
+    # Heavy jobs (training, evaluation, imitation) running at once. One
+    # training takes about 1 core and 0.2 GB here.
+    config.jobs.max_heavy = 2
+    # The dead switch: more starts than this within burst_seconds means
+    # something is looping. Every job stops, and new ones are refused
+    # until you reset it.
+    config.jobs.burst_starts = 5
+    config.jobs.burst_seconds = 10.0
+    return config
+
+
 def get_agent_config() -> ConfigDict:
     config = ConfigDict()
 

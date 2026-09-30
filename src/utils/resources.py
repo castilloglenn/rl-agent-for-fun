@@ -9,6 +9,16 @@ import os
 
 NICENESS = 10  # 0 is normal priority, 19 the lowest
 FREE_CORES = 2
+# The heavy commands: app.py's flags that keep the CPU busy for minutes.
+HEAVY = ("train", "resume", "resume_last", "eval", "eval_baselines", "imitate")
+
+
+def is_heavy(argv: list[str]) -> bool:
+    """Whether a command line runs a heavy command ("-train ...")."""
+    return any(
+        arg.startswith("-") and not arg.startswith("--") and arg[1:] in HEAVY
+        for arg in argv
+    )
 
 
 def share_the_machine(

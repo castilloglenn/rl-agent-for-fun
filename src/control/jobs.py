@@ -7,6 +7,11 @@ continues it (SIGCONT).
 
 A job that writes a run folder names it first ("Run: <folder>"), so the
 runs tab knows which run is whose.
+
+Limits (decision 038): at most `max_heavy` heavy jobs at once, and a dead
+switch. More than `burst_starts` starts within `burst_seconds` means
+something is looping: every job stops, and starts are refused until
+`reset`.
 """
 
 import os
@@ -19,9 +24,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from src.utils.resources import is_heavy
+
 REPO = Path(__file__).resolve().parents[2]
 LOG_LINES = 2000  # kept per job
 RUN_LINE = "Run: "  # a run's first line: the folder it writes
+
+
+class JobRefused(Exception):
+    """A start the limits refused. `tripped`: the dead switch did it."""
+
+    def __init__(self, text: str, tripped: bool = False) -> None:
+        super().__init__(text)
+        self.tripped = tripped
+
+
+@dataclass(frozen=True)
+class JobLimits:
+    max_heavy: int = 2  # training, evaluation, imitation at once
+    burst_starts: int = 5  # more starts than this within burst_seconds
+    burst_seconds: float = 10.0  # ... trip the dead switch
 
 
 @dataclass
@@ -63,6 +85,7 @@ class JobManager:
         self,
         cwd: Path = REPO,
         on_event: Callable[[str], None] | None = None,
+        limits: JobLimits = JobLimits(),
     ) -> None:
         """`on_event(text)` hears each start, stop, pause, resume, and exit
         ("exit #3 code -9"), for the vitals log. Exits come from a thread.
@@ -70,12 +93,55 @@ class JobManager:
         self.cwd = cwd
         self.jobs: list[Job] = []
         self.on_event = on_event
+        self.limits = limits
+        self.tripped: str | None = None  # why the dead switch tripped
+        self._starts: list[float] = []  # recent start times
 
     def _event(self, text: str) -> None:
         if self.on_event:
             self.on_event(text)
 
+    def check(self, argv: list[str], now: float | None = None) -> None:
+        """Raises JobRefused if the limits refuse this start. A burst of
+        starts trips the dead switch: every job stops.
+        """
+        if self.tripped:
+            raise JobRefused(self.tripped, tripped=True)
+        now = time.monotonic() if now is None else now
+        window = self.limits.burst_seconds
+        self._starts = [t for t in self._starts if now - t < window]
+        if len(self._starts) >= self.limits.burst_starts:
+            self.trip(
+                f"{len(self._starts) + 1} jobs started within {window:g} s"
+            )
+            raise JobRefused(self.tripped, tripped=True)
+        if is_heavy(argv):
+            heavy = [j for j in self.running if is_heavy(j.argv)]
+            if len(heavy) >= self.limits.max_heavy:
+                numbers = ", ".join(f"#{j.number}" for j in heavy)
+                raise JobRefused(
+                    f"{len(heavy)} heavy jobs are running ({numbers}), at "
+                    f"most {self.limits.max_heavy}: wait for one, or stop one"
+                )
+        self._starts.append(now)
+
+    def trip(self, why: str) -> None:
+        """The dead switch: stops every job and refuses new ones."""
+        self.tripped = why
+        self._event(f"dead switch: {why}")
+        for job in self.running:
+            self.stop(job)  # Ctrl+C: training keeps its resume state
+
+    def reset(self) -> None:
+        """Starts are allowed again."""
+        if self.tripped:
+            self.tripped = None
+            self._starts = []
+            self._event("dead switch reset")
+
     def start(self, label: str, argv: list[str]) -> Job:
+        """Starts a job, unless the limits refuse it (JobRefused)."""
+        self.check(argv)
         # Live output, and plain text (no color codes) for the console.
         env = {
             **os.environ,

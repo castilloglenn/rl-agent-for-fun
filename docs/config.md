@@ -46,6 +46,13 @@ All `car.*` driving values go into `SimConfig`, and `create_car` converts them t
 
 `get_agent_config()` is empty.
 
+`get_control_config()` holds the control center's job limits ([decision 038](decisions/038-jobs-share-the-machine.md)); `app.py` passes them to `ControlCenter`:
+
+| Key | Default | Used by |
+|---|---|---|
+| `jobs.max_heavy` | 2 | Heavy jobs (training, resuming, evaluation, imitation) running at once. One more is refused with a message |
+| `jobs.burst_starts`, `jobs.burst_seconds` | 5, 10.0 s | The dead switch: more starts than this within that time means something is looping. Every job stops, and starts are refused until you reset it (its box: Enter) |
+
 ## Game-defining vs presentation
 
 Every top-level key belongs to exactly one group (`GAME_KEYS` and `PRESENTATION_KEYS` in `src/config.py`). `tests/test_config.py` fails if a new key isn't classified.

@@ -29,7 +29,7 @@ from pygame_gui.elements import (
 
 from src.control.actions import ACTIONS, GROUPS, Action
 from src.control.agents_tab import AgentsTab
-from src.control.jobs import JobManager
+from src.control.jobs import JobLimits, JobManager, JobRefused
 from src.control.chains import Chain
 from src.control.confirm import Confirm
 from src.control.files_tab import FilesTab
@@ -175,16 +175,18 @@ class ControlCenter:
         agents_dir: Path | None = None,
         logs_dir: Path | None = None,
         files_root: Path | None = None,
+        limits: JobLimits | None = None,
     ) -> None:
         """`logs_dir`: where the vitals log goes (app.py passes logs/).
-        None keeps no log, for tests.
+        None keeps no log, for tests. `limits`: the jobs' limits and dead
+        switch (app.py passes the control config's).
         """
         pygame.init()
         pygame.display.set_caption("Maze Car · Control Center")
         self.screen = pygame.display.set_mode(SIZE)
         self.gui = pygame_gui.UIManager(SIZE, gui_theme())
         self.vitals = VitalsLog(logs_dir) if logs_dir else None
-        self.jobs = jobs or JobManager()
+        self.jobs = jobs or JobManager(limits=limits or JobLimits())
         if self.vitals:
             self.jobs.on_event = self.vitals.note
         self.running = True
@@ -540,13 +542,54 @@ class ControlCenter:
         return bool(snap and snap.battery is not None and not snap.plugged)
 
     def _start(self, label: str, argv: list[str], window: bool):
-        job = self.jobs.start(label, argv)
+        try:
+            job = self.jobs.start(label, argv)
+        except JobRefused as refused:
+            self._refused(refused)
+            return None
         self.selected_job = job
         where = "a game window opens" if window else "headless"
         self.message = (f"Started job #{job.number} ({where})", theme.GOOD)
         self._log_seen = -1
         self._refresh(force=True)
         return job
+
+    def _refused(self, refused: JobRefused) -> None:
+        """A start the limits refused: why, and after a trip, the dead
+        switch's box (Enter resets it).
+        """
+        if not refused.tripped:
+            self.message = (f"Not started: {refused}", theme.BAD)
+            return
+        # No refresh here: it would tick the chains from inside a start.
+        self.message = (f"Dead switch: {refused}", theme.BAD)
+        if self.box and self.box.title == "DEAD SWITCH":
+            return
+        self.ask(
+            Confirm(
+                "DEAD SWITCH",
+                [
+                    (f"It tripped: {refused}.", theme.TEXT),
+                    (
+                        "Every job was stopped (training keeps its resume "
+                        "state), and new jobs are refused.",
+                        theme.TEXT_DIM,
+                    ),
+                    (
+                        "Reset once you know why. Esc keeps it on: starting "
+                        "a job asks again.",
+                        theme.TEXT_DIM,
+                    ),
+                ],
+                self._reset_dead_switch,
+                confirm_label="Reset (Enter)",
+                title_color=theme.BAD,
+            )
+        )
+
+    def _reset_dead_switch(self) -> None:
+        self.jobs.reset()
+        self.message = ("Dead switch reset: jobs can start again", theme.GOOD)
 
     def _job_action(self, name: str) -> None:
         if name == "Clear":

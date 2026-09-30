@@ -73,10 +73,13 @@ def _dispatch(cl_args) -> None:
     elif cl_args.imitate:
         _imitate(cl_args, config)
     elif cl_args.control:
+        from src.config import get_control_config
+        from src.control.jobs import JobLimits
         from src.control.vitals import LOGS_DIR
         from src.control.window import ControlCenter
 
-        ControlCenter(logs_dir=LOGS_DIR).run()
+        limits = JobLimits(**get_control_config().jobs)
+        ControlCenter(logs_dir=LOGS_DIR, limits=limits).run()
     elif cl_args.edit_map:
         from src.editor.model import NAME
         from src.editor.window import run_editor
@@ -224,14 +227,9 @@ def _dispatch(cl_args) -> None:
 
 def _heavy(cl_args) -> bool:
     """Commands that keep the CPU busy for minutes."""
-    return bool(
-        cl_args.train
-        or cl_args.resume
-        or cl_args.resume_last
-        or cl_args.eval
-        or cl_args.eval_baselines
-        or cl_args.imitate
-    )
+    from src.utils.resources import HEAVY
+
+    return any(getattr(cl_args, name) for name in HEAVY)
 
 
 def _share_the_machine() -> None:
