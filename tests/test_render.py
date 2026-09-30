@@ -312,3 +312,42 @@ def test_the_window_prints_its_events_once(capsys):
     renderer.draw(fresh)
     assert capsys.readouterr().out.startswith("--- new round")
 
+
+
+def test_the_health_bar_sits_above_the_car():
+    """7c4: a thin bar above the car, green when full, red when low, and
+    no HEALTH gauge in the top bar.
+    """
+    from src.render import theme
+    from src.sim.components import Health, Transform
+
+    config = get_maze_car_config()
+    renderer = Renderer(config)
+    world = create_world(config)
+    car = create_start_car(world)
+    world.step()
+    renderer.draw(world)
+    x, y = renderer.camera.to_screen(*_position(world, car, Transform))
+
+    def row_colors(dy):
+        return {
+            tuple(renderer.display.get_at((round(x) + dx, round(y) + dy)))[:3]
+            for dx in range(-12, 12)
+        }
+
+    bar = -(round(14.4) + renderer.HEALTH_BAR_GAP + 1)  # its bottom row
+    assert theme.GOOD in row_colors(bar)
+    health = world.component(car, Health)
+    health.current = health.maximum * 0.2
+    renderer.draw(world)
+    assert theme.BAD in row_colors(bar) and theme.GOOD not in row_colors(bar)
+    assert theme.BAR_EMPTY in row_colors(bar)  # the lost part
+    top = renderer.display.subsurface(renderer.layout.top_bar)
+    data = pygame.image.tobytes(top, "RGB")
+    top_colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+    assert theme.BAD not in top_colors  # no gauge there any more
+
+
+def _position(world, car, kind):
+    transform = world.component(car, kind)
+    return transform.x, transform.y

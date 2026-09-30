@@ -206,13 +206,11 @@ def draw_top_bar(
     car: CarInfo | None,
     hud: ConfigDict,
 ) -> None:
-    """One row of essentials: the car's gauges on the left (fuel joins in
-    step 9), and round, time, score, and the car's status on the right.
+    """One row of essentials: round, time, score, and the car's status on
+    the right. (The car's health is a bar above the car, 7c4.)
     """
     _box(surface, rect)
     y = rect.y + (rect.height - theme.BIG_SIZE) // 2 - 2
-    if car is not None:
-        draw_gauge(surface, "HEALTH", car.health, rect.x + PADDING, y)
 
     state = world.resource(RoundState)
     time_left = seconds_left(world)
@@ -263,43 +261,6 @@ def car_status(car: CarInfo) -> tuple[str, ColorValue]:
     if car.speed < 0:
         return "REVERSING", theme.GOOD
     return "STOPPED", theme.WARN
-
-
-def draw_gauge(
-    surface: Surface,
-    label: str,
-    share: float,
-    left: float,
-    y: float,
-    blocks: int = 10,
-) -> Rect:
-    """A retro gauge starting at `left`: label, filled blocks, and a
-    percentage. Green above 60 %, amber from 30 %, red below. Returns its
-    area.
-    """
-    color = health_color(share)
-    label_rect = draw_text(
-        surface, label, (left, y + 3), theme.HEADER_SIZE, theme.TEXT_DIM
-    )
-    filled = max(round(share * blocks), 1 if share > 0 else 0)
-    size, gap = 10, 3
-    start = label_rect.right + 8
-    top = y + 6
-    for i in range(blocks):
-        pygame.draw.rect(
-            surface,
-            color if i < filled else theme.BAR_EMPTY,
-            Rect(start + i * (size + gap), top, size, size),
-        )
-    value = draw_text(
-        surface,
-        f"{share:.0%}",
-        (start + blocks * (size + gap) - gap + 10, y + 2),
-        theme.TEXT_SIZE,
-        color,
-        bold=True,
-    )
-    return label_rect.union(value)
 
 
 def _fit(text: str, width: float, size: int, bold: bool = False) -> str:

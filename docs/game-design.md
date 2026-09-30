@@ -58,7 +58,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - **After a hit** the car **slides along the wall**: it loses the part of its motion into the wall and keeps the part along it (speed × that share), so it can steer away. A head-on hit stops it exactly where it touched. Pushing on into the wall is the same contact: no more impact damage, only scrape damage for the distance slid, and a head-on push stays stopped.
 - A turn into the wall is blocked, but keeps the speed.
 - Rules can make any contact wreck, like the game before 5a4: `safe_speed` = `lethal_speed` = 0 and `scrape_damage` = 0. (That was `rules/classic.json`, removed on 2026-09-28; the tests keep checking it with a scratch rules file.)
-- **In the window:** a HEALTH gauge at the top left (10 blocks: green above 60 %, amber from 30 %, red below; fuel joins it in step 9). A hit car blinks red for 0.5 s (it stays red while scraping), a wrecked car turns dark red, and the event line shows the hit (`Hit the wall at 180 px/s: -67 health`) and each scrape once it ends (`Scraped the wall for 120 px: -12 health`). Blink timings are display settings (`hud.hit_flash_seconds`, `hud.hit_blink_seconds`).
+- **In the window:** a thin bar above the car (7c4: green above 60 %, amber from 30 %, red below; level on screen, so it never turns with the car or covers it; fuel joins as a second bar under it in step 9). A hit car blinks red for 0.5 s (it stays red while scraping), a wrecked car turns dark red, and the event line shows the hit (`Hit the wall at 180 px/s: -67 health`) and each scrape once it ends (`Scraped the wall for 120 px: -12 health`). Blink timings are display settings (`hud.hit_flash_seconds`, `hud.hit_blink_seconds`).
 
 ### Checkpoints
 

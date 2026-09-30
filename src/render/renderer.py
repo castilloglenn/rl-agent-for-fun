@@ -385,7 +385,7 @@ class Renderer:
                 sim.brake_deceleration,
                 self.config.hud,
             )
-            self._draw_car(
+            screen_center = self._draw_car(
                 transform,
                 hitbox,
                 sensors,
@@ -394,6 +394,9 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
+            health = world.try_component(car, Health)
+            if health is not None:
+                self._draw_health_bar(screen_center, hitbox, health.share)
         self._draw_offscreen_checkpoints(world, alpha)
         self._draw_intro_hint()
         self.display.set_clip(None)
@@ -779,7 +782,8 @@ class Renderer:
         previous: PreviousPose,
         alpha: float,
         ray_levels: dict[str, int],
-    ) -> None:
+    ) -> tuple[float, float]:
+        """Draws the car (and its lines); returns its center on screen."""
         # Interpolated pose between the previous and current step.
         center_x = lerp(previous.center_x, transform.x, alpha)
         center_y = lerp(previous.center_y, transform.y, alpha)
@@ -805,7 +809,7 @@ class Renderer:
         self.display.blit(rotated, rotated.get_rect(center=screen_center))
 
         if not self.show_lines:
-            return
+            return screen_center
         if self.config.show_bounds:
             corners = car_corners(
                 screen_center[0],
@@ -829,6 +833,30 @@ class Renderer:
                     ),
                     end_pos=cam.to_screen(ray.end.x + dx, ray.end.y + dy),
                 )
+        return screen_center
+
+    # The car's health (7c4): a thin bar above it, level on screen, so it
+    # never turns with the car or covers it. Fuel joins under it (step 9).
+    HEALTH_BAR_HEIGHT = 3  # px
+    HEALTH_BAR_GAP = 5  # px between the car's farthest corner and the bar
+    HEALTH_BAR_MIN_WIDTH = 12  # px, when a big stage is shown small
+
+    def _draw_health_bar(self, center, hitbox: Hitbox, share: float) -> None:
+        scale = self.camera.scale
+        width = max(round(hitbox.width * scale), self.HEALTH_BAR_MIN_WIDTH)
+        # Above the car's farthest corner at any heading.
+        reach = math.hypot(hitbox.width, hitbox.height) / 2 * scale
+        bar = pygame.Rect(0, 0, width, self.HEALTH_BAR_HEIGHT)
+        top = round(center[1] - reach) - self.HEALTH_BAR_GAP
+        bar.midbottom = (round(center[0]), top)
+        pygame.draw.rect(self.display, theme.BAR_EMPTY, bar)
+        filled = round(width * max(min(share, 1.0), 0.0))
+        if filled:
+            pygame.draw.rect(
+                self.display,
+                panels.health_color(share),
+                pygame.Rect(bar.x, bar.y, filled, bar.height),
+            )
 
 
 def offscreen_marker(start, point, view, inset: float):
