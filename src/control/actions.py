@@ -47,6 +47,7 @@ class Action:
     program: tuple[str, ...] = ("app.py",)  # or ("-m", "pytest")
     # Asks first: values -> the confirmation box's lines (6b3).
     confirm: Callable[[dict], list[str]] | None = None
+    confirm_label: str = "Delete (Enter)"  # its box's button
 
     def argv(self, values: dict[str, str]) -> list[str]:
         filled = {f.name: values.get(f.name, f.default) for f in self.fields}
@@ -532,6 +533,20 @@ ACTIONS = (
         program=("-m", "pytest"),
     ),
     Action(
+        "Stop every job",
+        "Develop",
+        "The manual dead switch: stops every job of this project, also ones "
+        "started in a terminal (Ctrl+C first, so training keeps its resume "
+        "state). Not this window.",
+        (),
+        lambda v: ["-stop_all"],
+        confirm=lambda v: [
+            "Every job of this project stops, also in terminals.",
+            "Training keeps its resume state: make resume_last.",
+        ],
+        confirm_label="Stop all (Enter)",
+    ),
+    Action(
         "Vitals log",
         "Develop",
         "The machine's readings while the control center was open (the "
@@ -597,6 +612,7 @@ MAKE_TARGETS = {
     "test_file": "Run tests",
     "fixtures": "Regenerate fixtures",
     "vitals": "Vitals log",
+    "stop_all": "Stop every job",
     "delete_run": "Delete a run",
     "delete_agent": "Delete an agent",
     "keep": "Keep a recording",

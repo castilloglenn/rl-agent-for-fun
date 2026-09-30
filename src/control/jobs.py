@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from src.control.stats import MEMORY_LEVELS, Snapshot
+from src.control.stats import DANGER, MEMORY_LEVELS, Snapshot
 from src.utils.resources import is_heavy
 
 MEMORY_RED = MEMORY_LEVELS[1]  # % in use: the vitals bar's red
@@ -130,6 +130,16 @@ class JobManager:
                 raise JobRefused(
                     f"memory is at {snapshot.memory_percent:.0f}% (red): "
                     "close some apps, or stop a job"
+                )
+            levels = snapshot.levels() if snapshot else {}
+            if levels.get("disk") == DANGER:
+                raise JobRefused(
+                    f"the disk has {snapshot.disk_free:.1f} GB free (red)"
+                )
+            if levels.get("battery") == DANGER:
+                raise JobRefused(
+                    f"the battery is at {snapshot.battery:.0f}% (red): "
+                    "plug in first"
                 )
             heavy = [j for j in self.running if is_heavy(j.argv)]
             if len(heavy) >= self.limits.max_heavy:

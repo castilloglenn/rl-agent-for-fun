@@ -46,7 +46,7 @@ All `car.*` driving values go into `SimConfig`, and `create_car` converts them t
 
 `get_agent_config()` is empty.
 
-`get_control_config()` holds the control center's job limits ([decision 038](decisions/038-jobs-share-the-machine.md)); `app.py` passes them to `ControlCenter`:
+`get_control_config()` holds the job limits ([decision 038](decisions/038-jobs-share-the-machine.md)). `app.py` passes them to `ControlCenter`, and every heavy job's own guard uses `max_heavy` and the memory trip too (`src/control/guard.py`), so they hold for terminal jobs as well:
 
 | Key | Default | Used by |
 |---|---|---|

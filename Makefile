@@ -7,7 +7,7 @@
 	run_rules run_stage run_seconds run_best recordings replay_last \
 	maze_car_norecord new_agent maze_car_agent run_agent train resume \
 	resume_last eval eval_baselines agents agent dataset imitate \
-	showcase showcase_all control vitals delete_run trash restore \
+	showcase showcase_all control vitals stop_all delete_run trash restore \
 	empty_trash delete_agent keep unkeep delete_recording edit_map
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
@@ -16,6 +16,7 @@ help:
 	@echo "Control center"
 	@echo "  make control                         every command below, in a window"
 	@echo "  make vitals                          the machine's readings while it was open"
+	@echo "  make stop_all                        stop every job of this project (Ctrl+C first)"
 	@echo "Play"
 	@echo "  make maze_car                        drive with the keyboard (recorded)"
 	@echo "  make maze_car_norecord               drive without recording"
@@ -255,6 +256,9 @@ edit_map:
 
 vitals:
 	python app.py -vitals
+
+stop_all:
+	python app.py -stop_all
 
 delete_run:
 	$(call require,RUN,2026-09-27_003302_train-rookie_seed0)

@@ -39,6 +39,9 @@ flags.DEFINE_string("showcase", "", "Show an agent's progression (window).")
 flags.DEFINE_boolean("showcase_all", False, "Showcase every checkpoint.")
 flags.DEFINE_boolean("control", False, "Open the control center window.")
 flags.DEFINE_boolean("vitals", False, "Show the vitals log's last rows.")
+flags.DEFINE_boolean(
+    "stop_all", False, "Stop every job of this project but the control center."
+)
 flags.DEFINE_string("delete_run", "", "Move a run folder into the trash.")
 flags.DEFINE_string("edit_map", "", "Open the map editor on a stage.")
 flags.DEFINE_string("delete_agent", "", "Move an agent and its runs to trash.")

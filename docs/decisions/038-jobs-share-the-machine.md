@@ -1,6 +1,6 @@
 # 038: Jobs share the machine
 
-**Date:** 2026-09-30. **Status:** Accepted. Built in steps: fixes 1 to 4 so far; 5 follows.
+**Date:** 2026-09-30. **Status:** Accepted. Built in five steps (fixes 1 to 5), all on 2026-09-30.
 
 ## Context
 
@@ -21,6 +21,13 @@ Longer waits are fine; a hung machine never is. Progress stays visible.
 4. **Memory** (`jobs.py`, with the vitals bar's readings):
    - **No heavy job starts while memory is red** (95 % in use, the vitals bar's red). Watching and driving still start.
    - **The dead switch trips when memory stays red for 5 s while our jobs hold at least 1 GB.** macOS sits around 80 % with nothing heavy running, and two trainings hold about 0.4 GB, so it only fires when our jobs are filling memory, as the 141 trainings did. Memory filled by other apps only blocks new heavy jobs; it never stops yours.
+   - Disk and battery: no heavy start while either is red (under 5 GB free; under 20 % and unplugged). CPU trips nothing: training is meant to use it, and low priority (2) keeps the system first.
+5. **Every heavy job guards itself** (`src/control/guard.py`, started by `app.py`), so the last gate needs neither the control center nor a background service:
+   - **At start:** it doesn't start if `max_heavy` heavy jobs of this project already run (found by their command line and folder), nor on a red reading. The oldest jobs run, so even a burst ends with `max_heavy` of them: the 141 would have been 2, even without fixes 1 and 3, and it holds for `make train` in terminals too.
+   - **While it runs,** a watcher thread checks every second and stops the job like Ctrl+C (training keeps its resume state) when the program that started it ended (the control center closed or crashed: the job's parent becomes launchd, pid 1), the disk or the battery (unplugged) turns red, or memory stays red for 5 s while this project's heavy jobs hold 1 GB. If Ctrl+C hasn't ended it after 60 s, it ends it.
+   - **`make stop_all`** (and "Stop every job" in the control center, after a confirmation) is the manual switch: every job of this project but the control center, Ctrl+C first, then ended after 10 s.
+   - Not a launchd service: it would run all the time and need installing. A guard inside each job exists exactly while a job runs.
+   - A job whose parent ends stops, so a training started with `nohup` stops when its terminal closes. Keep the terminal (or the control center) open while it trains.
 
 ## Consequences
 

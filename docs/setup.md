@@ -29,6 +29,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make restore TRASH=entry` | Put a trash entry's folders back where they were |
 | `make empty_trash` | Delete everything in the trash for good (no question asked in the terminal; the control center asks) |
 | `make vitals` | The last 30 rows of the vitals log (`logs/vitals.csv`): the machine's readings and job events while the control center was open, kept under about 200 KB, for looking into a crash ([decision 024](decisions/024-vitals-log.md)) |
+| `make stop_all` | The manual dead switch: stops every job of this project, also ones started in a terminal (Ctrl+C first, so training keeps its resume state; `make resume_last` continues it). Not the control center |
 | `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, P pauses, R restarts, H toggles lines, ? shows all shortcuts, Esc asks before quitting (Enter quits). A round starts with your first driving key. **Every round is recorded** to `recordings/<player>/` (REC in the left panel). K keeps the last recording for good |
 | `make maze_car_norecord` | Drive without recording |
 | `make maze_car_heuristic` | Watch the heuristic baseline drive (T shows its trail, as for any driver you watch) |

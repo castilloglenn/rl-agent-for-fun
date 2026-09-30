@@ -30,6 +30,7 @@ make showcase AGENT=rookie         # watch its progression, checkpoint by checkp
 make edit_map STAGE=my_map         # the map editor: draw walls, spawn, checkpoints
 make recordings    # your recorded rounds (every demo round is recorded)
 make vitals        # the machine's readings while the control center was open
+make stop_all      # stop every job of this project (the manual dead switch)
 make test
 ```
 

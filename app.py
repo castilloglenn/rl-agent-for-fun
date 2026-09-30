@@ -72,6 +72,13 @@ def _dispatch(cl_args) -> None:
         print(format_dataset(build_dataset(spec, repeat)))
     elif cl_args.imitate:
         _imitate(cl_args, config)
+    elif cl_args.stop_all:
+        from src.control.guard import stop_every_job
+
+        stopped = stop_every_job()
+        for job in stopped:
+            print(f"  stopped {job.pid}: {' '.join(job.argv[1:])}")
+        print(f"Stopped {len(stopped)} job{'s' if len(stopped) != 1 else ''}")
     elif cl_args.control:
         from src.config import get_control_config
         from src.control.jobs import JobLimits
@@ -241,6 +248,43 @@ def _share_the_machine() -> None:
         f"at least {FREE_CORES} cores stay free for your system",
         flush=True,
     )
+    _guard()
+
+
+def _guard() -> None:
+    """The job's own safety gate (decision 038): it doesn't start past
+    the heavy jobs' limit or on a red reading, and then stops itself when
+    the machine or its parent calls for it.
+    """
+    import os
+    import time
+
+    from src.config import get_control_config
+    from src.control import guard
+
+    jobs = get_control_config().jobs
+    limits = guard.GuardLimits(
+        jobs.max_heavy, jobs.memory_trip_gb, jobs.memory_trip_seconds
+    )
+    ahead = guard.ahead_of(
+        os.getpid(), guard.project_processes(), limits.max_heavy
+    )
+    if ahead:
+        pids = ", ".join(str(p.pid) for p in ahead)
+        raise SystemExit(
+            f"Not started: {len(ahead)} heavy jobs of this project are "
+            f"running (pids {pids}), at most {limits.max_heavy}. Wait for "
+            "one, or stop them all: make stop_all"
+        )
+    watcher = guard.JobGuard(limits)
+    reading = watcher.readings()
+    why = watcher.check(reading, time.monotonic())
+    if not why and reading.memory_percent >= guard.MEMORY_RED:
+        why = f"memory is at {reading.memory_percent:.0f}% (red)"
+    if why:
+        raise SystemExit(f"Not started: {why}")
+    watcher.start()
+    print("Guard: on (limits, memory, disk, battery, parent)", flush=True)
 
 
 def _train(cl_args, config) -> None:

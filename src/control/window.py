@@ -474,7 +474,7 @@ class ControlCenter:
                     [(texts[0], theme.TEXT)]
                     + [(t, theme.TEXT_DIM) for t in texts[1:]],
                     lambda: self.run_action(action, values, label, True),
-                    confirm_label="Delete (Enter)",
+                    confirm_label=action.confirm_label,
                     title_color=theme.BAD,
                 )
             )
