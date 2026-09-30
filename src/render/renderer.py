@@ -89,8 +89,8 @@ class Renderer:
         self.map_intro = config.window.get("map_intro", True)
         self._intro_world = None  # the round whose intro has started
         self._frame_ticks: int | None = None
-        # Debug lines (rays, hitbox, and future distance or boundary
-        # lines). H toggles them; the config flags pick which kinds exist.
+        # Debug lines (rays, hitbox, the checkpoint guide). H toggles them
+        # (your "lines" setting); the config flags pick which kinds exist.
         self.show_lines = True
         self.show_shortcuts = False  # "?" toggles the shortcuts box
         # Your display settings (7c5): O opens their box. No file in the
@@ -136,7 +136,9 @@ class Renderer:
         as the frame is drawn).
         """
         value = self.settings[key]
-        if key == "trail":
+        if key == "lines":
+            self.show_lines = value
+        elif key == "trail":
             self.show_trail = value
         elif key == "big_stage_camera" and self.camera.zoomable:
             self.camera.mode = FIT if value == "fit" else FOLLOW
@@ -219,12 +221,18 @@ class Renderer:
         elif key == pygame.K_o:
             self.show_shortcuts = False
             self.show_settings = True
+        # H, T, and F change your settings too, so the keys, the SETTINGS
+        # box, and the next window always agree.
         elif key == pygame.K_h:
             self.show_lines = not self.show_lines
+            self.settings.set("lines", self.show_lines)
         elif key == pygame.K_t:
             self.show_trail = not self.show_trail
+            self.settings.set("trail", self.show_trail)
         elif key == pygame.K_f:
             self.camera.toggle()
+            if self.camera.zoomable:  # a small stage has one camera
+                self.settings.set("big_stage_camera", self.camera.mode)
         elif self.show_shortcuts:
             return
         else:
@@ -922,7 +930,7 @@ class Renderer:
         else:  # rotated and scaled together, smoothly
             rotated = pygame.transform.rotozoom(surface, angle, scale)
         screen_center = cam.to_screen(center_x, center_y)
-        if self.show_lines and self.settings["guide"]:
+        if self.show_lines:
             # Guide to the checkpoint, under the car.
             for _, (spot, _) in self._checkpoints:
                 pygame.draw.line(
@@ -935,7 +943,7 @@ class Renderer:
 
         if not self.show_lines:
             return screen_center
-        if self.config.show_bounds and self.settings["hitbox"]:
+        if self.config.show_bounds:
             corners = car_corners(
                 screen_center[0],
                 screen_center[1],
@@ -944,7 +952,7 @@ class Renderer:
                 hitbox.height * scale,
             )
             pygame.draw.polygon(self.display, theme.HITBOX, corners, width=1)
-        if self.config.show_collision_distance and self.settings["rays"]:
+        if self.config.show_collision_distance:
             # Rays are cast at the current step. Shift them with the car.
             dx = center_x - transform.x
             dy = center_y - transform.y

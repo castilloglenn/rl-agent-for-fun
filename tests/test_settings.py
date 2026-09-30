@@ -22,7 +22,7 @@ from src.utils.settings import OPTIONS, Settings  # noqa: E402
 
 def test_defaults_without_a_file(tmp_path):
     settings = Settings.load(tmp_path / "none.json")
-    assert settings["bars"] == "above" and settings["rays"] is True
+    assert settings["bars"] == "above" and settings["lines"] is True
     assert settings["fps_cap"] == 0 and settings.shown("fps_cap") == (
         "display's rate"
     )
@@ -33,12 +33,12 @@ def test_a_hand_edited_file_cant_break_it(tmp_path):
     path = tmp_path / "settings.json"
     path.write_text(
         json.dumps(
-            {"bars": "below", "rays": 1, "fps_cap": 45, "shiny": True}
+            {"bars": "below", "lines": 1, "fps_cap": 45, "shiny": True}
         )
     )
     settings = Settings.load(path)
     assert settings["bars"] == "below"  # a real choice: kept
-    assert settings["rays"] is True  # 1 isn't a choice: the default
+    assert settings["lines"] is True  # 1 isn't a choice: the default
     assert settings["fps_cap"] == 0
     path.write_text("{not json")
     assert Settings.load(path)["bars"] == "above"
@@ -119,13 +119,36 @@ def test_the_bars_go_above_or_below_and_can_hide(tmp_path):
     assert _bar_rows(renderer, world, car)
 
 
-def test_lines_follow_the_settings(tmp_path):
-    renderer, world, _, _ = _renderer(tmp_path, rays=False)
+def _field_colors(renderer, world):
     renderer.draw(world)
     field = renderer.display.subsurface(renderer.layout.field_view)
     data = pygame.image.tobytes(field, "RGB")
-    colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
-    assert theme.RAY not in colors
+    return {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}
+
+
+def test_one_lines_setting_hides_rays_and_the_guide(tmp_path):
+    renderer, world, _, _ = _renderer(tmp_path, lines=False)
+    colors = _field_colors(renderer, world)
+    assert theme.RAY not in colors and theme.GUIDE not in colors
+    assert not renderer.show_lines
+
+
+def test_h_t_and_f_keep_your_settings_in_sync(tmp_path):
+    renderer, world, _, path = _renderer(tmp_path, stage="arena")
+    _key(renderer, pygame.K_h)
+    assert not renderer.show_lines and renderer.settings["lines"] is False
+    assert json.loads(path.read_text())["lines"] is False
+    assert theme.RAY not in _field_colors(renderer, world)
+    _key(renderer, pygame.K_t)
+    assert renderer.show_trail and renderer.settings["trail"] is True
+    _key(renderer, pygame.K_f)
+    assert renderer.camera.mode == FIT
+    assert json.loads(path.read_text())["big_stage_camera"] == "fit"
+    _key(renderer, pygame.K_o)  # the box shows what the keys set
+    at = [o.key for o in OPTIONS].index("lines")
+    renderer.setting = at
+    _key(renderer, pygame.K_RIGHT)  # and the box sets what H shows
+    assert renderer.show_lines and renderer.settings["lines"] is True
 
 
 def test_camera_trail_and_fps_settings(tmp_path):

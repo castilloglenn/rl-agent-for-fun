@@ -41,19 +41,19 @@ OPTIONS = (
         "Bars shown",
         (("always", "always"), ("damaged", "only when damaged")),
     ),
-    Option("rays", "Lines", "Rays", ON_OFF),
-    Option("hitbox", "Lines", "Hitbox", ON_OFF),
-    Option("guide", "Lines", "Checkpoint guide", ON_OFF),
+    # Rays, the hitbox, and the checkpoint guide, all together: the same
+    # switch as H, so the key and the setting always agree.
+    Option("lines", "Lines", "Lines (H)", ON_OFF),
     Option(
         "trail",
         "Lines",
-        "Trail (watching, replays)",
+        "Trail when watching or replaying (T)",
         ((False, "off"), (True, "on")),
     ),
     Option(
         "big_stage_camera",
         "Camera",
-        "Big stages start in",
+        "Big stages start in (F)",
         (("follow", "follow"), ("fit", "fit")),
     ),
     Option("map_intro", "Camera", "Map intro", ON_OFF),
@@ -103,6 +103,14 @@ class Settings:
 
     def shown(self, key: str) -> str:
         return BY_KEY[key].shown(self.values[key])
+
+    def set(self, key: str, value) -> None:
+        """`key` to `value` (one of its choices), saved."""
+        if not _is_choice(value, BY_KEY[key]):
+            raise ValueError(f"{value!r} isn't a choice of {key}")
+        if self.values[key] != value:
+            self.values[key] = value
+            self.save()
 
     def step(self, key: str, by: int = 1) -> None:
         """The next (or previous) choice of `key`, saved."""
