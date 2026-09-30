@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "skill_long",
+  "size": [1600, 1200],
+  "walls": [],
+  "spawns": [{"x": 800, "y": 600, "angle": 0}],
+  "checkpoints": {
+    "mode": "random",
+    "radius": 15,
+    "border_margin": 60,
+    "min_car_distance": 500
+  }
+}

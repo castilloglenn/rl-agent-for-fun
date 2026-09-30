@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "skill_detour",
+  "size": [855, 480],
+  "walls": [
+    [420, 120, 20, 240],
+    [420, 120, 260, 20],
+    [420, 340, 260, 20]
+  ],
+  "spawns": [{"x": 100, "y": 240, "angle": 0}],
+  "checkpoints": {
+    "mode": "scripted",
+    "radius": 15,
+    "points": [[540, 240], [100, 240]]
+  }
+}
