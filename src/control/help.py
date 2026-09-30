@@ -365,6 +365,9 @@ FORM_FIELDS: dict[str, tuple[str, str]] = {
     "Suite": ("", "The fixed scenarios agents are scored on (suites/)."),
     "Checkpoints": ("", "highlights: the key checkpoints. all: every scored "
                     "one."),
+    "Skill": ("", "The skill whose map and round the showcase starts on "
+              "(the round the evaluation scored). M in the window changes "
+              "it."),
     "Run": ("", "A run folder in runs/, newest first."),
     "Map": ("", "A stage's name: an existing one in stages/ opens, a new "
             "one starts from the box's size."),

@@ -16,16 +16,25 @@ SUITE = "skills"  # the default suite (src/experiments/evaluation.py)
 TRAINING_MAP = "box"  # the default map to train on: never a warning
 
 
-def skills_on(stage: str, root: Path = named_files.REPO) -> list[str]:
-    """The default suite's skills played on `stage` (their labels)."""
+def _scenarios(root: Path) -> list[dict]:
     try:
         data = json.loads(named_files.find("suites", SUITE, root).read_text())
     except (FileNotFoundError, ValueError):
         return []
+    return data.get("scenarios", [])
+
+
+def skills(root: Path = named_files.REPO) -> list[tuple[str, str]]:
+    """The default suite's skills: (name, label), in the suite's order."""
+    return [(s["name"], s.get("label") or s["name"]) for s in _scenarios(root)]
+
+
+def skills_on(stage: str, root: Path = named_files.REPO) -> list[str]:
+    """The default suite's skills played on `stage` (their labels)."""
     return [
-        scenario.get("label") or scenario["name"]
-        for scenario in data.get("scenarios", [])
-        if scenario.get("stage") == stage
+        s.get("label") or s["name"]
+        for s in _scenarios(root)
+        if s.get("stage") == stage
     ]
 
 

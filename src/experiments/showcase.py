@@ -4,18 +4,23 @@ checkpoint, in the simulation window (roadmap step 5c).
     make showcase AGENT=id       highlights (about 8 checkpoints)
     make showcase_all AGENT=id   every scored checkpoint
 
-Every checkpoint plays the same round (the suite's first round seed), so
-you watch the same situation handled better and better. Play is
-deterministic, so each round is exactly what the evaluation saw. A title
-card with the checkpoint's suite scores comes first, and the round's
+The window opens at once, and gets ready behind a card that says each
+step (scoring what isn't scored yet, 7c8). Every checkpoint plays the same
+round, a skill's first seed (Open field by default; M cycles the suite's
+skills), so you watch the same situation handled better and better. Play
+is deterministic, so each round is exactly what the evaluation saw. A
+title card with the checkpoint's scores comes first, and the round's
 result stays until Enter, then the next checkpoint's card.
 
 Enter start the round, SPACE/P pause, 1-4 speed, N one step while
 paused, R restart this checkpoint, Left/Right previous/next checkpoint,
-H lines, Esc quit.
+M another skill, H lines, Esc quit.
 """
 
 import csv
+import json
+import random
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,10 +33,14 @@ from src.agents.store import load_agent
 from src.envs.maze_car.env import MazeCarEnv
 from src.experiments.evaluation import (
     DEFAULT_SUITE,
+    baseline_scores,
+    baselines_fresh,
     best_row,
     evaluate_agent,
     load_suite,
-    read_results,
+    place_at_wall,
+    shares,
+    unscored,
 )
 from src.experiments.runner import RUNS_DIR
 from src.render import theme
@@ -45,6 +54,7 @@ from src.sim.stage import load_stage
 from src.utils.timing import FixedStepClock
 
 DEFAULT_SPEED = 2  # index in the viewer's speeds: 2x
+DEFAULT_SKILL = "open_field"  # the box: one familiar map (7c8: M changes it)
 HIGHLIGHTS = 8
 SHORTCUTS = (
     ("Enter", "start the round, or go on after it ends"),
@@ -52,6 +62,7 @@ SHORTCUTS = (
     ("1-4", "speed: 0.5x, 1x, 2x, 4x"),
     ("N", "one step while paused"),
     ("<- ->", "previous / next checkpoint"),
+    ("M", "another skill: its map and round"),
     ("R", "restart this checkpoint"),
     ("H", "lines"),
     ("F", "camera: follow or fit (big stages)"),
@@ -72,6 +83,10 @@ class Stop:
     badges: tuple[str, ...]
 
 
+class Cancelled(Exception):
+    """The showcase was closed while it was getting ready."""
+
+
 def plan(
     agent: str | Path,
     everything: bool = False,
@@ -79,15 +94,42 @@ def plan(
     runs_dir: Path | None = None,
     base_config: ConfigDict | None = None,
     on_scored=None,
+    on_progress=None,
+    cancelled=lambda: False,
 ) -> tuple[Path, list[Stop]]:
     """The checkpoints to show, oldest first. Unscored checkpoints are
-    scored first (a few seconds each).
+    scored first (a few seconds each), and the baselines too if their
+    cache is out of date (about 9 s). `on_progress(text)` hears each step;
+    `cancelled()` true stops it (Cancelled) between steps.
     """
+    say = on_progress or (lambda text: None)
     suite = load_suite(DEFAULT_SUITE)
     folder = load_agent(agent, "initial", root=root).folder
+    todo = unscored(folder, suite)
+    if todo and not baselines_fresh(suite, folder.parent, base_config):
+        say(
+            "The heuristic's scores for this code, once (about 9 s): each "
+            "skill's share is measured against them"
+        )
+        baseline_scores(suite, folder.parent, base_config)
+
+    def starting(name: str, i: int, n: int) -> None:
+        if cancelled():
+            raise Cancelled()
+        say(
+            f"Scoring checkpoint {name}, {i} of {n}, on the skills suite "
+            "(about 5 s each)"
+        )
+
     rows = evaluate_agent(
-        folder, suite, base_config=base_config, on_checkpoint=on_scored
+        folder,
+        suite,
+        base_config=base_config,
+        on_checkpoint=on_scored,
+        on_start=starting,
     )
+    if cancelled():
+        raise Cancelled()
     rows = sorted(rows, key=lambda r: (r["decisions"], r["checkpoint"]))
     chosen = rows if everything else highlights(rows, folder)
     profile = read_profile(folder)
@@ -181,37 +223,125 @@ def _training_minutes(folder: Path, checkpoint: str, runs_dir: Path):
 
 
 class Showcase:
+    """The showcase window. `Showcase(folder, stops, config)` shows stops
+    already planned; `Showcase.prepare(agent, config)` opens the window at
+    once and plans in the background, showing each step (7c8).
+    """
+
     def __init__(
-        self, folder: Path, stops: list[Stop], config: ConfigDict
+        self,
+        folder: Path,
+        stops: list[Stop],
+        config: ConfigDict,
+        skill: str = DEFAULT_SKILL,
     ) -> None:
         if not stops:
             raise ValueError("no checkpoints to show")
+        self._setup(config, skill)
+        self._ready(folder, stops)
+
+    @classmethod
+    def prepare(
+        cls,
+        agent: str | Path,
+        config: ConfigDict,
+        everything: bool = False,
+        root: Path | None = None,
+        runs_dir: Path | None = None,
+        skill: str = DEFAULT_SKILL,
+    ) -> "Showcase":
+        """The window, open at once on the skill's map, getting ready: the
+        plan (scoring what isn't scored yet) runs in the background.
+        """
+        show = cls.__new__(cls)
+        show._setup(config, skill)
+        show.status = "Reading the agent's checkpoints"
+        show.error: str | None = None
+        show._planned = None
+        show._closing = False
+
+        def work() -> None:
+            try:
+                show._planned = plan(
+                    agent,
+                    everything,
+                    root,
+                    runs_dir,
+                    base_config=config,
+                    on_progress=show._say,
+                    cancelled=lambda: show._closing,
+                )
+            except Cancelled:
+                pass
+            except Exception as error:  # shown in the window, then printed
+                show.error = str(error) or type(error).__name__
+
+        show._worker = threading.Thread(target=work, daemon=True)
+        show._worker.start()
+        return show
+
+    def _say(self, text: str) -> None:
+        self.status = text
+        print(f"  {text}", flush=True)
+
+    def _setup(self, config: ConfigDict, skill: str) -> None:
+        self.config = config.copy_and_resolve_references()
+        self.config.show_gui = True
+        self.config.window.playback_bar = True  # the bar under the field
+        suite = load_suite(DEFAULT_SUITE)
+        self.suite = suite
+        self.skills = list(suite.scenarios)
+        names = [s.name for s in self.skills]
+        self.skill_index = names.index(skill) if skill in names else 0
+        self.control = PlaybackControl(speed_index=DEFAULT_SPEED)
+        self.folder: Path | None = None
+        self.stops: list[Stop] = []
+        self.heuristic: dict = {}
+        self.index = 0
+        self.card = True
+        self.finished = False  # past the last checkpoint: the summary
+        self._build_env()
+
+    def _ready(self, folder: Path, stops: list[Stop]) -> None:
         self.folder, self.stops = folder, stops
-        rounds = [
-            s for s in load_suite(DEFAULT_SUITE).scenarios if s.kind == "round"
-        ]
-        # Open field (the box) if the suite has it: one familiar map.
-        scenario = next(
-            (s for s in rounds if s.name == "open_field"), rounds[0]
-        )
-        self.seed = scenario.first_seed
-        self.skill = scenario  # its round: the one this skill plays
-        config = config.copy_and_resolve_references()
-        config.show_gui = True
-        config.window.playback_bar = True  # the bar under the field
+        self.heuristic = _cached_heuristic(folder, self.suite)
+        if stops:
+            self._start(0)
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.stops)
+
+    @property
+    def skill(self):
+        """The skill (a suite scenario) whose map and round are played."""
+        return self.skills[self.skill_index]
+
+    @property
+    def seed(self) -> int:
+        return self.skill.first_seed
+
+    def _build_env(self) -> None:
+        """The game for the skill's map, rules, and round length."""
+        scenario = self.skill
         rules = load_rules(scenario.rules)
         if scenario.round_seconds:
             rules = rules.with_round_seconds(scenario.round_seconds)
         self.env = MazeCarEnv(
-            config, stage=load_stage(scenario.stage), rules=rules
+            self.config, stage=load_stage(scenario.stage), rules=rules
         )
         self.renderer = self.env.renderer
         sps = self.env.config.sim.steps_per_second
         self.clock = FixedStepClock(sps, max_steps_per_frame=32)
-        self.control = PlaybackControl(speed_index=DEFAULT_SPEED)
-        self.index = 0
-        self.finished = False  # past the last checkpoint: the summary
-        self._start(0)
+        self.observation, _ = self.env.reset(seed=self.seed)
+        self.trail: list[tuple[float, float]] = [self._car_position()]
+
+    def next_skill(self) -> None:
+        """M: the next skill's map, the same checkpoint, from its card."""
+        self.skill_index = (self.skill_index + 1) % len(self.skills)
+        self._build_env()
+        if self.ready and not self.finished:
+            self._start(self.index)
 
     # Moving between checkpoints
 
@@ -220,19 +350,29 @@ class Showcase:
         stop = self.stops[index]
         self.driver = AgentDriver(load_agent(self.folder, stop.checkpoint))
         self.env.driver = f"{self.folder.name}@{stop.checkpoint}"
-        self.observation, _ = self.env.reset(seed=self.seed)
+        self.observation = self._reset()
         self.driver.reset(self.seed)
-        self.trail: list[tuple[float, float]] = [self._car_position()]
+        self.trail = [self._car_position()]
         self.card = True  # the title card stays until Enter
         self.finished = False
+
+    def _reset(self):
+        """The skill's round, as the evaluation played it (braking: at
+        speed, aimed at a wall, from the seed).
+        """
+        observation, _ = self.env.reset(seed=self.seed)
+        if self.skill.kind == "braking":
+            place_at_wall(self.env, random.Random(self.seed), self.skill.start)
+            observation = self.env.last_observation
+        return observation
 
     def next(self) -> None:
         if self.index + 1 < len(self.stops):
             self._start(self.index + 1)
         else:
             self.finished = True
-            self.observation, _ = self.env.reset(seed=self.seed)  # a calm
-            # field under the summary, not the last round's end
+            self.observation = self._reset()  # a calm field under the
+            # summary, not the last round's end
 
     def previous(self) -> None:
         if self.finished:
@@ -241,7 +381,11 @@ class Showcase:
             self._start(self.index - 1)
 
     def handle_key(self, key: int) -> None:
-        if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+        if key == pygame.K_m:
+            self.next_skill()
+        elif not self.ready:
+            return
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER):
             if self.card:
                 self.card = False  # start the round
                 if self.renderer.map_intro:  # it waited behind the card
@@ -260,7 +404,7 @@ class Showcase:
     def tick(self, elapsed: float) -> None:
         """Advances by `elapsed` real seconds."""
         control = self.control
-        if self.finished:
+        if self.finished or not self.ready:
             return
         if control.restart_requested:
             control.restart_requested = False
@@ -296,6 +440,13 @@ class Showcase:
     # What the window shows
 
     def mode(self) -> ModeInfo:
+        if not self.ready:
+            return ModeInfo(
+                "SHOWCASE · getting ready",
+                theme.ACCENT,
+                SHORTCUTS,
+                self._getting_ready(),
+            )
         label = f"SHOWCASE {self.index + 1}/{len(self.stops)}"
         if self.finished:
             return ModeInfo(
@@ -315,6 +466,47 @@ class Showcase:
             self._playback(),
             self.trail,
         )
+
+    def _getting_ready(self) -> tuple:
+        if self.error:
+            return (
+                (f"Can't showcase: {self.error}", theme.BAD),
+                ("Esc quits", theme.TEXT_DIM),
+            )
+        if self._planned is not None and not self._planned[1]:
+            return (
+                ("No scored checkpoints to show yet", theme.WARN),
+                ("Esc quits", theme.TEXT_DIM),
+            )
+        return (
+            ("Getting ready", theme.ACCENT),
+            (self.status, theme.TEXT),
+            (
+                f"Then: {self._skill_name()} on {self.skill.stage} "
+                "(M: another skill)",
+                theme.TEXT_DIM,
+            ),
+            ("Esc, then Enter, cancels", theme.TEXT_DIM),
+        )
+
+    def _skill_name(self) -> str:
+        return self.skill.label or self.skill.name
+
+    def _skill_line(self, scores: dict) -> str:
+        """This skill's result for a checkpoint, and its share."""
+        value = scores.get(self.skill.column)
+        if value is None:
+            return f"{self._skill_name()}: not scored"
+        if self.skill.kind == "braking":
+            text = f"{self._skill_name()}: {value:.0%} clean stops"
+        else:
+            text = f"{self._skill_name()}: mean {value:,.0f}"
+        if self.heuristic.get(self.skill.column) is not None:
+            share = shares(scores, self.heuristic, self.suite)[
+                self.skill.name
+            ]
+            text += f" · share {share:.2f} of the heuristic's"
+        return text
 
     def _playback(self) -> PlaybackInfo:
         state = self.env.world.resource(RoundState)
@@ -346,10 +538,11 @@ class Showcase:
                 f"braking {s['braking']:.0%}",
                 theme.TEXT,
             ),
+            (self._skill_line(s), theme.TEXT),
         ]
         if stop.badges:
             lines.append((" · ".join(stop.badges), theme.GOOD))
-        lines.append(("Enter starts", theme.TEXT_DIM))
+        lines.append(("Enter starts · M: another skill", theme.TEXT_DIM))
         return tuple(lines)
 
     def _round_end(self) -> tuple:
@@ -358,8 +551,7 @@ class Showcase:
         return (
             (
                 f"{stop.checkpoint}: this round {self.env.score:,.0f} "
-                f"({self.skill.label or self.skill.name} mean "
-                f"{stop.scores[self.skill.column]:,.0f})",
+                f"({self._skill_line(stop.scores)})",
                 theme.TEXT,
             ),
             (
@@ -402,17 +594,28 @@ class Showcase:
             self._run()
         except KeyboardInterrupt:  # Stop, or Ctrl+C
             print("(stopped)", flush=True)
+        finally:
+            self._closing = True  # a plan still running stops
+        if getattr(self, "error", None):
+            print(f"Can't showcase: {self.error}", flush=True)
+
+    def _poll_plan(self) -> None:
+        """Takes the plan once the background work is done."""
+        planned = getattr(self, "_planned", None)
+        if not self.ready and planned is not None and planned[1]:
+            self._ready(*planned)
 
     def _run(self) -> None:
         elapsed = 0.0
         while True:
+            self._poll_plan()
             commands = self.renderer.poll_events(game_over=self.finished)
             if Command.QUIT in commands:
                 break
             for key in self.renderer.keys_pressed:
                 self.handle_key(key)
             self.tick(0.0 if self.renderer.modal_open else elapsed)
-            playing = not (self.control.paused or self.card)
+            playing = self.ready and not (self.control.paused or self.card)
             alpha = self.clock.alpha if playing else 1.0
             self.renderer.draw(
                 self.env.world, alpha, self.env.reward_status(), self.mode()
@@ -420,3 +623,12 @@ class Showcase:
             elapsed = self.renderer.present()
 
 
+def _cached_heuristic(folder: Path, suite) -> dict:
+    """The heuristic's scores from the baselines' cache (never scored
+    here: just for the title card's shares). {} if there's none.
+    """
+    path = folder.parent / "baselines" / f"{suite.label}.json"
+    try:
+        return json.loads(path.read_text())["scores"]["heuristic"]
+    except (OSError, ValueError, KeyError):
+        return {}

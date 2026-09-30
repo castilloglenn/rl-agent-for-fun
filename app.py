@@ -162,23 +162,16 @@ def _dispatch(cl_args) -> None:
         noun = "entry" if len(gone) == 1 else "entries"
         print(f"Deleted {len(gone)} trash {noun} for good.")
     elif cl_args.showcase:
-        from src.agents.store import AgentError
-        from src.experiments.showcase import Showcase, plan
+        from src.experiments.showcase import Showcase
 
-        try:
-            folder, stops = plan(
-                cl_args.showcase,
-                everything=cl_args.showcase_all,
-                base_config=config,
-                on_scored=lambda row: print(f"  scored {row['checkpoint']}"),
-            )
-        except AgentError as error:
-            raise SystemExit(str(error))
-        print(
-            f"Showcasing {folder.name}: "
-            + ", ".join(stop.checkpoint for stop in stops)
-        )
-        Showcase(folder, stops, config).run()
+        # The window opens at once, and gets ready in it (7c8): scoring
+        # what isn't scored yet shows each step there.
+        Showcase.prepare(
+            cl_args.showcase,
+            config,
+            everything=cl_args.showcase_all,
+            skill=cl_args.showcase_skill,
+        ).run()
     elif cl_args.list_agents:
         from src.experiments.agents import format_agents, list_agents
 

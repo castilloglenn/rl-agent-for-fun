@@ -292,3 +292,66 @@ def test_scoring_during_training_changes_nothing_else(tmp_path, monkeypatch):
     config = json.loads((scored.folder / "config.json").read_text())
     assert config["suite"] == {"name": "skills", "version": 1}
     assert load_agent(folder, "best").checkpoint in evaluated
+
+
+# The baselines' cache (7c8)
+
+
+def test_the_baselines_cache_holds_until_what_they_depend_on_changes(
+    tmp_path, monkeypatch
+):
+    import src.experiments.evaluation as evaluation
+
+    stage = tmp_path / "test_map.json"
+    stage.write_text((SUITES_DIR.parent / "stages" / "box.json").read_text())
+    data = json.loads(json.dumps(SKILLS))
+    data["scenarios"] = [
+        {**s, "stage": str(stage), "episodes": 1, "round_seconds": 2}
+        for s in data["scenarios"]
+        if s["name"] in ("braking", "open_field")
+    ]
+    suite = Suite.from_dict(data)
+    first = evaluation.baseline_fingerprint(suite)
+    assert evaluation.baseline_fingerprint(suite) == first  # stable
+    played = []
+    real = evaluation.evaluate
+    monkeypatch.setattr(
+        evaluation,
+        "evaluate",
+        lambda driver, *a: played.append(driver.name) or real(driver, *a),
+    )
+    agents = tmp_path / "agents"
+    evaluation.baseline_scores(suite, agents)
+    assert played == ["heuristic", "random"]
+    assert evaluation.baselines_fresh(suite, agents)
+    evaluation.baseline_scores(suite, agents)
+    assert len(played) == 2  # cached: no scoring
+    # A map it plays changes: the cache is out of date.
+    stage.write_text(stage.read_text().replace('"box"', '"box2"'))
+    assert evaluation.baseline_fingerprint(suite) != first
+    assert not evaluation.baselines_fresh(suite, agents)
+    # So does a game setting in effect.
+    config = get_maze_car_config()
+    config.car.max_speed = 250.0
+    assert evaluation.baseline_fingerprint(suite, config) != (
+        evaluation.baseline_fingerprint(suite)
+    )
+
+
+def test_scoring_an_agent_says_before_each_checkpoint(tmp_path):
+    from src.experiments.evaluation import unscored
+
+    suite = _tiny_suite(tmp_path)
+    summary = _train(tmp_path)
+    folder = tmp_path / "agents" / "pupil"
+    assert unscored(folder, suite) == ["initial", *summary.checkpoints]
+    heard = []
+    evaluate_agent(
+        folder, suite, on_start=lambda name, i, n: heard.append((name, i, n))
+    )
+    assert heard == [
+        ("initial", 1, 3),
+        (summary.checkpoints[0], 2, 3),
+        (summary.checkpoints[1], 3, 3),
+    ]
+    assert unscored(folder, suite) == []

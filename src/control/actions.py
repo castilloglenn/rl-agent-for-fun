@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable
 
 from src.control import choices
-from src.utils import named_files
+from src.utils import named_files, test_maps
 
 REPO = Path(__file__).resolve().parents[2]
 NONE = "(none)"
@@ -184,9 +184,24 @@ def _evaluate(v: dict) -> list[str]:
     return ["-eval", v["Agent"], "--suite", v["Suite"]]
 
 
+SHOWCASE_SKILL = "open_field"  # app.py's --showcase_skill default
+
+
+def _skills() -> list[str]:
+    """The suite's skills, shown by label ("Open field") (7c8)."""
+    return [
+        choices.Choice(name, label) for name, label in test_maps.skills()
+    ]
+
+
 def _showcase(v: dict) -> list[str]:
     args = ["-showcase", v["Agent"]]
-    return args + (["--showcase_all"] if v["Checkpoints"] == "all" else [])
+    if v["Checkpoints"] == "all":
+        args.append("--showcase_all")
+    skill = v.get("Skill", SHOWCASE_SKILL)
+    if skill != SHOWCASE_SKILL:  # the default stays out of the command
+        args += ["--showcase_skill", skill]
+    return args
 
 
 def _tests(v: dict) -> list[str]:
@@ -442,6 +457,7 @@ ACTIONS = (
         (
             Field("Agent", choices.agents),
             Field("Checkpoints", lambda: ["highlights", "all"], "highlights"),
+            Field("Skill", _skills, SHOWCASE_SKILL),
         ),
         _showcase,
         opens_window=True,

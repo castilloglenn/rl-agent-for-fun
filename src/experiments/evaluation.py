@@ -10,6 +10,8 @@ row per checkpoint, and the best one to evaluations/best.json.
 """
 
 import csv
+import dataclasses
+import hashlib
 import json
 import math
 import random
@@ -22,7 +24,7 @@ from ml_collections import ConfigDict
 from src.agents.driver import AgentDriver
 from src.agents.history import BEST_FILE, read_history, record
 from src.agents.store import load_agent
-from src.config import get_maze_car_config
+from src.config import game_config, get_maze_car_config
 from src.drivers.base import Driver
 from src.envs.maze_car.env import MazeCarEnv
 from src.envs.maze_car.rewards import RewardProfile
@@ -418,19 +420,70 @@ def _update_best(agent_folder, suite, rows, base_config) -> None:
         )
 
 
+# The code a baseline's scores depend on (7c8): the simulation, the env,
+# the baseline drivers, and scoring itself. A commit elsewhere (the control
+# center, the docs) keeps the cache.
+REPO = Path(__file__).resolve().parents[2]
+BASELINE_CODE = (
+    "src/ecs",
+    "src/sim",
+    "src/envs/base.py",
+    "src/envs/maze_car",
+    "src/drivers/actions.py",
+    "src/drivers/base.py",
+    "src/drivers/heuristic.py",
+    "src/drivers/random_driver.py",
+    "src/experiments/evaluation.py",
+)
+
+
+def baseline_fingerprint(
+    suite: Suite, base_config: ConfigDict | None = None
+) -> str:
+    """A hash of everything the baselines' scores depend on: that code,
+    the game settings in effect, and the suite with its maps and rules.
+    """
+    digest = hashlib.sha256()
+    for entry in BASELINE_CODE:
+        path = REPO / entry
+        files = sorted(path.rglob("*.py")) if path.is_dir() else [path]
+        for file in files:
+            digest.update(str(file.relative_to(REPO)).encode())
+            digest.update(file.read_bytes())
+    config = base_config or get_maze_car_config()
+    digest.update(json.dumps(game_config(config), sort_keys=True).encode())
+    digest.update(json.dumps(_suite_data(suite), sort_keys=True).encode())
+    for scenario in suite.scenarios:
+        for kind, name in (
+            ("stages", scenario.stage),
+            ("rules", scenario.rules),
+        ):
+            digest.update(named_files.path_of(kind, name).read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def _suite_data(suite: Suite) -> dict:
+    return {
+        "label": suite.label,
+        "scenarios": [dataclasses.asdict(s) for s in suite.scenarios],
+    }
+
+
 def baseline_scores(
     suite: Suite, agents_root: Path, base_config: ConfigDict | None = None
 ) -> dict[str, dict]:
     """The heuristic's and random driver's scores on the suite, cached in
-    <agents root>/baselines/<suite>-v<version>.json for this code version.
+    <agents root>/baselines/<suite>-v<version>.json until anything they
+    depend on changes (`baseline_fingerprint`).
     """
     from src.drivers.heuristic import CompassDriver
     from src.drivers.random_driver import RandomDriver
 
     path = Path(agents_root) / "baselines" / f"{suite.label}.json"
+    fingerprint = baseline_fingerprint(suite, base_config)
     if path.exists():
         cached = json.loads(path.read_text())
-        if cached.get("code") == code_version():
+        if cached.get("fingerprint") == fingerprint:
             return cached["scores"]
     scores = {
         "heuristic": evaluate(CompassDriver(), suite, base_config),
@@ -439,10 +492,33 @@ def baseline_scores(
     for values in scores.values():  # the heuristic's is about 1.0
         values["share"] = average_share(values, scores["heuristic"], suite)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"code": code_version(), "scores": scores}, indent=2) + "\n"
-    )
+    cache = {"fingerprint": fingerprint, "code": code_version()}
+    path.write_text(json.dumps({**cache, "scores": scores}, indent=2) + "\n")
     return scores
+
+
+def unscored(folder: Path, suite: Suite) -> list[str]:
+    """The agent's checkpoints not yet scored with this suite version,
+    oldest first.
+    """
+    done = {r["checkpoint"] for r in read_results(folder, suite)}
+    checkpoints = sorted(
+        (folder / "checkpoints").glob("*.pt"),
+        key=lambda p: p.stat().st_mtime_ns,
+    )
+    return [p.stem for p in checkpoints if p.stem not in done]
+
+
+def baselines_fresh(
+    suite: Suite, agents_root: Path, base_config: ConfigDict | None = None
+) -> bool:
+    """Whether the baselines' cache still holds (no 9 s of scoring)."""
+    path = Path(agents_root) / "baselines" / f"{suite.label}.json"
+    if not path.exists():
+        return False
+    cached = json.loads(path.read_text())
+    fingerprint = baseline_fingerprint(suite, base_config)
+    return cached.get("fingerprint") == fingerprint
 
 
 def evaluate_agent(
@@ -451,21 +527,20 @@ def evaluate_agent(
     root: Path | None = None,
     base_config: ConfigDict | None = None,
     on_checkpoint=None,
+    on_start=None,
 ) -> list[dict]:
     """Scores every checkpoint of an agent not yet scored with this suite
-    version. Returns all rows, oldest first.
+    version. Returns all rows, oldest first. `on_start(checkpoint, i, n)`
+    comes before each one (i from 1), `on_checkpoint(row)` after.
     """
     folder = load_agent(agent, "initial", root=root).folder
-    done = {r["checkpoint"] for r in read_results(folder, suite)}
-    checkpoints = sorted(
-        (folder / "checkpoints").glob("*.pt"),
-        key=lambda p: p.stat().st_mtime_ns,
-    )
-    for path in checkpoints:
-        if path.stem not in done:
-            row = evaluate_checkpoint(folder, path.stem, suite, base_config)
-            if on_checkpoint:
-                on_checkpoint(row)
+    todo = unscored(folder, suite)
+    for i, name in enumerate(todo, start=1):
+        if on_start:
+            on_start(name, i, len(todo))
+        row = evaluate_checkpoint(folder, name, suite, base_config)
+        if on_checkpoint:
+            on_checkpoint(row)
     return read_results(folder, suite)
 
 

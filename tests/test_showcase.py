@@ -87,7 +87,7 @@ def test_the_title_card_stays_until_enter(trained):
     show = _show(trained)
     messages = show.mode().messages
     assert messages[0][0].startswith("pupil · initial · 1 of 3")
-    assert messages[-1][0] == "Enter starts"
+    assert messages[-1][0] == "Enter starts · M: another skill"
     for _ in range(10):
         show.tick(1.0)
     assert show.env.world.resource(SimClock).step == 0  # still on the card
@@ -182,3 +182,94 @@ def test_the_showcase_draws_a_trail_too(trained):
     show.handle_key(pygame.K_RIGHT)
     assert len(show.trail) == 1  # a new checkpoint starts a new trail
 
+
+
+# 7c8: the window at once, and any skill's map
+
+
+def test_the_window_opens_at_once_and_gets_ready_behind_it(trained):
+    tmp_path, folder, stops, suite = trained
+    show = Showcase.prepare(
+        "pupil",
+        get_maze_car_config(),
+        root=tmp_path / "agents",
+        runs_dir=tmp_path / "runs",
+    )
+    assert show.renderer is not None  # the window, before any plan
+    show._worker.join(timeout=60)
+    show._poll_plan()
+    assert show.ready and [s.checkpoint for s in show.stops] == [
+        s.checkpoint for s in stops
+    ]
+    show.renderer.draw(show.env.world, 1.0, None, show.mode())
+
+
+def test_getting_ready_says_what_it_does(trained, monkeypatch):
+    tmp_path, folder, stops, suite = trained
+    show = Showcase.prepare(
+        "pupil",
+        get_maze_car_config(),
+        root=tmp_path / "agents",
+        runs_dir=tmp_path / "runs",
+    )
+    show._worker.join(timeout=60)
+    show.stops = []  # as if still working
+    show._planned = None
+    show.status = "Scoring checkpoint d0000512, 2 of 3, on the skills suite"
+    texts = [text for text, _ in show.mode().messages]
+    assert texts[0] == "Getting ready" and texts[1].startswith("Scoring")
+    assert any("Esc" in t and "cancels" in t for t in texts)
+
+
+def test_an_error_shows_in_the_window(trained):
+    tmp_path, *_ = trained
+    show = Showcase.prepare(
+        "nobody",
+        get_maze_car_config(),
+        root=tmp_path / "agents",
+        runs_dir=tmp_path / "runs",
+    )
+    show._worker.join(timeout=60)
+    assert show.error
+    assert show.mode().messages[0][0].startswith("Can't showcase:")
+
+
+def test_planning_reports_its_steps_and_can_be_cancelled(trained):
+    tmp_path, *_ = trained
+    heard = []
+    plan(
+        "pupil",
+        root=tmp_path / "agents",
+        runs_dir=tmp_path / "runs",
+        on_progress=heard.append,
+    )
+    assert heard == []  # all scored already: nothing to wait for
+    (tmp_path / "agents" / "pupil" / "evaluations" / "skills-v1.csv").unlink()
+    with pytest.raises(showcase.Cancelled):
+        plan(
+            "pupil",
+            root=tmp_path / "agents",
+            runs_dir=tmp_path / "runs",
+            on_progress=heard.append,
+            cancelled=lambda: True,
+        )
+    assert not any(t.startswith("Scoring") for t in heard)  # stopped first
+
+
+def test_m_plays_the_next_skills_map_and_round(trained):
+    _, folder, stops, suite = trained
+    show = _show(trained)
+    assert show.skill.name == "open_field" and show.env.stage.name == "box"
+    names = [s.name for s in suite.scenarios]
+    show.handle_key(pygame.K_m)
+    assert show.skill.name == names[(names.index("open_field") + 1) % 3]
+    assert show.env.stage.name == show.skill.stage
+    assert show.card and show.index == 0  # the same checkpoint, its card
+    while show.skill.kind != "braking":
+        show.handle_key(pygame.K_m)
+    # Braking starts at speed, aimed at a wall, as the evaluation's did.
+    from src.sim.components import Motion
+
+    speed = show.env.world.component(show.env.car, Motion).speed
+    assert speed * 120 == pytest.approx(300)
+    assert "clean stops" in show._title()[3][0]
