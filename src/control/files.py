@@ -11,7 +11,6 @@ value per line. Stages aren't here: the map editor (step 7) edits them.
 
 import json
 import re
-import subprocess
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -346,6 +345,12 @@ def _dump(value, indent: int, prefix: int) -> str:
     return "[\n" + ",\n".join(rows) + "\n" + " " * indent + "]"
 
 
+BUILT_IN = (
+    "a built-in file ships with the app and changes only in code: "
+    "duplicate it to make your own"
+)
+
+
 def load(repo: Path, kind: Kind, name: str) -> dict:
     return json.loads(named_files.find(kind.folder, name, repo).read_text())
 
@@ -355,6 +360,8 @@ def save(repo: Path, kind: Kind, name: str, data: dict) -> dict:
     content changed gets the next version, so old scores stay apart from
     new ones. Returns what was written.
     """
+    if named_files.is_built_in(kind.folder, name, repo):
+        raise FileError(BUILT_IN)
     try:
         path = named_files.find(kind.folder, name, repo)
     except FileNotFoundError:
@@ -388,18 +395,3 @@ def duplicate(repo: Path, kind: Kind, name: str, new: str) -> Path:
         data["version"] = 1
     target.write_text(dump(data))
     return target
-
-
-def tracked(repo: Path, kind: Kind) -> set[str]:
-    """The kind's files git knows about (their names)."""
-    try:
-        out = subprocess.run(
-            ["git", "ls-files", "--", kind.folder],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        ).stdout
-    except (OSError, subprocess.SubprocessError):
-        return set()
-    return {Path(line).stem for line in out.splitlines() if line}

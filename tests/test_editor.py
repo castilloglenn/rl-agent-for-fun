@@ -133,14 +133,48 @@ def test_a_problem_blocks_saving(root):
     assert json.loads((root / "stages/box.json").read_text())["walls"] == []
 
 
+def _yours(root, name="my_pillars", like="pillars"):
+    """A map of yours: a copy of a built-in in user/stages."""
+    data = json.loads((root / "stages" / f"{like}.json").read_text())
+    folder = root / "user" / "stages"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{name}.json").write_text(json.dumps({**data, "name": name}))
+    return name
+
+
 def test_save_and_reopen(root):
-    model = EditorModel("pillars", root=root)
+    name = _yours(root)
+    model = EditorModel(name, root=root)
     model.add_wall(700, 20, 760, 60)
     model.commit()
     model.save()
-    again = EditorModel("pillars", root=root)
+    again = EditorModel(name, root=root)
     assert again.walls[-1] == [700, 20, 60, 40] and not again.dirty
     assert Stage.from_dict(again.stage)
+
+
+def test_a_built_in_map_only_saves_as_a_new_name(root):
+    model = EditorModel("pillars", root=root)
+    assert model.built_in
+    model.add_wall(700, 20, 760, 60)
+    model.commit()
+    before = (root / "stages" / "pillars.json").read_text()
+    with pytest.raises(StageError, match="built-in"):
+        model.save()
+    with pytest.raises(StageError, match="already exists"):
+        model.save_as("box")
+    with pytest.raises(StageError, match="letters, digits"):
+        model.save_as("my map")
+    model.save_as("my_pillars")
+    assert (root / "stages" / "pillars.json").read_text() == before
+    saved = json.loads((root / "user/stages/my_pillars.json").read_text())
+    assert saved["name"] == "my_pillars" and saved["walls"][-1][0] == 700
+    assert not model.built_in and not model.dirty
+    assert not model.undo()  # undo starts over on the new map
+    model.add_wall(20, 400, 60, 440)
+    model.commit()
+    model.save()  # now it's yours: saves in place
+    assert EditorModel("my_pillars", root=root).walls[-1][0] == 20
 
 
 # The window
@@ -192,9 +226,30 @@ def test_saving_and_quitting(root):
     window.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
     assert not window.confirm_quit
     window.key(pygame.K_s, pygame.KMOD_META)  # Cmd+S on a Mac
-    assert window.message[0].startswith("Saved")
+    assert window.save_as == "my_box"  # box is built-in: SAVE AS
+    window.draw()
+    _type(window, pygame.K_BACKSPACE, "")
+    for char in "2":
+        _type(window, ord(char), char)
+    _type(window, pygame.K_SPACE, " ")  # not a name character: ignored
+    assert window.save_as == "my_bo2"
+    _type(window, pygame.K_RETURN, "\r")
+    assert window.save_as is None and window.message[0].startswith("Saved")
+    assert (root / "user" / "stages" / "my_bo2.json").exists()
     window.key(pygame.K_ESCAPE)  # saved: quits at once
     assert not window.running
+
+
+def _type(window, key, char):
+    window.handle(pygame.event.Event(pygame.KEYDOWN, key=key, unicode=char))
+
+
+def test_esc_closes_save_as_without_saving(root):
+    window = _window(root)
+    window.key(pygame.K_s, pygame.KMOD_META)
+    _type(window, pygame.K_ESCAPE, "")
+    assert window.save_as is None and window.running
+    assert not (root / "user" / "stages" / "my_box.json").exists()
 
 
 def test_a_big_stage_opens_whole_and_f_goes_1_to_1(root):

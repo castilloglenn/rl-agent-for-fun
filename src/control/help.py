@@ -282,6 +282,11 @@ TOPICS: dict[str, str] = {
     "recording:datasets": "The datasets that read it, by their rules "
     "(include, min_score). make dataset shows what's actually usable.",
     # Maps tab
+    "map:BUILT-IN": "Ships with the app and changes only in code, so tests "
+    "and suites can rely on it. Edit opens it to save as a new map of yours; "
+    "Duplicate makes a copy.",
+    "map:YOURS": "Yours, in user/stages/ (out of git): edit, duplicate, or "
+    "delete it.",
     "map:DEFAULT": "The default map: the code and new stages start from "
     "it, so it can't be deleted.",
     "map:SUITE": "An evaluation suite plays on it, so it can't be deleted "

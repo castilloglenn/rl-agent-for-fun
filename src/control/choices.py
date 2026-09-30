@@ -15,8 +15,34 @@ NEW_AGENT = ("new_agent", "imitate")
 TYPED = ("PLAYER", "SECONDS", "FPS", "EPISODES")
 
 
+class Choice(str):
+    """A dropdown value that shows another text: "ruins · yours" picks
+    "ruins". Everything else sees the plain name.
+    """
+
+    label: str
+
+    def __new__(cls, value: str, label: str) -> "Choice":
+        choice = super().__new__(cls, value)
+        choice.label = label
+        return choice
+
+
+YOURS = "yours"  # the tag of a file of yours in a dropdown (7d1b)
+
+
+def named(kind: str, root: Path = REPO) -> list[str]:
+    """A kind's names for a dropdown: the built-ins, then yours, tagged."""
+    return [
+        name
+        if named_files.is_built_in(kind, name, root)
+        else Choice(name, f"{name} · {YOURS}")
+        for name in named_files.ordered(kind, root)
+    ]
+
+
 def _names(folder: str) -> list[str]:
-    return named_files.names(folder)  # built-in and yours
+    return named(folder)
 
 
 def agents() -> list[str]:

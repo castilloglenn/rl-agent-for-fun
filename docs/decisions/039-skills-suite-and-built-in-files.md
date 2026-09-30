@@ -19,6 +19,8 @@
 
 7d1a note: `datasets/mine.json` stays built-in. It was added with imitation (step 5) as the app's default dataset ("all rounds by player You"), not a selection of yours, and the code defaults to it; datasets you make go to `user/datasets/`. A name found nowhere gives the loaders the built-in path, so each still reports a missing file its own way.
 
+7d1b note: the rule holds below the screens too. `files.save`, `Trash.delete_file`, and `EditorModel.save` refuse a built-in, so no screen can change one by accident. Dropdowns keep plain names as values (commands and saved files use them), and only show yours as "name · yours".
+
 ## Consequences
 
 - Scoring takes about 8 s per checkpoint instead of about 5 s (an estimate, to be measured).

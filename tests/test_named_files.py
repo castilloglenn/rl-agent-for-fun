@@ -91,9 +91,6 @@ def test_the_files_tab_saves_where_a_file_is(root):
     (root / "rules").mkdir()
     shutil.copy(REPO / "rules" / "standard.json", root / "rules")
     kind = next(k for k in files.KINDS if k.folder == "rules")
-    data = files.load(root, kind, "standard")
-    files.save(root, kind, "standard", data)  # a built-in: in place, 7d1a
-    assert not (root / "user" / "rules" / "standard.json").exists()
     files.duplicate(root, kind, "standard", "mine_fast")
     assert (root / "user" / "rules" / "mine_fast.json").exists()
     assert "mine_fast" in files.names(root, kind)
@@ -105,3 +102,15 @@ def test_the_trash_takes_your_files(root):
     assert entry
     with pytest.raises(TrashError):
         Trash(root).delete_file("stages", "ruins")
+
+
+def test_dropdowns_list_built_ins_first_and_tag_yours(root):
+    from src.control.choices import named
+
+    options = named("stages", root)
+    assert options == ["box", "pillars", "ruins"]  # plain names to the rest
+    assert [getattr(o, "label", o) for o in options] == [
+        "box",
+        "pillars",
+        "ruins · yours",
+    ]

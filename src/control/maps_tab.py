@@ -46,6 +46,8 @@ SORTS = ("name", "newest", "walls")
 LIT = (20, 60, 95)
 CARD_BG = (18, 19, 23)
 BADGE_COLORS = {
+    "BUILT-IN": theme.TEXT_DIM,
+    "YOURS": theme.GOOD,
     "DEFAULT": theme.ACCENT,
     "SUITE": theme.WARN,
     "BIG": (160, 120, 230),

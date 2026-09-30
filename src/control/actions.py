@@ -63,7 +63,7 @@ class Action:
 
 
 def _files(folder: str) -> Callable[[], list[str]]:
-    return lambda: named_files.names(folder)  # built-in and yours
+    return lambda: choices.named(folder)  # built-ins, then yours (tagged)
 
 
 def _trainers(kind: str) -> Callable[[], list[str]]:

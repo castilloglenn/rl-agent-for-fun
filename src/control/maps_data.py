@@ -2,8 +2,8 @@
 uses it (runs that played on it, suites that score on it), and copying
 or deleting one.
 
-A map is protected, so it can't be deleted, when the code relies on it
-(the box, the default) or a suite plays on it.
+A map is protected, so it can't be deleted, when it's built-in (it ships
+with the app, 7d1b) or a suite plays on it.
 """
 
 import json
@@ -31,6 +31,7 @@ class MapInfo:
     suites: list[str] = field(default_factory=list)
     # Who played on it: (agent or driver, run kind) -> runs.
     played: dict = field(default_factory=dict)
+    built_in: bool = True  # ships with the app; else yours, in user/stages
 
     @property
     def size(self) -> tuple[float, float]:
@@ -57,8 +58,8 @@ class MapInfo:
     @property
     def protected(self) -> str:
         """Why it can't be deleted ("" if it can)."""
-        if self.default:
-            return "the default map: the code relies on it"
+        if self.built_in:
+            return "built-in: it ships with the app; Duplicate makes your own"
         if self.suites:
             return f"a suite plays on it: {', '.join(self.suites)}"
         return ""
@@ -68,7 +69,7 @@ class MapInfo:
         return sum(self.played.values())
 
     def badges(self) -> list[str]:
-        found = []
+        found = ["BUILT-IN" if self.built_in else "YOURS"]
         if self.default:
             found.append("DEFAULT")
         if self.suites:
@@ -89,7 +90,14 @@ def load_maps(
         data = runs.read_json(path)
         if not data:
             continue
-        found.append(MapInfo(path.stem, data, path.stat().st_mtime))
+        found.append(
+            MapInfo(
+                path.stem,
+                data,
+                path.stat().st_mtime,
+                built_in=named_files.is_built_in("stages", name, root),
+            )
+        )
     by_name = {m.name: m for m in found}
     for suite_name in named_files.names("suites", root):
         suite = named_files.find("suites", suite_name, root)

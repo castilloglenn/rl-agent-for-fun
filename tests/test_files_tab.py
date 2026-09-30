@@ -22,7 +22,17 @@ KIND = {k.folder: k for k in KINDS}
 def repo(tmp_path):
     for folder in (*FOLDERS, "stages"):
         shutil.copytree(files.REPO / folder, tmp_path / folder)
+    _yours(tmp_path, "rules", "sprint", "my_sprint")
+    _yours(tmp_path, "suites", "box", "my_suite")
     return tmp_path
+
+
+def _yours(repo, folder, like, name):
+    """A file of yours: a copy of a built-in in user/<folder>/."""
+    data = json.loads((repo / folder / f"{like}.json").read_text())
+    mine = repo / "user" / folder
+    mine.mkdir(parents=True, exist_ok=True)
+    (mine / f"{name}.json").write_text(files.dump({**data, "name": name}))
 
 
 # Fields and files
@@ -101,13 +111,23 @@ def test_reward_terms_can_be_added_and_dropped(repo):
 
 def test_saving_a_changed_suite_makes_the_next_version(repo):
     kind = KIND["suites"]
-    data = files.load(repo, kind, "box")
-    files.save(repo, kind, "box", data)  # unchanged: same version
-    assert files.load(repo, kind, "box")["version"] == 1
+    data = files.load(repo, kind, "my_suite")
+    files.save(repo, kind, "my_suite", data)  # unchanged: same version
+    assert files.load(repo, kind, "my_suite")["version"] == 1
     edited = files.rebuild("suites", data, {"scenarios.0.episodes": "30"})
-    written = files.save(repo, kind, "box", edited)
+    written = files.save(repo, kind, "my_suite", edited)
     assert written["version"] == 2
-    assert agents_data.current_suite(repo / "suites" / "box.json") == "box-v2"
+    path = repo / "user" / "suites" / "my_suite.json"
+    assert agents_data.current_suite(path) == "my_suite-v2"
+
+
+def test_a_built_in_file_is_never_saved(repo):
+    kind = KIND["rules"]
+    data = files.load(repo, kind, "standard")
+    before = (repo / "rules" / "standard.json").read_text()
+    with pytest.raises(FileError, match="built-in"):
+        files.save(repo, kind, "standard", {**data, "round_seconds": 45})
+    assert (repo / "rules" / "standard.json").read_text() == before
 
 
 def test_duplicate(repo):
@@ -142,8 +162,8 @@ def _show(tab, label, name):
 
 def test_editing_checks_as_you_type(window, repo):
     tab = window.files_tab
-    _show(tab, "Rules", "sprint")
-    assert tab.name == "sprint" and not tab.dirty
+    _show(tab, "Rules", "my_sprint")
+    assert tab.name == "my_sprint" and not tab.dirty
     assert not tab.buttons["Save"].is_enabled
     tab.form.widgets["round_seconds"].set_text("oops")
     tab.check(force=True)
@@ -154,14 +174,14 @@ def test_editing_checks_as_you_type(window, repo):
     assert tab.problem is None and tab.dirty
     assert tab.buttons["Save"].is_enabled
     tab.save()
-    assert files.load(repo, KIND["rules"], "sprint")["round_seconds"] == 45
+    assert files.load(repo, KIND["rules"], "my_sprint")["round_seconds"] == 45
     assert not tab.dirty
     window.draw()
 
 
 def test_revert(window):
     tab = window.files_tab
-    _show(tab, "Rules", "sprint")
+    _show(tab, "Rules", "my_sprint")
     tab.form.widgets["round_seconds"].set_text("45")
     tab.check(force=True)
     tab._open(tab.name)  # Revert
@@ -171,41 +191,57 @@ def test_revert(window):
 
 def test_switching_with_unsaved_changes_asks(window):
     tab = window.files_tab
-    _show(tab, "Rules", "sprint")
+    _show(tab, "Rules", "my_sprint")
     tab.form.widgets["round_seconds"].set_text("45")
     tab.check(force=True)
     tab._unless_dirty(lambda: tab._open("standard"))
     assert window.box.title == "DISCARD CHANGES?"
-    assert tab.name == "sprint"  # nothing changed until you answer
+    assert tab.name == "my_sprint"  # nothing changed until you answer
     window.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
     assert tab.name == "standard"
 
 
 def test_quitting_mentions_unsaved_changes(window):
     tab = window.files_tab
-    _show(tab, "Rules", "sprint")
+    _show(tab, "Rules", "my_sprint")
     tab.form.widgets["round_seconds"].set_text("45")
     tab.check(force=True)
     window.ask_to_quit()
-    assert any("rules/sprint.json" in t for t, _ in window.box.lines)
+    assert any("user/rules/my_sprint.json" in t for t, _ in window.box.lines)
 
 
-def test_defaults_cant_be_deleted(window):
+def test_a_built_in_is_read_only_in_the_tab(window):
     tab = window.files_tab
     _show(tab, "Rules", "standard")
-    assert not tab.buttons["Delete"].is_enabled
+    assert tab.built_in and tab.path == "rules/standard.json"
+    for name in ("Save", "Revert", "Delete"):
+        assert not tab.buttons[name].is_enabled
+    assert tab.buttons["Duplicate as…"].is_enabled
+    assert not tab.form.widgets["round_seconds"].is_enabled  # read-only
+    rows = [item["text"] for item in tab.file_list.item_list]
+    built_in, yours = "standard  · built-in", "my_sprint  · yours"
+    assert rows.index(built_in) < rows.index(yours)  # built-ins first
+    window.draw()
+
+
+def test_yours_can_be_edited_and_deleted(window):
+    tab = window.files_tab
+    _show(tab, "Rules", "my_sprint")
+    assert not tab.built_in and tab.path == "user/rules/my_sprint.json"
+    assert tab.buttons["Delete"].is_enabled
+    assert tab.form.widgets["round_seconds"].is_enabled
 
 
 def test_delete_moves_the_file_into_the_trash(window, repo):
     tab = window.files_tab
-    _show(tab, "Rules", "sprint")
+    _show(tab, "Rules", "my_sprint")
     tab.delete()
     assert window.box.title == "DELETE A FILE?"
     window.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
-    assert not (repo / "rules" / "sprint.json").exists()
+    assert not (repo / "user" / "rules" / "my_sprint.json").exists()
     (entry,) = (repo / "trash").iterdir()
-    assert (entry / "rules" / "sprint.json").exists()
-    assert tab.name != "sprint"
+    assert list(entry.rglob("my_sprint.json"))
+    assert tab.name != "my_sprint"
 
 
 def test_the_tab_duplicates_and_opens_the_copy(window, repo):

@@ -68,7 +68,10 @@ class Form:
                 widget.set_text(value)
                 widget.disable()
             elif options:
-                shown = [(fit(o, width - 40), o) for o in options]
+                shown = [
+                    (fit(getattr(o, "label", o), width - 40), str(o))
+                    for o in options
+                ]
                 start = next(
                     (s for s in shown if s[1] == value),
                     next((s for s in shown if s[1] == field.default), None)

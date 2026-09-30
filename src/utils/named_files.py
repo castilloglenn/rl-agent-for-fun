@@ -61,6 +61,13 @@ def names(kind: str, root: Path = REPO) -> list[str]:
     return sorted(found)
 
 
+def ordered(kind: str, root: Path = REPO) -> list[str]:
+    """Every name of the kind: the built-ins (sorted), then yours."""
+    all_names = names(kind, root)
+    built_in = [n for n in all_names if is_built_in(kind, n, root)]
+    return built_in + [n for n in all_names if n not in built_in]
+
+
 def is_built_in(kind: str, name: str, root: Path = REPO) -> bool:
     return (built_in_folder(kind, root) / f"{name}.json").exists()
 

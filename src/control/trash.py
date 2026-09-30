@@ -101,6 +101,10 @@ class Trash:
         """Moves a named file (rules/sprint.json, user/stages/x.json, ...)
         into the trash.
         """
+        if named_files.is_built_in(folder, name, self.root):
+            raise TrashError(
+                f"{folder}/{name}.json is built-in: it ships with the app"
+            )
         try:
             path = named_files.find(folder, name, self.root)
         except FileNotFoundError:

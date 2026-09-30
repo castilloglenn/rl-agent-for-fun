@@ -40,6 +40,7 @@ from src.control.text import PAD, fit, header
 from src.control.tooltips import Tooltips
 from src.control.trash import Trash, TrashError
 from src.render import theme
+from src.utils import named_files
 from src.utils.ui import draw_text
 
 LIST_WIDTH = 300
@@ -48,7 +49,8 @@ ROW = 30
 GAP = 8
 LABEL = 250  # field paths are long: scenarios.1.first_seed
 CHECK_EVERY = 0.3  # seconds between checks while typing
-DEFAULT_TAG = "  (default)"
+TAG = "  · "  # a list row: "sprint  · built-in", "fast  · yours"
+BUILT_IN_TAG, YOURS_TAG = "built-in", "yours"
 RECORDINGS = "Recordings"  # the kind that browses recordings (6d2)
 
 
@@ -125,7 +127,7 @@ class FilesTab:
         self.problem: str | None = None
         self.dirty = False
         self.message: tuple[str, tuple] | None = None
-        self._tracked: set[str] = set()
+        self.built_in = False  # the open file ships with the app (7d1b)
         self._checked_values: dict | None = None
         self._checked = 0.0
         self.visible = True
@@ -214,19 +216,24 @@ class FilesTab:
         self.kind = kind
         self.mode = "files"
         self._show_mode()
-        self._tracked = files.tracked(self.root, kind)
-        found = files.names(self.root, kind)
-        self.file_list.set_item_list(
-            [n + (DEFAULT_TAG if n in kind.defaults else "") for n in found]
-        )
+        found = list(named_files.ordered(kind.folder, self.root))
+        self.file_list.set_item_list([self._row(n) for n in found])
         if not self.visible:
             self.file_list.hide()
         pick = name if name in found else (found[0] if found else None)
         self._open(pick)
 
+    def _row(self, name: str) -> str:
+        """A file list row: the name and whose it is."""
+        built_in = named_files.is_built_in(self.kind.folder, name, self.root)
+        return name + TAG + (BUILT_IN_TAG if built_in else YOURS_TAG)
+
     def _open(self, name: str | None) -> None:
         self.name = name
         self.message = None
+        self.built_in = bool(name) and named_files.is_built_in(
+            self.kind.folder, name, self.root
+        )
         self.original = files.load(self.root, self.kind, name) if name else {}
         fields = []
         for item in files.items(self.kind.folder, self.original, self.root):
@@ -236,7 +243,7 @@ class FilesTab:
                     (lambda o=item.options: list(o)) if item.options else None,
                     item.text,
                     item.hint,
-                    readonly=item.type == "readonly",
+                    readonly=item.type == "readonly" or self.built_in,
                 )
             )
         self.form.scroll = 0
@@ -249,7 +256,7 @@ class FilesTab:
 
     def _highlight(self) -> None:
         for item in self.file_list.item_list:
-            chosen = item["text"].replace(DEFAULT_TAG, "") == self.name
+            chosen = item["text"].split(TAG)[0] == self.name
             item["selected"] = chosen
             button = item["button_element"]
             if button is not None:
@@ -275,7 +282,12 @@ class FilesTab:
 
     @property
     def path(self) -> str:
-        return f"{self.kind.folder}/{self.name}.json"
+        """Where the open file is: rules/sprint.json, user/rules/x.json."""
+        try:
+            where = named_files.find(self.kind.folder, self.name, self.root)
+            return str(where.relative_to(self.root))
+        except (FileNotFoundError, ValueError):
+            return f"{self.kind.folder}/{self.name}.json"
 
     # Checking
 
@@ -298,7 +310,7 @@ class FilesTab:
         ):
             return
         self._checked, self._checked_values = now, values
-        if not self.name:
+        if not self.name or self.built_in:  # a built-in can't change here
             self.problem, self.dirty = None, False
         else:
             try:
@@ -315,12 +327,12 @@ class FilesTab:
             self.check(force)
 
     def _update_buttons(self) -> None:
-        default = self.name in self.kind.defaults
+        yours = bool(self.name) and not self.built_in
         wanted = {
-            "Save": self.dirty and not self.problem,
-            "Revert": self.dirty,
+            "Save": yours and self.dirty and not self.problem,
+            "Revert": yours and self.dirty,
             "Duplicate as…": bool(self.name),
-            "Delete": bool(self.name) and not default,
+            "Delete": yours,
         }
         for name, on in wanted.items():
             button = self.buttons[name]
@@ -362,7 +374,7 @@ class FilesTab:
         self.message = (f"Made {self.path}: edit it, then Save.", theme.GOOD)
 
     def delete(self) -> None:
-        if self.name in self.kind.defaults:
+        if self.built_in or not self.name:
             return
         path, name = self.path, self.name
 
@@ -424,7 +436,7 @@ class FilesTab:
             self.check(force=True)
         elif event.type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
             if event.ui_element is self.file_list:
-                name = event.text.replace(DEFAULT_TAG, "")
+                name = event.text.split(TAG)[0]
                 if name != self.name:
                     self._unless_dirty(lambda: self._open(name))
         elif event.type == pygame_gui.UI_TEXT_ENTRY_CHANGED:
@@ -489,17 +501,20 @@ class FilesTab:
             theme.TEXT,
             bold=True,
         )
-        notes = []
-        if self.name in self.kind.defaults:
-            notes.append("a default the code relies on: it can't be deleted")
-        if self.name in self._tracked:
-            notes.append("tracked by git: a saved change shows in git status")
+        if self.built_in:
+            notes = [
+                "built-in: it ships with the app and changes only in code; "
+                "Duplicate as… makes your own copy"
+            ]
+        else:
+            notes = [f"yours, in user/{self.kind.folder}/ (out of git)"]
         if self.kind.folder == "suites":
             notes.append(
                 f"version {self.original.get('version')}: saving a change "
                 "makes the next version"
             )
-        notes.append("changes apply to future runs only")
+        if not self.built_in:
+            notes.append("changes apply to future runs only")
         draw_text(
             surface,
             fit(_sentence(" · ".join(notes)), width),
@@ -508,7 +523,9 @@ class FilesTab:
             theme.TEXT_DIM,
         )
         self.form.draw_labels(surface, self.tips)
-        if self.problem:
+        if self.built_in:
+            status, color = "Built-in: read-only", theme.TEXT_DIM
+        elif self.problem:
             status, color = f"Can't save: {self.problem}", theme.BAD
         elif self.dirty:
             status, color = "Valid, unsaved changes", theme.WARN

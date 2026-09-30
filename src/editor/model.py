@@ -16,6 +16,7 @@ from src.sim.stage import Stage, StageError
 from src.utils import named_files
 
 NAME = re.compile(r"^[A-Za-z0-9_-]+$")  # a stage's name
+BUILT_IN = "a built-in map ships with the app: save it as a new name"
 GRID = 10  # px: positions snap to it
 SPAWN_TURN = 15  # degrees per Q, E, or mouse wheel notch
 MIN_STAGE = 200  # px: the smallest stage side
@@ -87,10 +88,12 @@ def _number(value: float):
 class EditorModel:
     def __init__(self, name: str, root: Path | None = None) -> None:
         """`root`: where stages/ and user/ are (tests use a scratch
-        folder). An existing map saves where it is; a new one goes to
-        user/stages/.
+        folder). A map of yours saves where it is, and a new one goes to
+        user/stages/. A built-in one only saves as a new name (save_as).
         """
         root = root or named_files.REPO
+        self.root = root
+        self.built_in = named_files.is_built_in("stages", name, root)
         try:
             self.path = named_files.find("stages", name, root)
         except FileNotFoundError:
@@ -383,7 +386,11 @@ class EditorModel:
     # Saving
 
     def save(self) -> str:
-        """Writes the stage file. Raises StageError if it isn't valid."""
+        """Writes the stage file. Raises StageError if it isn't valid, or
+        if it's built-in (save_as instead).
+        """
+        if self.built_in:
+            raise StageError(BUILT_IN)
         problem = self.problem()
         if problem:
             raise StageError(problem)
@@ -392,3 +399,25 @@ class EditorModel:
         self.saved = json.dumps(self.stage)
         self.is_new = False
         return str(self.path)
+
+    def save_as(self, name: str) -> str:
+        """Saves it as a new map of yours named `name` (in user/stages/),
+        and goes on editing that one. Raises StageError for a bad or taken
+        name, or an invalid stage.
+        """
+        name = name.strip()
+        if not NAME.match(name):
+            raise StageError("a map's name uses letters, digits, - and _ only")
+        problem = self.problem()
+        if problem:
+            raise StageError(problem)
+        try:
+            path = named_files.new_file("stages", name, self.root)
+        except FileExistsError as error:
+            raise StageError(str(error))
+        self.stage["name"] = name
+        self.path, self.folder = path, path.parent
+        self.built_in, self.is_new = False, True
+        # Undo starts over: the old map's steps would bring its name back.
+        self._history, self._at = [json.dumps(self.stage)], 0
+        return self.save()

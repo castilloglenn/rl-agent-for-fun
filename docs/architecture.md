@@ -217,8 +217,8 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `recordings_view.py` | `RecordingsView`: the table of a player's rounds, with Watch, Keep, Unkeep, and Delete (inside the Files tab) |
 | `maps_data.py` | The Maps tab's data ([decision 036](decisions/036-maps-tab.md)): `load_maps` (every stage, with the runs that played on it and the suites that use it, and whether it's protected), `sort_maps`, `check_new_name`, `duplicate`, and `watch_stage` (where the Runs and Agents tabs watch a driver: its stage, or the box, [decision 037](decisions/037-watch-on-its-stage.md)) |
 | `stage_preview.py` | `draw_stage_preview`: a stage drawn small, in its own shape (walls, the spawn, checkpoints) |
-| `maps_tab.py` | `MapsTab`: map cards with previews and badges, and the selected map's details, what uses it, and Edit, Drive, Watch, New map, Duplicate, and Delete |
-| `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete |
+| `maps_tab.py` | `MapsTab`: map cards with previews and badges, and the selected map's details, what uses it, and Edit, Drive, Watch, New map, Duplicate, and Delete. A built-in map shows BUILT-IN and can't be deleted, one of yours shows YOURS (7d1b) |
+| `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete. Rows say whose a file is (`· built-in`, `· yours`, built-ins first); a built-in opens read-only, with Duplicate instead of Save, Revert, and Delete (7d1b) |
 | `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
 | `vitals.py` | `VitalsLog`: those readings as a row every 10 s (and on a level change) in `logs/vitals.csv`, with job and window events as notes, rotated at 100 KB ([decision 024](decisions/024-vitals-log.md)); `tail()` for `make vitals` |
@@ -230,8 +230,8 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 | File | Contents |
 |---|---|
-| `model.py` | `EditorModel`: the stage being edited and every edit (walls, the spawn, checkpoints), snapping to a 10 px grid, picking what's under the mouse, undo and redo (a snapshot per gesture), `problem()` (the game's `Stage.from_dict`), and `save()`; `resize_stage` and `content_size` (7c2). `dump_stage`: the stage file's layout |
-| `window.py` | `EditorWindow`: a game window mode with the game's layout and camera: tools, selection, and stage cards, help, the field with its grid, and the mouse and keys turned into edits. `test_drive` runs the real game (`MazeCarDemo` with the edited stage, never recorded) in the same window, then comes back |
+| `model.py` | `EditorModel`: the stage being edited and every edit (walls, the spawn, checkpoints), snapping to a 10 px grid, picking what's under the mouse, undo and redo (a snapshot per gesture), `problem()` (the game's `Stage.from_dict`), and `save()`; `resize_stage` and `content_size` (7c2). `dump_stage`: the stage file's layout. A built-in map only saves as a new name of yours (`save_as`, into `user/stages/`), 7d1b |
+| `window.py` | `EditorWindow`: a game window mode with the game's layout and camera: tools, selection, and stage cards, help, the field with its grid, and the mouse and keys turned into edits. `test_drive` runs the real game (`MazeCarDemo` with the edited stage, never recorded) in the same window, then comes back. On a built-in map the top bar says so, and Ctrl+S opens a SAVE AS box (type a name, Enter saves, Esc goes back) |
 
 ## Replays (`src/replay/`)
 
@@ -298,7 +298,7 @@ every drawn frame:
 
 `FixedStepClock` (`src/utils/timing.py`) turns real time into a whole number of steps. After a stall it skips the backlog (at most 8 steps per frame).
 
-`named_files` (`src/utils/named_files.py`) finds a named file by kind and name: built-in (`stages/`, `rules/`, ...) first, then yours (`user/<kind>/`). Every loader (`load_stage`, `load_rules`, ...), every dropdown, and the Files and Maps tabs go through it; a new file goes to `user/`, and can't take a built-in's name ([decision 039](decisions/039-skills-suite-and-built-in-files.md)).
+`named_files` (`src/utils/named_files.py`) finds a named file by kind and name: built-in (`stages/`, `rules/`, ...) first, then yours (`user/<kind>/`). Every loader (`load_stage`, `load_rules`, ...), every dropdown, and the Files and Maps tabs go through it; a new file goes to `user/`, and can't take a built-in's name. Built-ins can't be saved or trashed from the app (`files.save`, `Trash.delete_file`, and the editor refuse them), and dropdowns list them first, yours tagged `· yours` (`choices.named`) ([decision 039](decisions/039-skills-suite-and-built-in-files.md)).
 
 `share_the_machine()` (`src/utils/resources.py`) runs heavy jobs (training, resuming, evaluation, imitation) at a low priority with torch's threads capped, so the machine stays responsive ([decision 038](decisions/038-jobs-share-the-machine.md)). `app.py` calls it before those commands.
 

@@ -26,10 +26,14 @@ def root(tmp_path):
     for stage in STAGES:
         name = f"{stage}.json"
         shutil.copy(maps_data.REPO / "stages" / name, tmp_path / "stages")
+    yours = tmp_path / "user" / "stages"  # a map of yours, like pillars
+    yours.mkdir(parents=True)
+    pillars = json.loads((tmp_path / "stages" / "pillars.json").read_text())
+    (yours / "ruins.json").write_text(json.dumps({**pillars, "name": "ruins"}))
     runs_dir = tmp_path / "runs"
     for name, stage, kind in (
-        ("r1", "pillars", "training"),
-        ("r2", "pillars", "training"),
+        ("r1", "ruins", "training"),
+        ("r2", "ruins", "training"),
         ("r3", "arena", None),
     ):
         folder = _folder(runs_dir, name, kind=kind)
@@ -49,23 +53,25 @@ def _maps(root):
 
 def test_every_stage_with_what_uses_it(root):
     maps = _maps(root)
-    assert set(maps) == {"arena", "box", "pillars", "s_curve"}
-    assert maps["pillars"].played == {("pupil", "training"): 2}
+    assert set(maps) == {"arena", "box", "pillars", "ruins", "s_curve"}
+    assert maps["ruins"].played == {("pupil", "training"): 2}
     assert maps["arena"].played == {("heuristic", "episodes"): 1}
     assert maps["box"].suites == ["box"]
     assert maps["arena"].big and not maps["pillars"].big
-    assert maps["box"].badges() == ["DEFAULT", "SUITE"]
-    assert maps["arena"].badges() == ["BIG"]
+    assert maps["box"].badges() == ["BUILT-IN", "DEFAULT", "SUITE"]
+    assert maps["arena"].badges() == ["BUILT-IN", "BIG"]
+    assert maps["ruins"].badges() == ["YOURS"]
 
 
 def test_what_is_protected(root):
     maps = _maps(root)
-    assert "default" in maps["box"].protected
-    assert maps["pillars"].protected == ""
+    assert "built-in" in maps["box"].protected
+    assert "built-in" in maps["pillars"].protected
+    assert maps["ruins"].protected == ""
     suite = json.loads((root / "suites/box.json").read_text())
-    suite["scenarios"][0]["stage"] = "pillars"
+    suite["scenarios"][0]["stage"] = "ruins"
     (root / "suites/box.json").write_text(json.dumps(suite))
-    assert "suite" in _maps(root)["pillars"].protected
+    assert "suite" in _maps(root)["ruins"].protected
 
 
 def test_sorting(root):
@@ -111,8 +117,8 @@ def test_cards_select_a_map(window):
     assert tab.selected == "arena"  # the first by name
     window.draw()
     names = [name for _, name in tab.hit]
-    assert names == ["arena", "box", "pillars", "s_curve"]
-    tab.click(tab.hit[3][0].center)
+    assert names == ["arena", "box", "pillars", "ruins", "s_curve"]
+    tab.click(tab.hit[4][0].center)
     assert tab.selected == "s_curve"
 
 
@@ -149,16 +155,18 @@ def test_duplicate_selects_the_copy(window, root):
     assert tab.selected == "s_curve_copy"
 
 
-def test_delete_asks_and_protects_the_default(window, root):
+def test_delete_asks_and_protects_built_ins(window, root):
     tab = window.maps_tab
     tab.select("box")
     assert not tab.buttons["Delete"].is_enabled
     tab.press("Delete")
     assert window.box is None  # nothing asked: it's protected
-    tab.select("pillars")
+    tab.select("pillars")  # built-in: protected too
+    assert not tab.buttons["Delete"].is_enabled
+    tab.select("ruins")
     tab.press("Delete")
     assert window.box.title == "DELETE A MAP?"
     assert any("2 runs" in text for text, _ in window.box.lines)
     window.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
-    assert not (root / "stages/pillars.json").exists()
-    assert "pillars" not in [m.name for m in tab.maps]
+    assert not (root / "user/stages/ruins.json").exists()
+    assert "ruins" not in [m.name for m in tab.maps]

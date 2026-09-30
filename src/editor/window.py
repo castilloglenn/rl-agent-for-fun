@@ -14,7 +14,7 @@ import pygame
 from pygame import Rect
 
 from src.control.text import wrap
-from src.editor.model import GRID, SPAWN_TURN, EditorModel
+from src.editor.model import GRID, NAME, SPAWN_TURN, EditorModel
 from src.render import camera as cameras
 from src.render import panels, theme
 from src.render.camera import FIT, FOLLOW
@@ -57,6 +57,9 @@ GRID_COLOR = (20, 21, 26)
 MARGIN_COLOR = (38, 40, 48)
 
 
+NAME_LENGTH = 40  # characters a typed map name keeps
+
+
 class EditorWindow:
     def __init__(self, model: EditorModel) -> None:
         self.model = model
@@ -70,6 +73,9 @@ class EditorWindow:
         self.pan = [width / 2, height / 2]  # 1:1: the view's center
         self.running = True
         self.confirm_quit = False
+        # The SAVE AS box's name as you type it (None: closed). A built-in
+        # map only saves as a new map of yours (7d1b).
+        self.save_as: str | None = None
         self.message: tuple[str, tuple] | None = None
         # A gesture in progress: ("move", kind, index, dx, dy),
         # ("resize", index, corner), ("wall", x0, y0), or ("pan",).
@@ -85,6 +91,9 @@ class EditorWindow:
     def handle(self, event) -> None:
         if event.type == pygame.QUIT:
             self.ask_to_quit()
+        elif self.save_as is not None:
+            if event.type == pygame.KEYDOWN:
+                self._type_name(event)
         elif self.confirm_quit:
             if event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
@@ -160,12 +169,35 @@ class EditorWindow:
             self.running = False
 
     def save(self) -> None:
+        if self.model.built_in:
+            self.save_as = f"my_{self.model.name}"  # a name to start from
+            return
         try:
             path = self.model.save()
         except StageError as error:
             self.message = (f"Can't save: {error}", theme.BAD)
             return
         self.message = (f"Saved {path}", theme.GOOD)
+
+    def _type_name(self, event) -> None:
+        """The SAVE AS box: type a name, Enter saves, Esc goes back."""
+        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            try:
+                path = self.model.save_as(self.save_as)
+            except StageError as error:
+                self.message = (f"Can't save: {error}", theme.BAD)
+                return
+            self.save_as = None
+            self.message = (f"Saved {path}", theme.GOOD)
+            pygame.display.set_caption(
+                f"Maze Car · Map editor · {self.model.name}"
+            )
+        elif event.key == pygame.K_ESCAPE:
+            self.save_as = None
+        elif event.key == pygame.K_BACKSPACE:
+            self.save_as = self.save_as[:-1]
+        elif event.unicode and NAME.match(event.unicode):
+            self.save_as = (self.save_as + event.unicode)[:NAME_LENGTH]
 
     def _world(self, pos) -> tuple[float, float]:
         return self.camera.to_world(*pos)
@@ -330,6 +362,8 @@ class EditorWindow:
         self._draw_right()
         if self.confirm_quit:
             self._draw_quit_box()
+        elif self.save_as is not None:
+            self._draw_save_as_box()
 
     def _draw_field(self) -> None:
         cam, model, screen = self.camera, self.model, self.screen
@@ -447,6 +481,11 @@ class EditorWindow:
         y = bar.centery
         x = self._text("MAP EDITOR", bar.x + 14, y, theme.ACCENT, head=True)
         x = self._text(self.model.name, x + 12, y, theme.TEXT, big=True)
+        if self.model.built_in:
+            label = "built-in: Ctrl+S saves it as yours"
+            x = self._text(label, x + 12, y, theme.ACCENT)
+        else:
+            x = self._text("yours", x + 12, y, theme.TEXT_DIM)
         if self.model.dirty:
             x = self._text("unsaved", x + 12, y, theme.WARN)
         else:
@@ -545,12 +584,32 @@ class EditorWindow:
         column.finish()
 
     def _draw_quit_box(self) -> None:
+        size, dim = theme.TEXT_SIZE, theme.TEXT_DIM
+        self._draw_box(
+            [
+                ("QUIT?", theme.BIG_SIZE, theme.WARN, True),
+                ("Unsaved changes will be lost.", size, theme.TEXT, 0),
+                ("Enter quits · Esc goes back", size, dim, 0),
+            ]
+        )
+
+    def _draw_save_as_box(self) -> None:
+        size, dim = theme.TEXT_SIZE, theme.TEXT_DIM
+        stays = f"{self.model.name} is built-in and stays as it is."
+        where = "This saves a new map of yours, in user/stages/."
+        self._draw_box(
+            [
+                ("SAVE AS", theme.BIG_SIZE, theme.ACCENT, True),
+                (stays, size, theme.TEXT, 0),
+                (where, size, dim, 0),
+                (f"Name: {self.save_as}_", size, theme.TEXT, True),
+                ("Enter saves · Esc goes back", size, dim, 0),
+            ]
+        )
+
+    def _draw_box(self, lines: list) -> None:
+        """A box in the middle of the field: (text, size, color, bold)."""
         view = self.layout.field_view
-        lines = [
-            ("QUIT?", theme.BIG_SIZE, theme.WARN, True),
-            ("Unsaved changes will be lost.", theme.TEXT_SIZE, theme.TEXT, 0),
-            ("Enter quits · Esc goes back", theme.TEXT_SIZE, theme.TEXT_DIM, 0),
-        ]
         width = max(get_font(s, b).size(t)[0] for t, s, _, b in lines)
         box = Rect(0, 0, width + 48, 26 * len(lines) + 24)
         box.center = view.center
