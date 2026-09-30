@@ -50,11 +50,12 @@ class StepEvents:
 @dataclass(frozen=True)
 class Term:
     """One measurable thing per step. Some terms take parameters, each
-    with a default (all parameters are positive numbers).
+    with a default: a positive number, or for a `shares` one, 0 to 1.
     """
 
     compute: Callable[[StepEvents, Mapping[str, float]], float]
     params: Mapping[str, float] = MappingProxyType({})
+    shares: tuple[str, ...] = ()  # parameters that are shares, 0 to 1
 
     def __call__(
         self, events: StepEvents, params: Mapping[str, float] | None = None
@@ -97,7 +98,9 @@ TERMS: Mapping[str, Term] = MappingProxyType(
         "time_up": Term(lambda e, p: float(e.time_up)),
         "per_step": Term(lambda e, p: 1.0),
         "distance": Term(lambda e, p: e.distance),
-        "progress": Term(_progress, MappingProxyType({"reverse": 0.5})),
+        "progress": Term(
+            _progress, MappingProxyType({"reverse": 0.5}), shares=("reverse",)
+        ),
         "speed": Term(lambda e, p: e.speed),
         "steering_change": Term(lambda e, p: e.steering_change),
         "closest_wall": Term(lambda e, p: e.closest_wall),
@@ -164,7 +167,13 @@ class RewardProfile:
                         f"unknown parameter {name!r} for {term!r} "
                         f"(known: {known})"
                     )
-                if not _is_number(value) or value <= 0:
+                if name in TERMS[term].shares:
+                    if not _is_number(value) or not 0 <= value <= 1:
+                        raise RewardProfileError(
+                            f"parameter {name!r} of {term!r} must be a "
+                            "share from 0 to 1"
+                        )
+                elif not _is_number(value) or value <= 0:
                     raise RewardProfileError(
                         f"parameter {name!r} of {term!r} must be positive"
                     )

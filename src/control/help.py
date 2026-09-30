@@ -193,8 +193,9 @@ TERMS: dict[str, tuple[str, str]] = {
                      "is farther from walls."),
 }
 TERM_PARAMS: dict[str, tuple[str, str]] = {
-    "progress.reverse": ("share", "What a gain while reversing counts "
-                         "(0.5: half); a loss always counts in full."),
+    "progress.reverse": ("share", "What a gain while reversing counts, 0 "
+                         "to 1 (0: nothing, 0.5: half); a loss always counts "
+                         "in full."),
     "checkpoint_speed.window": ("s", "After this long, a checkpoint is "
                                 "worth 0 of this term."),
 }

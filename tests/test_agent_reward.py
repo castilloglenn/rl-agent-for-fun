@@ -75,8 +75,11 @@ def test_default_profile_is_progress_checkpoints_and_wall_penalties():
     }
     assert profile(_events(points=3)) == 0  # the score isn't the lesson
     assert profile(_events(progress=3.0)) == pytest.approx(0.3)
-    assert profile(_events(progress=3.0, reversing=True)) == pytest.approx(
-        0.15
+    # Reversing closer pays nothing (agent-1 learned to drive backward
+    # when it paid half); farther still costs in full.
+    assert profile(_events(progress=3.0, reversing=True)) == 0
+    assert profile(_events(progress=-3.0, reversing=True)) == pytest.approx(
+        -0.3
     )
     assert profile(_events(progress=-3.0)) == pytest.approx(-0.3)
     assert profile(_events(checkpoints=1)) == 500
@@ -404,3 +407,22 @@ def test_a_speed_bonus_pays_nothing_for_a_slow_checkpoint():
     fast, slow = rewards
     assert fast > 90
     assert slow == pytest.approx(0, abs=1e-9)
+
+
+def test_a_share_parameter_goes_from_0_to_1():
+    ok = RewardProfile.from_dict(
+        {"format": 1, "name": "t", "terms": {"progress": {"weight": 1,
+                                                          "reverse": 0}}}
+    )
+    assert ok.to_dict()["terms"]["progress"]["reverse"] == 0
+    for bad in (-0.1, 1.5):
+        with pytest.raises(RewardProfileError, match="share from 0 to 1"):
+            RewardProfile.from_dict(
+                {"format": 1, "name": "t",
+                 "terms": {"progress": {"weight": 1, "reverse": bad}}}
+            )
+    with pytest.raises(RewardProfileError, match="must be positive"):
+        RewardProfile.from_dict(  # a window of 0 s: still refused
+            {"format": 1, "name": "t",
+             "terms": {"checkpoint_speed": {"weight": 1, "window": 0}}}
+        )

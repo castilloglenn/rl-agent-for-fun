@@ -14,6 +14,8 @@ The default reward was the game score (+1 per 10 px driven forward, +100 per che
 - **`rewards/default.json` changes** (not a new profile: the default is still being built): progress +0.1 per px, **+500 per checkpoint**, -100 per wall contact however light, -1000 per full loss of health on top (a 25 % hit: -350 with the contact), **-3000 for a wreck**, -0.25 per step stopped. Game points are no longer part of the reward. So: bump < hit < big hit < wreck, and a checkpoint is worth more than a medium hit.
 - **Exploration stays as is** (the trainer's entropy bonus, 0.01): agents end training at an entropy around 1.2 to 1.35 (fully random: 2.48), and the progress term rewards going around walls directly. Raise it only if the Entropy chart collapses early.
 
+**Amended the same day, after agent-1:** trained 2M decisions on the box with this reward, it drove backward 91 to 100 % of the time at every checkpoint, from the first to its best (measured on the suite's Open field rounds): reversing still earned half the progress and every checkpoint's +500, and at 100 px/s it almost never wrecked, while forward driving looked deadly early on (about 13 checkpoints a 60 s round, 10 wrecks in about 1,100 rounds; entropy down to about 0.7). So **progress while reversing now pays nothing** (`"reverse": 0.0`; a parameter can now be a share from 0 to 1); moving away still costs in full, and backing out of a dead end still pays through the progress after it. The crash costs stay as they are for now.
+
 ## Consequences
 
 - Old runs, replays, and agent phases keep the profile they were made with (each stores its copy), so they resume and verify as before; "reward: default" in an old phase means the old one.

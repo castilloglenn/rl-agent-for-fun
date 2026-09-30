@@ -32,7 +32,7 @@ The HUD shows the remaining time.
 
 These are the **game score** rules: the same for everyone, shown in the HUD and leaderboards. A time-attack variant (faster checkpoints score more) is a later idea, as its own rules file. What an agent learns from is its **reward profile** (roadmap step 4c, [decision 011](decisions/011-reward-profiles.md)), which can weight things differently without changing the game score.
 
-**The default reward profile** (`rewards/default.json`, since 7e, [decision 041](decisions/041-progress-reward.md)) doesn't use game points at all: **progress** toward the checkpoint along a drivable path around the walls (+0.1 per px closer, gains while reversing at half, -0.1 per px farther, so circling or rocking can't pay), **+500 per checkpoint** (the best there is), -100 per wall contact, -1000 per full loss of health, -3000 for a wreck, and -0.25 per step stopped. The path is only for grading the agent's actions: the agent never sees it.
+**The default reward profile** (`rewards/default.json`, since 7e, [decision 041](decisions/041-progress-reward.md)) doesn't use game points at all: **progress** toward the checkpoint along a drivable path around the walls (+0.1 per px closer when driving forward, nothing while reversing, -0.1 per px farther in any gear, so circling, rocking, or backing to checkpoints can't pay), **+500 per checkpoint** (the best there is), -100 per wall contact, -1000 per full loss of health, -3000 for a wreck, and -0.25 per step stopped. The path is only for grading the agent's actions: the agent never sees it.
 
 | Event | Reward |
 |---|---|
