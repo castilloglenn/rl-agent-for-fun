@@ -370,15 +370,25 @@ def test_every_profile_file_loads_and_round_trips():
         assert profile.to_dict() == json.loads(path.read_text()), path.name
 
 
-def test_time_bonus_profile_pays_nothing_for_a_slow_checkpoint():
+def test_a_speed_bonus_pays_nothing_for_a_slow_checkpoint():
     """The checkpoint's worth comes only from the speed bonus: the game's
     own +100 isn't part of this profile (regression: it used to be).
     """
     from src.sim.components import Checkpoint, Transform
 
+    speed_bonus = RewardProfile.from_dict(
+        {
+            "format": 1,
+            "name": "speed_bonus",
+            "terms": {
+                "distance_points": 1.0,
+                "checkpoint_speed": {"weight": 100, "window": 10},
+            },
+        }
+    )
     rewards = []
     for wait_steps in (0, 12 * 120):
-        env = _env(reward="time_bonus")
+        env = _env(reward=speed_bonus)
         env.reset(seed=1)
         car = env.world.component(env.car, Transform)
         spot = env.world.query(Transform, Checkpoint)[0][1][0]

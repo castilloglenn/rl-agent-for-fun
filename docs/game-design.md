@@ -102,10 +102,10 @@ Rays only detect things a car can hit (the border and walls now; later other car
 
 | # | Input | Range and normalization |
 |---|---|---|
-| 0-7 | Ray distances (front, front-left, left, back-left, back, back-right, right, front-right) | 0 to 1, divided by the field diagonal (978 px) |
+| 0-7 | Ray distances (front, front-left, left, back-left, back, back-right, right, front-right) | 0 to 1, divided by 980.5 px (the box's diagonal) on every map (7d2) |
 | 8 | Speed | -⅓ (full reverse) to 1, divided by max speed |
 | 9 | Steering wheel position | -1 (full right) to 1 (full left) |
-| 10 | Checkpoint distance | 0 to 1, divided by the field diagonal |
+| 10 | Checkpoint distance | 0 to 1, divided by 980.5 px on every map (7d2) |
 | 11 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
 | 12 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
 | 13 | Time left in the round | 1 at the start, down to 0 |

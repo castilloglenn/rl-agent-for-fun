@@ -37,7 +37,7 @@ class StepEvents:
     distance: float  # px moved forward (0 when stopped or reversing)
     speed: float  # speed as a fraction of max speed (negative reversing)
     steering_change: float  # how far the steering wheel moved (0 to 2)
-    closest_wall: float  # shortest ray, as a fraction of the field diagonal
+    closest_wall: float  # shortest ray, as a fraction of DISTANCE_SCALE
     # Seconds each checkpoint reached this step had been on the field.
     checkpoint_seconds: tuple[float, ...] = ()
     distance_points: float = 0.0  # game points from driving only

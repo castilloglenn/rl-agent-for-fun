@@ -11,7 +11,7 @@
 ## Decision
 
 1. **Built-in and your files (7d1).** Built-ins ship with the app, are committed, and are read-only in every screen: they change only in code. Everything you make in the app goes to `user/<kind>/`, out of git. One name per kind: yours can't reuse a built-in's, so runs, replays, and leaderboards keep resolving by name. A built-in offers Duplicate (a copy in `user/`) instead of Edit and Delete. Future built-ins follow the same split, for example battle arenas, battle rules, and opponent agents for a battle mode.
-2. **A fixed distance scale (7d2):** 978 px for every map, clipped at 1. On the box it gives the same numbers, so box agents and the behavior tests don't change.
+2. **A fixed distance scale (7d2):** 980.5 px (the box's diagonal; first written as 978) for every map, clipped at 1. On the box it gives the same numbers, so box agents and the behavior tests don't change.
 3. **A skills suite (7d3):** 7 skills in 3 groups (the table in the roadmap's step 7), on the box and 5 new built-in `skill_` maps, 5 episodes each, scored per skill at every checkpoint. It replaces box-v1 for new scores; box-v1's history stays.
 4. **Skills chart and radar (7d4):** one line per skill, as a share of the heuristic's score on it; best checkpoint = the best average share; the Agents tab radar shows the same 7 skills, so "skill" means one thing.
 5. **Training on a test map warns, it isn't blocked.** Its skill line is marked "trained here".

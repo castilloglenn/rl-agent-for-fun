@@ -165,7 +165,7 @@ run_episodes:
 	python app.py -run heuristic --driver heuristic --episodes $(EPISODES)
 
 run_reward:
-	$(call require,REWARD,time_bonus)
+	$(call require,REWARD,default)
 	python app.py -run heuristic-$(REWARD) --driver heuristic --reward $(REWARD)
 
 run_rules:

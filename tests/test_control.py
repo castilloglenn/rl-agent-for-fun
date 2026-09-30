@@ -53,16 +53,16 @@ def test_commands_have_their_group_description_and_params():
 
 
 def test_argv_fills_in_the_params():
-    argv = COMMANDS["run_reward"].argv({"REWARD": "time_bonus"})
+    argv = COMMANDS["run_reward"].argv({"REWARD": "default"})
     assert argv[0] == sys.executable
     assert argv[1:] == [
         "app.py",
         "-run",
-        "heuristic-time_bonus",
+        "heuristic-default",
         "--driver",
         "heuristic",
         "--reward",
-        "time_bonus",
+        "default",
     ]
     assert COMMANDS["test"].argv({})[1:] == ["-m", "pytest"]
 

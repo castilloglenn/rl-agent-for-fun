@@ -45,13 +45,18 @@ def test_run_folder_layout(tmp_path):
 
 
 def test_config_records_everything_needed_to_reproduce(tmp_path):
-    folder = _run(tmp_path, first_seed=7, reward="time_bonus").folder
+    profile = tmp_path / "quick.json"  # a profile by path, not by name
+    profile.write_text(
+        json.dumps({"format": 1, "name": "quick", "terms": {"points": 1.0}})
+    )
+    folder = _run(tmp_path, first_seed=7, reward=str(profile)).folder
     config = json.loads((folder / "config.json").read_text())
     assert config["driver"] == {"type": "baseline", "id": "heuristic"}
     assert (config["episodes"], config["first_seed"]) == (4, 7)
     assert config["stage"]["name"] == "box"
     assert config["rules"] == SHORT.to_dict()
-    assert config["reward"]["name"] == "time_bonus"
+    assert config["reward"]["name"] == "quick"
+    assert config["reward"]["terms"] == {"points": 1.0}
     assert "car" in config["game_config"]
     assert config["code"] and config["observation_version"] == 1
 

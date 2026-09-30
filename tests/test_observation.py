@@ -168,3 +168,34 @@ def test_same_seed_and_actions_give_the_same_observations():
         return np.stack(observations)
 
     assert np.array_equal(run(), run())
+
+
+def _front_ray(stage, x, y, angle=0.0):
+    """The front ray's input for a car at (x, y) facing `angle`."""
+    config = get_maze_car_config()
+    config.stage = stage
+    world, car = create_game(config, seed=0)
+    transform = world.component(car, Transform)
+    transform.x, transform.y, transform.angle = x, y, angle
+    world.step()  # the sensors see the new pose
+    return observe(world, car)[OBSERVATION_NAMES.index("ray_front")]
+
+
+def test_a_distance_reads_the_same_on_every_map():
+    """7d2: rays are divided by one scale (the box's diagonal), not the
+    map's own, so a wall 100 px ahead is the same number everywhere.
+    """
+    from src.sim.observation import DISTANCE_SCALE
+
+    assert DISTANCE_SCALE == math.hypot(855, 480)
+    # Facing the right border, 100 px from it (the car's nose is 12 px
+    # ahead of its center, so the ray starts there).
+    box = _front_ray("box", 855 - 112, 240)
+    arena = _front_ray("arena", 1200 - 112, 1100)
+    assert box == pytest.approx(arena, abs=1e-6)
+    assert box == pytest.approx(100 / DISTANCE_SCALE, abs=1e-3)
+
+
+def test_farther_than_the_scale_reads_one():
+    # Facing right from the arena's left edge: about 1,170 px of open road.
+    assert _front_ray("arena", 30, 1150) == 1.0

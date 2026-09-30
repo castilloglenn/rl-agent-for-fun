@@ -180,9 +180,9 @@ TERMS: dict[str, tuple[str, str]] = {
               "while reversing."),
     "steering_change": ("per full turn", "How far the steering wheel "
                         "moved this step (0 to 2)."),
-    "closest_wall": ("per diagonal", "The shortest sensor ray, as a share "
-                     "of the field's diagonal: bigger is farther from "
-                     "walls."),
+    "closest_wall": ("per 980 px", "The shortest sensor ray, as a share "
+                     "of 980 px (the box's diagonal, on every map): bigger "
+                     "is farther from walls."),
 }
 TERM_PARAMS: dict[str, tuple[str, str]] = {
     "progress.reverse": ("share", "What a gain while reversing counts "

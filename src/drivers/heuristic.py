@@ -12,7 +12,8 @@ class CompassDriver(Driver):
     steer toward the checkpoint with the compass, turn away from close
     walls, and brake when the wall ahead is within stopping range.
 
-    Distances are fractions of the field diagonal, speed a fraction of max
+    Distances are fractions of the observation's distance scale (the
+    box's diagonal, about 980 px, on every map), speed a fraction of max
     speed (see docs/game-design.md, Observation).
     """
 

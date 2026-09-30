@@ -12,7 +12,11 @@ import pytest  # noqa: E402
 from src.config import get_maze_car_config  # noqa: E402
 from src.drivers.random_driver import RandomDriver  # noqa: E402
 from src.envs.maze_car.env import MazeCarEnv  # noqa: E402
-from src.envs.maze_car.rewards import StepEvents, load_reward_profile  # noqa
+from src.envs.maze_car.rewards import (  # noqa: E402
+    RewardProfile,
+    StepEvents,
+    load_reward_profile,
+)
 from src.render import panels  # noqa: E402
 from src.render.layout import Layout  # noqa: E402
 from src.render.panels import RewardStatus, reward_groups, signed  # noqa
@@ -34,9 +38,22 @@ EVENTS = StepEvents(
 )
 
 
-@pytest.mark.parametrize("name", ["default", "time_bonus"])
-def test_the_terms_sum_to_the_reward_exactly(name):
-    profile = load_reward_profile(name)
+SPEED_BONUS = {
+    "format": 1,
+    "name": "speed_bonus",
+    "terms": {
+        "distance_points": 1.0,
+        "checkpoint_speed": {"weight": 100, "window": 10},
+    },
+}
+
+
+@pytest.mark.parametrize("which", ["default", "speed_bonus"])
+def test_the_terms_sum_to_the_reward_exactly(which):
+    if which == "default":
+        profile = load_reward_profile("default")
+    else:  # a term with a parameter
+        profile = RewardProfile.from_dict(SPEED_BONUS)
     parts = profile.contributions(EVENTS)
     assert list(parts) == list(profile.terms)
     assert sum(parts.values()) == profile(EVENTS)  # bit for bit
