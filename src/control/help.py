@@ -281,6 +281,15 @@ TOPICS: dict[str, str] = {
     "recording:game": "The stage and rules it was played on.",
     "recording:datasets": "The datasets that read it, by their rules "
     "(include, min_score). make dataset shows what's actually usable.",
+    # Maps tab
+    "map:DEFAULT": "The default map: the code and new stages start from "
+    "it, so it can't be deleted.",
+    "map:SUITE": "An evaluation suite plays on it, so it can't be deleted "
+    "(scores would lose their map).",
+    "map:BIG": "Bigger than the game's view: the game follows the car on "
+    "it, with a map card.",
+    "map:used by": "The runs that played on it (training, cloning, and "
+    "episode runs, by agent or driver) and the suites that use it.",
     # Training tab
     "estimate": "From how long your last finished runs of the same kind "
     "took, per decision (or per epoch for imitation).",

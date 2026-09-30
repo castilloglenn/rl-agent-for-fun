@@ -198,7 +198,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `charts.py` | `draw_chart()`: hand-drawn line charts (lines, dots, rings, dashed levels) with round ticks and a hover readout. It returns a `Plot` (where it drew), and a full legend drops its highest-`priority` items first |
 | `runs_tab.py` | `RunsTab`: the run list, the selected run's header, two charts (the second picked from a dropdown), and its buttons. It can follow a chain, selecting each run the chain starts. A click on a suite dot opens its checkpoint box (watch it drive, branch from it), and a second run of the same kind can be compared ([decision 026](decisions/026-checkpoint-box-and-compare.md)) |
 | `training_plan.py` | `make_plan(values, ...)`: the Training tab's form turned into steps (each a Commands tab action), an estimate from past runs, warnings, and what blocks starting ([decision 025](decisions/025-training-tab-and-chains.md)) |
-| `chains.py` | `Chain`: jobs run one after another, each only if the one before succeeded; a stop or a failure cancels the rest |
+| `chains.py` | `Chain`: jobs run one after another, each only if the one before succeeded, and once (a tick from inside a start is ignored); a stop or a failure cancels the rest |
 | `training_tab.py` | `TrainingTab`: the form (its fields follow the mode) and the plan box with Start |
 | `form.py` | `Form`: a scrolling column of labeled fields (dropdowns, typed, or read-only, with dimmed hints) for the tabs |
 | `confirm.py` | `Confirm`: the confirmation box (quit, delete a run, empty the trash): dims the window, Cancel (Esc) and a confirm button (Enter), buttons acting on release |
@@ -211,11 +211,14 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `tooltips.py` | `Tooltips`: tabs register help areas while drawing (and draw the "i" marker); the window draws the one under the mouse after 0.5 s |
 | `recordings_data.py` | The recordings browser's data ([decision 031](decisions/031-recordings-browser.md)): `players`, `recordings` (rows from file names and headers), and `uses` (whether a dataset's rules let a round in) |
 | `recordings_view.py` | `RecordingsView`: the table of a player's rounds, with Watch, Keep, Unkeep, and Delete (inside the Files tab) |
+| `maps_data.py` | The Maps tab's data ([decision 036](decisions/036-maps-tab.md)): `load_maps` (every stage, with the runs that played on it and the suites that use it, and whether it's protected), `sort_maps`, `check_new_name`, and `duplicate` |
+| `stage_preview.py` | `draw_stage_preview`: a stage drawn small, in its own shape (walls, the spawn, checkpoints) |
+| `maps_tab.py` | `MapsTab`: map cards with previews and badges, and the selected map's details, what uses it, and Edit, Drive, Watch, New map, Duplicate, and Delete |
 | `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete |
 | `text.py` | `fit`, `wrap`, and `header`: text helpers the tabs share |
 | `stats.py` | `SystemStats.sample(pids)`: CPU, memory, battery, and disk (with `psutil`), plus our jobs' share, and a level (normal, caution, danger) for each |
 | `vitals.py` | `VitalsLog`: those readings as a row every 10 s (and on a level change) in `logs/vitals.csv`, with job and window events as notes, rotated at 100 KB ([decision 024](decisions/024-vitals-log.md)); `tail()` for `make vitals` |
-| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: tabs on top and the machine's vital signs along the bottom, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training, Runs, Agents, and Files tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
+| `window.py` | `ControlCenter`: a pygame + `pygame_gui` window, themed like the game window: tabs on top and the machine's vital signs along the bottom, the Commands tab (actions with their fields, scrolling when they don't fit, and the command they run, jobs, and a big console), the Training, Runs, Agents, Maps, and Files tabs, and a QUIT? box with Cancel (Esc) and Confirm (Enter) |
 
 ## Map editor (`src/editor/`)
 

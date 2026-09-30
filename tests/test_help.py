@@ -92,6 +92,7 @@ def test_every_topic_the_tabs_ask_for_exists():
     from src.control.recordings_view import COLUMNS
 
     keys += [f"recording:{name}" for name, _, _, _ in COLUMNS]
+    keys += [f"map:{b}" for b in ("DEFAULT", "SUITE", "BIG", "used by")]
     for key in keys:
         assert help.topic(key), key
 

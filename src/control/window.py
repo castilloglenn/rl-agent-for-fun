@@ -33,6 +33,7 @@ from src.control.jobs import JobManager
 from src.control.chains import Chain
 from src.control.confirm import Confirm
 from src.control.files_tab import FilesTab
+from src.control.maps_tab import MapsTab
 from src.control.runs_tab import RunsTab
 from src.control.stats import CAUTION, DANGER, SystemStats
 from src.control import help
@@ -61,6 +62,7 @@ TABS = (  # (name, the step it arrives in: None if it's here)
     ("Training", None),
     ("Runs", None),
     ("Agents", None),
+    ("Maps", None),
     ("Files", None),
 )
 LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
@@ -264,11 +266,21 @@ class ControlCenter:
             run_action=self.run_named,
         )
         self.files_tab.hide()
+        self.maps_tab = MapsTab(
+            self.gui,
+            Rect(MARGIN, top, width, bottom - top),
+            self.ask,
+            self.run_named,
+            root=files_root,
+            runs_dir=runs_dir,
+        )
+        self.maps_tab.hide()
         for tab in (
             self.runs_tab,
             self.training_tab,
             self.agents_tab,
             self.files_tab,
+            self.maps_tab,
         ):
             tab.tips = self.tips
 
@@ -567,6 +579,7 @@ class ControlCenter:
             "Runs": self.runs_tab,
             "Training": self.training_tab,
             "Agents": self.agents_tab,
+            "Maps": self.maps_tab,
             "Files": self.files_tab,
         }
         for tab_name, tab in tabs.items():
@@ -647,6 +660,8 @@ class ControlCenter:
             self.agents_tab.handle(event)
         elif self.tab == "Files":
             self.files_tab.handle(event)
+        elif self.tab == "Maps":
+            self.maps_tab.handle(event)
         else:
             self._handle_commands(event)
 
@@ -743,6 +758,10 @@ class ControlCenter:
             self.files_tab.draw(self.screen)
             self.gui.draw_ui(self.screen)
             self.files_tab.draw_after(self.screen)
+        elif self.tab == "Maps":
+            self.maps_tab.draw(self.screen)
+            self.gui.draw_ui(self.screen)
+            self.maps_tab.draw_after(self.screen)
         else:
             self._draw_commands()
         if self.box:
@@ -759,6 +778,7 @@ class ControlCenter:
             "Runs": self.runs_tab,
             "Training": self.training_tab,
             "Agents": self.agents_tab,
+            "Maps": self.maps_tab,
             "Files": self.files_tab,
         }.get(self.tab)
         if tab is None:
@@ -1007,6 +1027,8 @@ class ControlCenter:
                 self.agents_tab.refresh()
             elif self.tab == "Files":
                 self.files_tab.refresh()
+            elif self.tab == "Maps":
+                self.maps_tab.refresh()
             self.gui.update(elapsed)
             self.draw()
             pygame.display.flip()

@@ -166,8 +166,13 @@ class RunRow:
 
     @property
     def when(self) -> str:
-        """09-27 00:33:02, from the folder's name."""
-        date, clock = self.name.split("_")[:2]
+        """09-27 00:33:02, from the folder's name (or the name itself, for
+        a folder not named by a run).
+        """
+        parts = self.name.split("_")
+        if len(parts) < 2 or len(parts[0]) != 10:
+            return self.name[:14]
+        date, clock = parts[:2]
         if len(clock) != 6:
             return date[5:]
         return f"{date[5:]} {clock[:2]}:{clock[2:4]}:{clock[4:]}"
