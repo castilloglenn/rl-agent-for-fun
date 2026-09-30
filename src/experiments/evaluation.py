@@ -25,19 +25,28 @@ from src.agents.store import load_agent
 from src.config import get_maze_car_config
 from src.drivers.base import Driver
 from src.envs.maze_car.env import MazeCarEnv
+from src.envs.maze_car.rewards import RewardProfile
 from src.sim.components import Health, Hitbox, Motion, PreviousPose
 from src.sim.components import Sensors, Transform
 from src.sim.resources import Field, SimConfig
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.sim.systems.sensors import cast_rays
-from src.utils import named_files
+from src.utils import named_files, test_maps
 from src.utils.version import code_version
 
-SUITE_FORMAT = 1
+SUITE_FORMAT = 2
 SUITES_DIR = Path(__file__).resolve().parents[2] / "suites"
-DEFAULT_SUITE = "box"
+DEFAULT_SUITE = test_maps.SUITE  # "skills"
 KINDS = ("round", "braking")
+# Scoring plays by the game's points: an agent reward isn't needed.
+GAME_POINTS = RewardProfile.from_dict(
+    {"format": 1, "name": "game points", "terms": {"points": 1.0}}
+)
+# A skill's share is the agent's value over the heuristic's, counted as at
+# least this: a skill the heuristic can't do can't divide by ~0 (7d3b).
+FLOORS = {"round": 100.0, "braking": 0.1}
+SKILL = "skill:"  # a skill's column: "skill:open_field"
 COLUMNS = (
     "checkpoint",
     "decisions",
@@ -48,6 +57,7 @@ COLUMNS = (
     "wreck_rate",
     "contacts",  # per round
     "braking",  # share of braking starts with no damage
+    "share",  # the skills' average share of the heuristic's: the ranking
 )
 
 
@@ -65,10 +75,22 @@ class Scenario:
     episodes: int
     round_seconds: float = 0.0  # 0 = the rules' own
     start: dict | None = None  # braking: speed, distances, max angle
+    label: str = ""  # the skill as shown: "Open field"
+    group: str = ""  # "Handling", "Hunting", "Walls"
+    floor: float | None = None  # None: FLOORS[kind]
 
     @property
     def seeds(self) -> range:
         return range(self.first_seed, self.first_seed + self.episodes)
+
+    @property
+    def column(self) -> str:
+        return SKILL + self.name
+
+    @property
+    def minimum(self) -> float:
+        """The least the heuristic's value counts as, for a share."""
+        return FLOORS[self.kind] if self.floor is None else self.floor
 
 
 @dataclass(frozen=True)
@@ -81,6 +103,11 @@ class Suite:
     @property
     def label(self) -> str:
         return f"{self.name}-v{self.version}"
+
+    @property
+    def columns(self) -> tuple[str, ...]:
+        """A results file's columns: the overall ones, then each skill."""
+        return COLUMNS + tuple(s.column for s in self.scenarios)
 
     @staticmethod
     def from_dict(data: dict) -> "Suite":
@@ -99,9 +126,11 @@ class Suite:
             if scenario.kind == "braking" and not scenario.start:
                 raise SuiteError(f"{scenario.name}: braking needs a start")
             scenarios.append(scenario)
-        kinds = [s.kind for s in scenarios]
-        if sorted(kinds) != sorted(KINDS):
-            raise SuiteError("a suite needs one round and one braking scenario")
+        names = [s.name for s in scenarios]
+        if not names:
+            raise SuiteError("a suite needs at least one scenario")
+        if len(set(names)) != len(names):
+            raise SuiteError("each scenario (a skill) needs its own name")
         return Suite(
             name=data["name"],
             version=data["version"],
@@ -124,15 +153,59 @@ def load_suite(name_or_path: str = DEFAULT_SUITE) -> Suite:
 def evaluate(
     driver: Driver, suite: Suite, base_config: ConfigDict | None = None
 ) -> dict:
-    """Plays every scenario of the suite. Returns one value per metric."""
+    """Plays every scenario of the suite. Returns each skill's value (a
+    round: its mean game score; braking: the share of clean stops) and the
+    overall metrics, over all rounds (each skill weighs the same in the
+    mean score).
+    """
     result: dict = {}
+    games, means, brakes = [], [], []
     for scenario in suite.scenarios:
         env = _env(scenario, base_config)
         if scenario.kind == "round":
-            result.update(_round(env, driver, scenario))
+            played = _round(env, driver, scenario)
+            games.extend(played)
+            means.append(statistics.mean(g["score"] for g in played))
+            result[scenario.column] = means[-1]
         else:
-            result.update(_braking(env, driver, scenario))
+            result[scenario.column] = _braking(env, driver, scenario)
+            brakes.append(result[scenario.column])
+    minutes = sum(g["steps"] / g["sps"] for g in games) / 60
+    result.update(
+        {
+            "score_mean": statistics.mean(means) if means else 0.0,
+            "score_min": min((g["score"] for g in games), default=0.0),
+            "checkpoints_per_min": (
+                sum(g["checkpoints"] for g in games) / minutes
+                if minutes
+                else 0.0
+            ),
+            "survival": _mean([g["survival"] for g in games]),
+            "wreck_rate": _mean([float(g["wrecked"]) for g in games]),
+            "contacts": _mean([g["contacts"] for g in games]),
+            "braking": _mean(brakes),
+        }
+    )
     return result
+
+
+def _mean(values: list) -> float:
+    return statistics.mean(values) if values else 0.0
+
+
+def shares(values: dict, heuristic: dict, suite: Suite) -> dict[str, float]:
+    """Each skill's value as a share of the heuristic's (1.0: as good as
+    the heuristic), the heuristic's counted as at least the skill's floor.
+    """
+    return {
+        s.name: values[s.column] / max(heuristic[s.column], s.minimum)
+        for s in suite.scenarios
+    }
+
+
+def average_share(values: dict, heuristic: dict, suite: Suite) -> float:
+    found = shares(values, heuristic, suite)
+    return statistics.mean(found.values())
 
 
 def _env(scenario: Scenario, base_config: ConfigDict | None) -> MazeCarEnv:
@@ -143,7 +216,11 @@ def _env(scenario: Scenario, base_config: ConfigDict | None) -> MazeCarEnv:
     if scenario.round_seconds:
         rules = rules.with_round_seconds(scenario.round_seconds)
     return MazeCarEnv(
-        config, stage=load_stage(scenario.stage), rules=rules, driver="Eval"
+        config,
+        stage=load_stage(scenario.stage),
+        rules=rules,
+        driver="Eval",
+        reward=GAME_POINTS,  # scoring needs no agent reward (no path work)
     )
 
 
@@ -171,24 +248,20 @@ def _play(env: MazeCarEnv, driver: Driver, seed: int, setup=None) -> dict:
     }
 
 
-def _round(env: MazeCarEnv, driver: Driver, scenario: Scenario) -> dict:
+def _round(env: MazeCarEnv, driver: Driver, scenario: Scenario) -> list:
+    """Each game of a round scenario, with its steps per second and the
+    share of the round it survived.
+    """
     games = [_play(env, driver, seed) for seed in scenario.seeds]
     sps = env.world.resource(SimConfig).steps_per_second
     total = env.rules.round_seconds * sps
-    minutes = sum(g["steps"] for g in games) / sps / 60
-    return {
-        "score_mean": statistics.mean(g["score"] for g in games),
-        "score_min": min(g["score"] for g in games),
-        "checkpoints_per_min": sum(g["checkpoints"] for g in games) / minutes,
-        "survival": statistics.mean(
-            min(g["steps"] / total, 1.0) for g in games
-        ),
-        "wreck_rate": statistics.mean(float(g["wrecked"]) for g in games),
-        "contacts": statistics.mean(g["contacts"] for g in games),
-    }
+    for game in games:
+        game["sps"] = sps
+        game["survival"] = min(game["steps"] / total, 1.0)
+    return games
 
 
-def _braking(env: MazeCarEnv, driver: Driver, scenario: Scenario) -> dict:
+def _braking(env: MazeCarEnv, driver: Driver, scenario: Scenario) -> float:
     start = scenario.start
 
     def setup(env, seed):
@@ -196,7 +269,7 @@ def _braking(env: MazeCarEnv, driver: Driver, scenario: Scenario) -> dict:
         return env.last_observation
 
     games = [_play(env, driver, seed, setup) for seed in scenario.seeds]
-    return {"braking": statistics.mean(float(g["damage"] == 0) for g in games)}
+    return statistics.mean(float(g["damage"] == 0) for g in games)
 
 
 def place_at_wall(env: MazeCarEnv, rng: random.Random, start: dict) -> None:
@@ -264,10 +337,15 @@ def evaluate_checkpoint(
     the best checkpoint.
     """
     agent = load_agent(agent_folder, checkpoint)
+    values = evaluate(AgentDriver(agent), suite, base_config)
+    heuristic = baseline_scores(suite, agent_folder.parent, base_config)[
+        "heuristic"
+    ]
     row = {
         "checkpoint": checkpoint,
         "decisions": float(agent.decisions),
-        **evaluate(AgentDriver(agent), suite, base_config),
+        **values,
+        "share": average_share(values, heuristic, suite),
     }
     rows = [
         r
@@ -278,17 +356,19 @@ def evaluate_checkpoint(
     rows.sort(key=lambda r: (r["decisions"], r["checkpoint"]))
     path = results_path(agent_folder, suite)
     path.parent.mkdir(exist_ok=True)
+    columns = suite.columns
     with open(path, "w", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=COLUMNS)
+        writer = csv.DictWriter(file, fieldnames=columns)
         writer.writeheader()
         for r in rows:
-            writer.writerow({k: _round_value(r[k]) for k in COLUMNS})
+            writer.writerow({k: _round_value(r[k]) for k in columns})
     record(
         agent_folder,
         "scored",
         checkpoint=checkpoint,
         suite=suite.label,
         **{k: round(row[k], 4) for k in COLUMNS[2:]},
+        skills={s.name: round(row[s.column], 4) for s in suite.scenarios},
     )
     if suite.name == DEFAULT_SUITE:
         _update_best(agent_folder, suite, rows, base_config)
@@ -315,14 +395,16 @@ def _update_best(agent_folder, suite, rows, base_config) -> None:
             checkpoint=best["checkpoint"],
             suite=suite.label,
             score_mean=round(best["score_mean"], 1),
+            share=round(best["share"], 4),
         )
-    if any(e["event"] == "milestone" for e in read_history(agent_folder)):
-        return
-    heuristic = baseline_scores(suite, agent_folder.parent, base_config)[
-        "heuristic"
-    ]
-    beats = best["score_mean"] > heuristic["score_mean"]
-    if beats and best["wreck_rate"] < 0.5:
+    history = read_history(agent_folder)
+    if any(
+        e["event"] == "milestone" and e.get("suite") == suite.label
+        for e in history
+    ):
+        return  # once per suite version
+    # As good as the heuristic across the skills, and mostly in one piece.
+    if best["share"] > 1.0 and best["wreck_rate"] < 0.5:
         record(
             agent_folder,
             "milestone",
@@ -331,8 +413,8 @@ def _update_best(agent_folder, suite, rows, base_config) -> None:
             decisions=best["decisions"],
             suite=suite.label,
             score_mean=round(best["score_mean"], 1),
+            share=round(best["share"], 4),
             wreck_rate=round(best["wreck_rate"], 4),
-            heuristic_score=round(heuristic["score_mean"], 1),
         )
 
 
@@ -354,6 +436,8 @@ def baseline_scores(
         "heuristic": evaluate(CompassDriver(), suite, base_config),
         "random": evaluate(RandomDriver(), suite, base_config),
     }
+    for values in scores.values():  # the heuristic's is about 1.0
+        values["share"] = average_share(values, scores["heuristic"], suite)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps({"code": code_version(), "scores": scores}, indent=2) + "\n"
@@ -386,8 +470,10 @@ def evaluate_agent(
 
 
 def best_row(rows: list[dict]) -> dict:
-    """Highest mean round score; ties go to better survival."""
-    return max(rows, key=lambda r: (r["score_mean"], r["survival"]))
+    """The best average share of the heuristic across the skills; ties go
+    to better survival.
+    """
+    return max(rows, key=lambda r: (r["share"], r["survival"]))
 
 
 def _round_value(value):
@@ -400,7 +486,7 @@ def format_results(
     header = (
         f"  {'checkpoint':12s} {'decisions':>10s} {'score':>7s} "
         f"{'worst':>7s} {'cp/min':>6s} {'surv':>5s} {'wrecks':>6s} "
-        f"{'walls':>5s} {'brake':>5s}"
+        f"{'walls':>5s} {'brake':>5s} {'share':>5s}"
     )
     lines = [header]
 
@@ -409,7 +495,8 @@ def format_results(
             f"{mark} {name:12s} {decisions:>10s} {r['score_mean']:>7,.0f} "
             f"{r['score_min']:>7,.0f} {r['checkpoints_per_min']:>6.1f} "
             f"{r['survival']:>5.0%} {r['wreck_rate']:>6.0%} "
-            f"{r['contacts']:>5.1f} {r['braking']:>5.0%}"
+            f"{r['contacts']:>5.1f} {r['braking']:>5.0%} "
+            f"{r['share']:>5.2f}"
         )
 
     for name, r in (baselines or {}).items():
@@ -419,5 +506,8 @@ def format_results(
         mark = "*" if r["checkpoint"] == best else " "
         lines.append(line(r["checkpoint"], f"{r['decisions']:,.0f}", r, mark))
     if best:
-        lines.append(f"* best: {best} (highest mean round score)")
+        lines.append(
+            f"* best: {best} (the best average share of the heuristic's "
+            "score across the skills)"
+        )
     return "\n".join(lines)

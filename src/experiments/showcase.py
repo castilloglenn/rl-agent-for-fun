@@ -95,8 +95,8 @@ def plan(
     best = best_row(rows)["checkpoint"]
     stops, record = [], float("-inf")
     for row in rows:
-        new_best = row["score_mean"] > record
-        record = max(record, row["score_mean"])
+        new_best = row["share"] > record
+        record = max(record, row["share"])
         if row not in chosen:
             continue
         badges = []
@@ -129,9 +129,9 @@ def highlights(rows: list[dict], folder: Path, count: int = HIGHLIGHTS):
     names = [r["checkpoint"] for r in rows]
     best = best_row(rows)
     must = {0, len(rows) - 1, names.index(best["checkpoint"])}
-    threshold = 0.1 * best["score_mean"]
+    threshold = 0.1 * best["share"]
     scoring = next(
-        (i for i, r in enumerate(rows) if r["score_mean"] >= threshold),
+        (i for i, r in enumerate(rows) if r["share"] >= threshold),
         None,
     )
     if scoring is not None:
@@ -187,12 +187,15 @@ class Showcase:
         if not stops:
             raise ValueError("no checkpoints to show")
         self.folder, self.stops = folder, stops
+        rounds = [
+            s for s in load_suite(DEFAULT_SUITE).scenarios if s.kind == "round"
+        ]
+        # Open field (the box) if the suite has it: one familiar map.
         scenario = next(
-            s
-            for s in load_suite(DEFAULT_SUITE).scenarios
-            if s.kind == "round"
+            (s for s in rounds if s.name == "open_field"), rounds[0]
         )
         self.seed = scenario.first_seed
+        self.skill = scenario  # its round: the one this skill plays
         config = config.copy_and_resolve_references()
         config.show_gui = True
         config.window.playback_bar = True  # the bar under the field
@@ -338,7 +341,7 @@ class Showcase:
             ),
             (f"{stop.decisions:,} decisions{minutes}", theme.TEXT),
             (
-                f"suite: score {s['score_mean']:,.0f} · survival "
+                f"suite: share {s['share']:.2f} · survival "
                 f"{s['survival']:.0%} · wrecks {s['wreck_rate']:.0%} · "
                 f"braking {s['braking']:.0%}",
                 theme.TEXT,
@@ -355,7 +358,8 @@ class Showcase:
         return (
             (
                 f"{stop.checkpoint}: this round {self.env.score:,.0f} "
-                f"(suite mean {stop.scores['score_mean']:,.0f})",
+                f"({self.skill.label or self.skill.name} mean "
+                f"{stop.scores[self.skill.column]:,.0f})",
                 theme.TEXT,
             ),
             (
@@ -366,19 +370,20 @@ class Showcase:
 
     def _summary(self) -> tuple:
         first, last = self.stops[0], self.stops[-1]
-        best = max(self.stops, key=lambda s: s.scores["score_mean"])
+        best = max(self.stops, key=lambda s: s.scores["share"])
         lines = [
             (
                 f"{self.folder.name}: {len(self.stops)} checkpoints shown",
                 theme.ACCENT,
             ),
             (
-                f"{first.checkpoint} {first.scores['score_mean']:,.0f}  ->  "
-                f"{last.checkpoint} {last.scores['score_mean']:,.0f}",
+                f"{first.checkpoint} {first.scores['share']:.2f}  ->  "
+                f"{last.checkpoint} {last.scores['share']:.2f} (share of "
+                "the heuristic's)",
                 theme.TEXT,
             ),
             (
-                f"best: {best.checkpoint} {best.scores['score_mean']:,.0f}",
+                f"best: {best.checkpoint} {best.scores['share']:.2f}",
                 theme.GOOD,
             ),
         ]

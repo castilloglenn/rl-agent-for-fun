@@ -18,6 +18,7 @@ from src.experiments.evaluation import (
     SUITES_DIR,
     Suite,
     SuiteError,
+    average_share,
     best_row,
     evaluate,
     evaluate_agent,
@@ -26,21 +27,26 @@ from src.experiments.evaluation import (
     load_suite,
     place_at_wall,
     read_results,
+    shares,
 )
 from src.sim.components import Hitbox, Motion, Transform
 from src.sim.geometry import car_corners, inside
 from src.sim.resources import Field
+from src.sim.stage import load_stage
 from tests.test_training import TINY, TrainerSpec, _rows, _train
 
-BOX = json.loads((SUITES_DIR / "box.json").read_text())
+SKILLS = json.loads((SUITES_DIR / "skills.json").read_text())
+BRAKING = next(s for s in SKILLS["scenarios"] if s["kind"] == "braking")
 
 
 def _tiny_suite(tmp_path, version=1):
-    """The box suite (same name, so it also writes best.json), cut down to
-    a few short games.
+    """The skills suite (same name, so it also writes best.json), cut down
+    to 3 skills of a few short games: braking, open field, and detour.
     """
-    data = json.loads(json.dumps(BOX))
+    data = json.loads(json.dumps(SKILLS))
     data["version"] = version
+    keep = ("braking", "open_field", "detour")
+    data["scenarios"] = [s for s in data["scenarios"] if s["name"] in keep]
     for scenario in data["scenarios"]:
         scenario["episodes"] = 2 if scenario["kind"] == "round" else 3
         if scenario["kind"] == "round":
@@ -58,25 +64,38 @@ def _agent(tmp_path, name="pupil"):
 # The suite file
 
 
-def test_the_box_suite_loads():
-    suite = load_suite("box")
-    assert suite.label == "box-v1"
-    assert [s.kind for s in suite.scenarios] == ["round", "braking"]
+def test_the_skills_suite_loads():
+    """7d3b: 7 skills in 3 groups, each on its own map, 5 games each."""
+    suite = load_suite("skills")
+    assert suite.label == "skills-v1"
+    assert [s.name for s in suite.scenarios] == [
+        "braking", "threading", "open_field", "long_range", "obstacles",
+        "corridor", "detour",
+    ]
+    assert {s.group for s in suite.scenarios} == {
+        "Handling", "Hunting", "Walls",
+    }
+    assert all(s.episodes == 5 for s in suite.scenarios)
     assert all(s.first_seed >= 1_000_000 for s in suite.scenarios)
+    seeds = [set(s.seeds) for s in suite.scenarios]
+    assert not set.intersection(*seeds)  # no two tests share a seed
+    for scenario in suite.scenarios:
+        load_stage(scenario.stage)  # every map exists, and is valid
 
 
 @pytest.mark.parametrize(
     "change, message",
     [
-        (lambda d: d.update(format=2), "unsupported suite format"),
+        (lambda d: d.update(format=1), "unsupported suite format"),
         (lambda d: d["scenarios"][0].update(kind="drift"), "unknown scenario"),
         (lambda d: d["scenarios"][0].update(episodes=0), "episodes"),
-        (lambda d: d["scenarios"][1].update(start=None), "needs a start"),
-        (lambda d: d["scenarios"].pop(), "one round and one braking"),
+        (lambda d: d["scenarios"][0].update(start=None), "needs a start"),
+        (lambda d: d["scenarios"][1].update(name="braking"), "its own name"),
+        (lambda d: d.update(scenarios=[]), "at least one"),
     ],
 )
 def test_invalid_suites_are_rejected(change, message):
-    data = json.loads(json.dumps(BOX))
+    data = json.loads(json.dumps(SKILLS))
     change(data)
     with pytest.raises(SuiteError, match=message):
         Suite.from_dict(data)
@@ -102,7 +121,7 @@ def _pose(env):
 
 
 def test_braking_starts_follow_the_seed():
-    start = BOX["scenarios"][1]["start"]
+    start = BRAKING["start"]
     env = _braking_env()
     poses = []
     for seed in (5, 5, 6):
@@ -114,7 +133,7 @@ def test_braking_starts_follow_the_seed():
 
 @pytest.mark.parametrize("seed", range(12))
 def test_braking_starts_face_a_wall_in_range(seed):
-    start = BOX["scenarios"][1]["start"]
+    start = BRAKING["start"]
     env = _braking_env()
     env.reset(seed=0)
     place_at_wall(env, random.Random(seed), start)
@@ -138,8 +157,28 @@ def test_scores_are_the_same_every_time(tmp_path):
     suite = _tiny_suite(tmp_path)
     first = evaluate(CompassDriver(), suite)
     assert evaluate(CompassDriver(), suite) == first
-    assert set(first) == set(COLUMNS) - {"checkpoint", "decisions"}
-    assert first["braking"] == 1.0  # the heuristic brakes in time
+    skills = {"skill:braking", "skill:open_field", "skill:detour"}
+    overall = set(COLUMNS) - {"checkpoint", "decisions", "share"}
+    assert set(first) == overall | skills
+    assert first["braking"] == first["skill:braking"] == 1.0  # in time
+    # The mean score weighs each round skill the same.
+    assert first["score_mean"] == pytest.approx(
+        (first["skill:open_field"] + first["skill:detour"]) / 2
+    )
+
+
+def test_shares_are_of_the_heuristic_with_a_floor(tmp_path):
+    suite = _tiny_suite(tmp_path)
+    heuristic = {
+        "skill:braking": 1.0, "skill:open_field": 400.0, "skill:detour": 0.0,
+    }
+    agent = {
+        "skill:braking": 0.5, "skill:open_field": 600.0, "skill:detour": 50.0,
+    }
+    found = shares(agent, heuristic, suite)
+    # Detour: the heuristic scored 0, so it counts as the floor, 100.
+    assert found == {"braking": 0.5, "open_field": 1.5, "detour": 0.5}
+    assert average_share(agent, heuristic, suite) == pytest.approx(2.5 / 3)
 
 
 def test_scoring_a_checkpoint_saves_a_row_and_the_best(tmp_path):
@@ -150,8 +189,10 @@ def test_scoring_a_checkpoint_saves_a_row_and_the_best(tmp_path):
     rows = read_results(folder, suite)
     assert len(rows) == 1 and rows[0]["checkpoint"] == "initial"
     assert rows[0]["score_mean"] == pytest.approx(row["score_mean"])
-    with open(folder / "evaluations" / "box-v1.csv") as file:
-        assert tuple(next(csv.reader(file))) == COLUMNS
+    with open(folder / "evaluations" / "skills-v1.csv") as file:
+        assert tuple(next(csv.reader(file))) == suite.columns
+    assert 0 < row["share"]  # of the heuristic's, cached in baselines/
+    assert (tmp_path / "agents" / "baselines" / "skills-v1.json").exists()
 
 
 def test_suite_versions_are_never_mixed(tmp_path):
@@ -161,7 +202,7 @@ def test_suite_versions_are_never_mixed(tmp_path):
     assert read_results(folder, v2) == []
     evaluate_checkpoint(folder, "initial", v2)
     names = sorted(p.name for p in (folder / "evaluations").glob("*.csv"))
-    assert names == ["box-v1.csv", "box-v2.csv"]
+    assert names == ["skills-v1.csv", "skills-v2.csv"]
 
 
 def test_evaluating_an_agent_scores_only_new_checkpoints(tmp_path):
@@ -181,13 +222,13 @@ def test_evaluating_an_agent_scores_only_new_checkpoints(tmp_path):
     assert "best:" in format_results(rows)
 
 
-def test_the_best_is_the_highest_mean_score_then_survival():
+def test_the_best_is_the_highest_average_share_then_survival():
     rows = [
-        {"checkpoint": "a", "score_mean": 10, "survival": 0.5},
-        {"checkpoint": "b", "score_mean": 30, "survival": 0.5},
-        {"checkpoint": "c", "score_mean": 30, "survival": 0.9},
+        {"checkpoint": "a", "share": 0.4, "score_mean": 900, "survival": 1},
+        {"checkpoint": "b", "share": 1.2, "score_mean": 300, "survival": 0.5},
+        {"checkpoint": "c", "share": 1.2, "score_mean": 200, "survival": 0.9},
     ]
-    assert best_row(rows)["checkpoint"] == "c"
+    assert best_row(rows)["checkpoint"] == "c"  # not the top raw score
 
 
 # Loading the best
@@ -196,7 +237,7 @@ def test_the_best_is_the_highest_mean_score_then_survival():
 def _best_json(folder, checkpoint):
     (folder / "evaluations").mkdir(exist_ok=True)
     (folder / "evaluations" / "best.json").write_text(
-        json.dumps({"suite": "box-v1", "checkpoint": checkpoint})
+        json.dumps({"suite": "skills-v1", "checkpoint": checkpoint})
     )
 
 
@@ -249,5 +290,5 @@ def test_scoring_during_training_changes_nothing_else(tmp_path, monkeypatch):
     folder = tmp_path / "scored" / "agents" / "pupil"
     assert [r["checkpoint"] for r in read_results(folder, suite)] == evaluated
     config = json.loads((scored.folder / "config.json").read_text())
-    assert config["suite"] == {"name": "box", "version": 1}
+    assert config["suite"] == {"name": "skills", "version": 1}
     assert load_agent(folder, "best").checkpoint in evaluated

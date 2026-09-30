@@ -1,0 +1,92 @@
+{
+  "format": 2,
+  "name": "skills",
+  "version": 1,
+  "description": "7 skills in 3 groups (7d3): each a short test on its own map, the same seeds at every checkpoint. Each skill's score is a share of the heuristic's (at least `floor`), and the best checkpoint has the best average share.",
+  "scenarios": [
+    {
+      "name": "braking",
+      "label": "Braking",
+      "group": "Handling",
+      "kind": "braking",
+      "stage": "box",
+      "rules": "standard",
+      "round_seconds": 3,
+      "first_seed": 2000000,
+      "episodes": 5,
+      "floor": 0.1,
+      "start": {
+        "speed": 300,
+        "min_distance": 80,
+        "max_distance": 140,
+        "max_angle": 30
+      }
+    },
+    {
+      "name": "threading",
+      "label": "Threading",
+      "group": "Handling",
+      "kind": "round",
+      "stage": "skill_gaps",
+      "rules": "standard",
+      "round_seconds": 25,
+      "first_seed": 3000000,
+      "episodes": 5
+    },
+    {
+      "name": "open_field",
+      "label": "Open field",
+      "group": "Hunting",
+      "kind": "round",
+      "stage": "box",
+      "rules": "standard",
+      "round_seconds": 25,
+      "first_seed": 1000000,
+      "episodes": 5
+    },
+    {
+      "name": "long_range",
+      "label": "Long range",
+      "group": "Hunting",
+      "kind": "round",
+      "stage": "skill_long",
+      "rules": "standard",
+      "round_seconds": 25,
+      "first_seed": 4000000,
+      "episodes": 5
+    },
+    {
+      "name": "obstacles",
+      "label": "Obstacles",
+      "group": "Walls",
+      "kind": "round",
+      "stage": "skill_pillars",
+      "rules": "standard",
+      "round_seconds": 25,
+      "first_seed": 5000000,
+      "episodes": 5
+    },
+    {
+      "name": "corridor",
+      "label": "Corridor",
+      "group": "Walls",
+      "kind": "round",
+      "stage": "skill_corridor",
+      "rules": "standard",
+      "round_seconds": 25,
+      "first_seed": 6000000,
+      "episodes": 5
+    },
+    {
+      "name": "detour",
+      "label": "Detour",
+      "group": "Walls",
+      "kind": "round",
+      "stage": "skill_detour",
+      "rules": "standard",
+      "round_seconds": 25,
+      "first_seed": 7000000,
+      "episodes": 5
+    }
+  ]
+}

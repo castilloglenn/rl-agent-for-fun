@@ -17,7 +17,7 @@ from pathlib import Path
 
 from src.control import runs
 from src.control.actions import ACTIONS, NONE
-from src.utils import named_files
+from src.utils import named_files, test_maps
 
 REPO = Path(__file__).resolve().parents[2]
 RL = "Reinforcement learning"
@@ -192,6 +192,10 @@ def make_plan(
     else:
         plan.estimate = "no estimate"
         plan.basis = "no past runs of this kind to estimate from"
+    stage = values.get("Stage", "")
+    test_map = test_maps.warning(stage) if uses_rl(mode) else None
+    if test_map:
+        plan.warnings.append(test_map + ".")
     if on_battery:
         plan.warnings.append(
             "On battery: training keeps a core busy and drains it fast."

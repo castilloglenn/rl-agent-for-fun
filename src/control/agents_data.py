@@ -19,7 +19,7 @@ from src.control import runs
 REPO = Path(__file__).resolve().parents[2]
 AGENTS_DIR = REPO / "agents"
 RECORDINGS_DIR = REPO / "recordings"
-SUITE_FILE = REPO / "suites" / "box.json"  # the default suite
+SUITE_FILE = REPO / "suites" / "skills.json"  # the default suite
 HIGH_SCORES = 5  # per stage, rules, and round length
 
 # The radar's axes: (label, metric, how it maps to 0..1). "relative"
@@ -68,7 +68,11 @@ class AgentInfo:
 
     @property
     def best(self) -> dict:
-        return self.profile.get("best") or {}
+        """Its best checkpoint's scores on the current suite ({} if it
+        wasn't scored on it: an older suite's scores don't count).
+        """
+        best = self.profile.get("best") or {}
+        return best if best.get("suite") == current_suite() else {}
 
     @property
     def stage(self) -> str | None:
@@ -84,7 +88,8 @@ class AgentInfo:
 
     @property
     def score(self) -> float | None:
-        return self.best.get("score_mean")
+        """Its best average share of the heuristic's (the ranking)."""
+        return self.best.get("share")
 
     @property
     def created(self) -> str:
@@ -149,11 +154,11 @@ def _negate(text: str) -> tuple:
 
 
 def current_suite(path: Path = SUITE_FILE) -> str:
-    """The default suite as its results files name it: "box-v1". Its
+    """The default suite as its results files name it: "skills-v1". Its
     version goes up when the suite is edited (6d1).
     """
     data = runs.read_json(path)
-    return f"{data.get('name', 'box')}-v{data.get('version', 1)}"
+    return f"{data.get('name', 'skills')}-v{data.get('version', 1)}"
 
 
 def baselines(agents_dir: Path | None = None, suite: str = "") -> dict:
@@ -164,11 +169,10 @@ def baselines(agents_dir: Path | None = None, suite: str = "") -> dict:
 
 
 def heuristic_ratio(agent: AgentInfo, base: dict) -> float | None:
-    """The agent's best suite score, as a multiple of the heuristic's."""
-    heuristic = (base.get("heuristic") or {}).get("score_mean")
-    if not agent.score or not heuristic:
-        return None
-    return agent.score / heuristic
+    """The agent's best, as a multiple of the heuristic's: its average
+    share across the skills (7d3b).
+    """
+    return agent.score or None
 
 
 # Skills
@@ -286,8 +290,8 @@ class Rank:
 
 
 def leaderboard(agents: list[AgentInfo], base: dict) -> list[Rank]:
-    """Agents by best suite score, with the baselines as unranked rows in
-    their place.
+    """Agents by their best average share of the heuristic's, with the
+    baselines as unranked rows in their place.
     """
     rows = [
         Rank(None, a.id, a.model, a.decisions, a.best_checkpoint or "", a.best)
@@ -298,7 +302,7 @@ def leaderboard(agents: list[AgentInfo], base: dict) -> list[Rank]:
         if base.get(name):
             baseline = Rank(None, f"({name})", "baseline", None, "", base[name])
             rows.append(baseline)
-    rows.sort(key=lambda r: -(r.metrics.get("score_mean") or 0))
+    rows.sort(key=lambda r: -(r.metrics.get("share") or 0))
     place = 0
     for row in rows:
         if row.model != "baseline":

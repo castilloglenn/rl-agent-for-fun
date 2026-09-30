@@ -295,6 +295,11 @@ def _train(cl_args, config) -> None:
     from src.sim.rules import load_rules
 
     torch.set_num_threads(1)  # as fast at this size, and reproducible
+    from src.utils.test_maps import warning
+
+    test_map = warning(config.stage)
+    if test_map:
+        print(f"Warning: {test_map}.", flush=True)
     rules = load_rules(config.rules)
     if cl_args.round_seconds > 0:
         rules = rules.with_round_seconds(cl_args.round_seconds)

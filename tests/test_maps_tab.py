@@ -56,7 +56,7 @@ def test_every_stage_with_what_uses_it(root):
     assert set(maps) == {"arena", "box", "pillars", "ruins", "s_curve"}
     assert maps["ruins"].played == {("pupil", "training"): 2}
     assert maps["arena"].played == {("heuristic", "episodes"): 1}
-    assert maps["box"].suites == ["box"]
+    assert maps["box"].suites == ["skills"]
     assert maps["arena"].big and not maps["pillars"].big
     assert maps["box"].badges() == ["BUILT-IN", "DEFAULT", "SUITE"]
     assert maps["arena"].badges() == ["BUILT-IN", "BIG"]
@@ -68,9 +68,9 @@ def test_what_is_protected(root):
     assert "built-in" in maps["box"].protected
     assert "built-in" in maps["pillars"].protected
     assert maps["ruins"].protected == ""
-    suite = json.loads((root / "suites/box.json").read_text())
+    suite = json.loads((root / "suites/skills.json").read_text())
     suite["scenarios"][0]["stage"] = "ruins"
-    (root / "suites/box.json").write_text(json.dumps(suite))
+    (root / "suites/skills.json").write_text(json.dumps(suite))
     assert "suite" in _maps(root)["ruins"].protected
 
 

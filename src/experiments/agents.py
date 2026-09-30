@@ -8,8 +8,10 @@ from src.agents.store import AGENTS_DIR, AgentError, load_agent
 from src.experiments.runner import RUNS_DIR
 from src.experiments.evaluation import (
     DEFAULT_SUITE,
+    best_row,
     load_suite,
     read_results,
+    shares,
 )
 
 SPARKS = "▁▂▃▄▅▆▇█"
@@ -100,39 +102,41 @@ def agent_summary(
             f"{phase['start_decisions']:,} -> {phase['end_decisions']:,} "
             f"({phase['status']})"
         )
-    best = profile["best"]
-    heuristic = _heuristic_score(folder, suite)
+    best = profile["best"] if rows else None  # on the current suite
     if best:
-        versus = (
-            f"  (heuristic {heuristic:,.0f})" if heuristic is not None else ""
-        )
         lines.append(
             f"  best: {profile['checkpoints']['best']} on {best['suite']}: "
-            f"score {best['score_mean']:,.0f} (worst "
-            f"{best['score_min']:,.0f}), survival {best['survival']:.0%}, "
-            f"wrecks {best['wreck_rate']:.0%}, "
-            f"braking {best['braking']:.0%}{versus}"
+            f"share {best['share']:.2f} of the heuristic's (1.00: as good), "
+            f"score {best['score_mean']:,.0f}, survival "
+            f"{best['survival']:.0%}, wrecks {best['wreck_rate']:.0%}, "
+            f"braking {best['braking']:.0%}"
         )
+        skills = "  ".join(
+            f"{s.label or s.name} {share:.2f}"
+            for s, share in zip(suite.scenarios, _skill_shares(folder, suite))
+        )
+        if skills:
+            lines.append(f"  skills: {skills}")
     else:
         lines.append(f"  not scored yet: make eval AGENT={profile['id']}")
     if len(rows) > 1:
-        scores = [r["score_mean"] for r in rows]
+        shares = [r["share"] for r in rows]
         lines.append(
-            f"  trend ({len(rows)} scored checkpoints): {sparkline(scores)}  "
-            f"{scores[0]:,.0f} -> {scores[-1]:,.0f}"
+            f"  trend ({len(rows)} scored checkpoints): {sparkline(shares)}  "
+            f"{shares[0]:.2f} -> {shares[-1]:.2f}"
         )
     milestone = profile["milestone"]
     if milestone:
         lines.append(
             f"  milestone: {milestone['name']}, reached at "
-            f"{milestone['checkpoint']} ({milestone['score_mean']:,.0f} vs "
-            f"heuristic {milestone['heuristic_score']:,.0f}, wrecks "
+            f"{milestone['checkpoint']} on {milestone['suite']} (wrecks "
             f"{milestone['wreck_rate']:.0%})"
         )
     else:
         lines.append(
-            "  milestone: not yet (the best checkpoint must beat the "
-            "heuristic's mean score and wreck in under half the rounds)"
+            "  milestone: not yet (the best checkpoint must reach an average "
+            "share above 1.00 of the heuristic's and wreck in under half the "
+            "rounds)"
         )
     return "\n".join(lines)
 
@@ -149,12 +153,17 @@ def sparkline(values: list[float]) -> str:
     )
 
 
-def _heuristic_score(folder: Path, suite) -> float | None:
-    """From the baseline cache (written when checkpoints are scored)."""
+def _skill_shares(folder: Path, suite) -> list[float]:
+    """The best checkpoint's share of the heuristic's on each skill (from
+    the baseline cache, written when checkpoints are scored).
+    """
     path = folder.parent / "baselines" / f"{suite.label}.json"
-    if not path.exists():
-        return None
-    return json.loads(path.read_text())["scores"]["heuristic"]["score_mean"]
+    rows = read_results(folder, suite)
+    if not path.exists() or not rows:
+        return []
+    heuristic = json.loads(path.read_text())["scores"]["heuristic"]
+    found = shares(best_row(rows), heuristic, suite)
+    return [found[s.name] for s in suite.scenarios]
 
 
 __all__ = ["AgentError", "agent_summary", "format_agents", "list_agents"]

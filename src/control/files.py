@@ -92,7 +92,7 @@ KINDS = (
     Kind("Trainers", "trainers", ("default", "imitate")),
     Kind("Models", "models", ("small",)),
     Kind("Datasets", "datasets", ("mine",)),
-    Kind("Suites", "suites", ("box",)),
+    Kind("Suites", "suites", ("skills",)),
 )
 # Values tied to code or to the file's shape: shown, not edited.
 READONLY = {

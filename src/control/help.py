@@ -118,11 +118,19 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
         "description": ("", "What this suite measures, in plain words."),
         "version": ("", "Goes up by one on each saved change, so scores of "
                     "different versions never mix."),
-        "scenarios.*.name": ("", "The scenario's name, in results."),
-        "scenarios.*.kind": ("", "round: full rounds (score, survival, "
-                             "checkpoints). braking: starts at speed, "
-                             "aimed at a wall. Fixed: a suite needs one "
-                             "of each."),
+        "scenarios.*.name": ("", "The skill's name, in results "
+                             "(skill:<name>): one per scenario."),
+        "scenarios.*.label": ("", "The skill as shown: \"Open field\"."),
+        "scenarios.*.group": ("", "The skill's group: Handling, Hunting, "
+                              "or Walls."),
+        "scenarios.*.kind": ("", "round: rounds scored by their mean game "
+                             "score. braking: starts at speed, aimed at a "
+                             "wall, scored by the share of clean stops."),
+        "scenarios.*.floor": ("", "The least the heuristic's value counts "
+                              "as, for this skill's share (default: 100 "
+                              "points for a round, 0.1 for braking), so a "
+                              "skill the heuristic can't do can't divide by "
+                              "about 0."),
         "scenarios.*.stage": ("", "The stage it's played on."),
         "scenarios.*.rules": ("", "The rules it's played with."),
         "scenarios.*.first_seed": ("", "Round i uses seed first_seed + i: "

@@ -99,13 +99,15 @@ def test_a_branch_records_where_it_came_from(tmp_path):
 # Scores and the milestone
 
 
-def _scored(tmp_path, monkeypatch, heuristic_score):
+def _scored(tmp_path, monkeypatch, share):
+    """Scores the agent's checkpoints, with every one at `share` of the
+    heuristic's (the shares' math is tested in test_evaluation).
+    """
     suite = _tiny_suite(tmp_path)
     monkeypatch.setattr(
-        evaluation,
-        "baseline_scores",
-        lambda *args: {"heuristic": {"score_mean": heuristic_score}},
+        evaluation, "baseline_scores", lambda *args: {"heuristic": {}}
     )
+    monkeypatch.setattr(evaluation, "average_share", lambda *args: share)
     _train(tmp_path)
     folder = tmp_path / "agents" / "pupil"
     evaluate_agent(folder, suite)
@@ -113,25 +115,25 @@ def _scored(tmp_path, monkeypatch, heuristic_score):
 
 
 def test_scores_and_the_best_are_recorded(tmp_path, monkeypatch):
-    folder, _ = _scored(tmp_path, monkeypatch, heuristic_score=1e9)
+    folder, _ = _scored(tmp_path, monkeypatch, share=0.2)
     events = _events(folder)
     assert events.count("scored") == 3  # initial and two checkpoints
     assert "new_best" in events
-    assert "milestone" not in events  # nobody beats a score of 1e9
+    assert "milestone" not in events  # 0.2 of the heuristic: not yet
     profile = read_profile(folder)
     assert profile["checkpoints"]["best"] is not None
-    assert profile["best"]["suite"] == "box-v1"
+    assert profile["best"]["suite"] == "skills-v1"
     assert profile["milestone"] is None
 
 
 def test_the_milestone_is_recorded_once(tmp_path, monkeypatch):
-    folder, suite = _scored(tmp_path, monkeypatch, heuristic_score=-1)
+    folder, suite = _scored(tmp_path, monkeypatch, share=1.5)
     assert _events(folder).count("milestone") == 1
     evaluation.evaluate_checkpoint(folder, "initial", suite)  # again
     assert _events(folder).count("milestone") == 1
     milestone = read_profile(folder)["milestone"]
     assert milestone["name"] == "first skilled agent"
-    assert milestone["heuristic_score"] == -1
+    assert milestone["share"] == 1.5 and milestone["suite"] == "skills-v1"
     assert "milestone: first skilled agent" in agent_summary(folder)
 
 
@@ -140,11 +142,11 @@ def test_the_milestone_needs_survival(tmp_path, monkeypatch):
         evaluation,
         "best_row",
         lambda rows: {
-            **max(rows, key=lambda r: r["score_mean"]),
+            **max(rows, key=lambda r: r["share"]),
             "wreck_rate": 0.5,
         },
     )
-    folder, _ = _scored(tmp_path, monkeypatch, heuristic_score=-1)
+    folder, _ = _scored(tmp_path, monkeypatch, share=1.5)
     assert "milestone" not in _events(folder)
 
 
@@ -152,7 +154,7 @@ def test_the_milestone_needs_survival(tmp_path, monkeypatch):
 
 
 def test_listing_agents(tmp_path, monkeypatch):
-    _scored(tmp_path, monkeypatch, heuristic_score=1e9)
+    _scored(tmp_path, monkeypatch, share=0.2)
     create_agent("fresh", load_model_spec("medium"), root=tmp_path / "agents")
     profiles = list_agents(tmp_path / "agents")
     assert {p["id"] for p in profiles} == {"pupil", "fresh"}
@@ -162,7 +164,7 @@ def test_listing_agents(tmp_path, monkeypatch):
 
 
 def test_the_digest(tmp_path, monkeypatch):
-    folder, _ = _scored(tmp_path, monkeypatch, heuristic_score=1e9)
+    folder, _ = _scored(tmp_path, monkeypatch, share=0.2)
     text = agent_summary(folder)
     assert text.startswith("pupil  (model small: 64x64 tanh)")
     assert "512 decisions, 1 training phase," in text

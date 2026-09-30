@@ -171,7 +171,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 ### Evaluation suite (`src/experiments/evaluation.py`)
 
-`load_suite(name)` reads `suites/<name>.json` (a versioned list of scenarios). `evaluate(driver, suite)` plays every scenario deterministically and returns the metrics: `round` (full rounds on fixed seeds: mean and worst score, checkpoints per minute, survival share, wreck rate, contacts) and `braking` (`place_at_wall` puts the car at speed, aimed at a wall, from the seed; the share with no damage). `evaluate_checkpoint` saves one row per checkpoint in `agents/<id>/evaluations/<suite>-v<version>.csv` and the best in `evaluations/best.json`. `evaluate_agent` scores the checkpoints not yet scored. See [decision 017](decisions/017-evaluation-suite.md).
+`load_suite(name)` reads `suites/<name>.json` (format 2: a versioned list of scenarios, each one skill with its name, label, and group). The default is `skills` (7d3b, [decision 043](decisions/043-skills-suite.md)): 7 skills on the box and the 5 `skill_` maps, 5 games each on fixed seeds. `evaluate(driver, suite)` plays every scenario deterministically (with game points as the reward, so no path work) and returns each skill's value (`skill:<name>`: a round's mean game score, or braking's share of clean stops; `place_at_wall` puts the car at speed, aimed at a wall, from the seed) and the overall metrics over all rounds (mean and worst score, checkpoints per minute, survival, wreck rate, contacts, braking). `shares` divides each skill by the heuristic's (at least the skill's floor: 100 points for a round, 0.1 for braking), and `average_share` is the ranking: `evaluate_checkpoint` saves it with the row in `agents/<id>/evaluations/<suite>-v<version>.csv` (the overall columns, `share`, then a column per skill), `best_row` picks the best average share, saved in `evaluations/best.json`, and the milestone is an average share above 1.0 with under half the rounds wrecked (once per suite version). `evaluate_agent` scores the checkpoints not yet scored. See [decision 017](decisions/017-evaluation-suite.md).
 
 - Training scores each saved checkpoint when the trainer's `evaluate` is on, with a separate env and driver, so training itself is unchanged.
 - `load_agent(..., prefer_best=True)` (watching) loads the best scored checkpoint, else the newest. `"best"` asks for it explicitly.
@@ -182,11 +182,11 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 ### Showcase (`src/experiments/showcase.py`)
 
-`plan(agent)` picks the checkpoints to show (highlights, or all), scoring any unscored ones, and collects each one's suite scores, training time, and badges. `Showcase(folder, stops, config).run()` plays each checkpoint live on the suite's first round seed (deterministic, so it's the evaluation's round) behind a title card, with the replay viewer's `PlaybackControl` plus Left/Right to switch checkpoints. See [decision 020](decisions/020-showcase-mode.md).
+`plan(agent)` picks the checkpoints to show (highlights, or all), scoring any unscored ones, and collects each one's suite scores, training time, and badges. `Showcase(folder, stops, config).run()` plays each checkpoint live on the Open field skill's first seed, on the box (deterministic, so it's the evaluation's round) behind a title card, with the replay viewer's `PlaybackControl` plus Left/Right to switch checkpoints. See [decision 020](decisions/020-showcase-mode.md).
 
 ### Agent digests (`src/experiments/agents.py`)
 
-`list_agents()` and `format_agents()` for `make agents`, and `agent_summary(id)` for `make agent`: the profile, the score trend over scored checkpoints (a sparkline), and the heuristic's score from the baseline cache. Scoring a checkpoint (`evaluation.py`) records `scored`, `new_best`, and, once, the `milestone`.
+`list_agents()` and `format_agents()` for `make agents`, and `agent_summary(id)` for `make agent`: the profile, the best checkpoint's average share and each skill's share of the heuristic's (from the baseline cache), and the share's trend over scored checkpoints (a sparkline). Scoring a checkpoint (`evaluation.py`) records `scored`, `new_best`, and, once, the `milestone`.
 
 ## Control center (`src/control/`)
 
@@ -299,6 +299,8 @@ every drawn frame:
 ```
 
 `FixedStepClock` (`src/utils/timing.py`) turns real time into a whole number of steps. After a stall it skips the backlog (at most 8 steps per frame).
+
+`test_maps` (`src/utils/test_maps.py`, no torch) says which of the default suite's skills a map is the test for, and the warning before training on one (the Training tab and `make train`; never the box, the map to train on).
 
 `named_files` (`src/utils/named_files.py`) finds a named file by kind and name: built-in (`stages/`, `rules/`, ...) first, then yours (`user/<kind>/`). Every loader (`load_stage`, `load_rules`, ...), every dropdown, and the Files and Maps tabs go through it; a new file goes to `user/`, and can't take a built-in's name. Built-ins can't be saved or trashed from the app (`files.save`, `Trash.delete_file`, and the editor refuse them), and dropdowns list them first, yours tagged `· yours` (`choices.named`) ([decision 039](decisions/039-skills-suite-and-built-in-files.md)).
 

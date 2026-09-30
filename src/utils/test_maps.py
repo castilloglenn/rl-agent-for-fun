@@ -1,0 +1,42 @@
+"""Which skills a map is the test for (roadmap 7d3b, decision 043):
+training on a test map makes its skill's score measure memory, not skill,
+so the Training tab and `make train` warn. The box never warns: it's the
+default map to train on, and its skills (Braking, Open field) are the
+ones every agent trains on anyway.
+
+No torch here: the control center reads it too.
+"""
+
+import json
+from pathlib import Path
+
+from src.utils import named_files
+
+SUITE = "skills"  # the default suite (src/experiments/evaluation.py)
+TRAINING_MAP = "box"  # the default map to train on: never a warning
+
+
+def skills_on(stage: str, root: Path = named_files.REPO) -> list[str]:
+    """The default suite's skills played on `stage` (their labels)."""
+    try:
+        data = json.loads(named_files.find("suites", SUITE, root).read_text())
+    except (FileNotFoundError, ValueError):
+        return []
+    return [
+        scenario.get("label") or scenario["name"]
+        for scenario in data.get("scenarios", [])
+        if scenario.get("stage") == stage
+    ]
+
+
+def warning(stage: str, root: Path = named_files.REPO) -> str | None:
+    """What to say before training on `stage` (None: nothing)."""
+    if stage == TRAINING_MAP:
+        return None
+    skills = skills_on(stage, root)
+    if not skills:
+        return None
+    return (
+        f"{stage} is a test map: its {' and '.join(skills)} score would "
+        "measure memory, not skill"
+    )

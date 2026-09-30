@@ -24,6 +24,7 @@ def _rows(scores):
             "checkpoint": f"c{i:02d}",
             "decisions": float(i),
             "score_mean": float(score),
+            "share": score / 1000,
             "survival": 1.0,
         }
         for i, score in enumerate(scores)
@@ -56,10 +57,10 @@ def trained(tmp_path, monkeypatch):
     monkeypatch.setattr(showcase, "load_suite", lambda name: suite)
     monkeypatch.setattr(evaluation, "load_suite", lambda name: suite)
     monkeypatch.setattr(
-        evaluation,
-        "baseline_scores",
-        lambda *args: {"heuristic": {"score_mean": -1}},  # milestone at once
+        evaluation, "baseline_scores", lambda *args: {"heuristic": {}}
     )
+    # Every checkpoint at 1.5 of the heuristic's: the milestone at once.
+    monkeypatch.setattr(evaluation, "average_share", lambda *args: 1.5)
     _train(tmp_path)
     folder, stops = plan(
         "pupil", root=tmp_path / "agents", runs_dir=tmp_path / "runs"

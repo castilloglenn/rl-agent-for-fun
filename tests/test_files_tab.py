@@ -23,7 +23,7 @@ def repo(tmp_path):
     for folder in (*FOLDERS, "stages"):
         shutil.copytree(files.REPO / folder, tmp_path / folder)
     _yours(tmp_path, "rules", "sprint", "my_sprint")
-    _yours(tmp_path, "suites", "box", "my_suite")
+    _yours(tmp_path, "suites", "skills", "my_suite")
     return tmp_path
 
 
@@ -56,11 +56,11 @@ def test_every_file_round_trips_exactly():
 
 
 def test_fields_by_path_and_type(repo):
-    data = files.load(repo, KIND["suites"], "box")
+    data = files.load(repo, KIND["suites"], "skills")
     by = {i.path: i for i in files.items("suites", data, repo)}
     assert by["name"].type == "readonly"
     assert by["scenarios.0.kind"].type == "readonly"
-    assert by["scenarios.1.start.speed"].type == "number"
+    assert by["scenarios.0.start.speed"].type == "number"  # braking
     assert by["scenarios.0.stage"].type == "choice"
     assert "box" in by["scenarios.0.stage"].options
     model = files.load(repo, KIND["models"], "small")
@@ -138,7 +138,7 @@ def test_duplicate(repo):
         files.duplicate(repo, kind, "standard", "mine")
     with pytest.raises(FileError, match="letters, digits"):
         files.duplicate(repo, kind, "standard", "my rules")
-    suite = files.duplicate(repo, KIND["suites"], "box", "hard")
+    suite = files.duplicate(repo, KIND["suites"], "skills", "hard")
     assert json.loads(suite.read_text())["version"] == 1
 
 
