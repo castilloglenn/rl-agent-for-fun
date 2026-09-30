@@ -254,6 +254,26 @@ def test_the_buttons_start_actions(window):
     tab = window.agents_tab
     tab.press("Watch best")
     assert "agent:pupil" in window.started[-1]
+    argv = window.started[-1]
+    assert argv[argv.index("--stage") + 1] == "box"  # no training phase
+
+
+def test_watch_best_uses_its_newest_trainings_stage(window):
+    tab = window.agents_tab
+    tab.agent.profile["phases"] = [
+        {"kind": "rl", "stage": "pillars"},
+        {"kind": "rl", "stage": "arena"},
+        {"kind": "imitation"},
+    ]
+    window.draw()
+    assert any("on arena" in text for _, text in window.tips.targets)
+    tab.press("Watch best")
+    argv = window.started[-1]
+    assert argv[argv.index("--stage") + 1] == "arena"
+    tab.agent.profile["phases"] = [{"kind": "rl", "stage": "gone_map"}]
+    tab.press("Watch best")
+    argv = window.started[-1]
+    assert argv[argv.index("--stage") + 1] == "box"  # its file is gone
     tab.press("Showcase")
     assert window.started[-1][-2:] == ["-showcase", "pupil"]
     tab.press("Evaluate")

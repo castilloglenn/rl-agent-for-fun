@@ -71,6 +71,14 @@ class AgentInfo:
         return self.profile.get("best") or {}
 
     @property
+    def stage(self) -> str | None:
+        """The stage its newest training phase ran on (None if none)."""
+        phases = self.profile.get("phases") or []
+        return next(
+            (p["stage"] for p in reversed(phases) if p.get("stage")), None
+        )
+
+    @property
     def best_checkpoint(self) -> str | None:
         return (self.profile.get("checkpoints") or {}).get("best")
 

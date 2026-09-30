@@ -28,6 +28,7 @@ from pygame_gui.elements import UIButton, UIDropDownMenu, UISelectionList
 from src.control import help, runs
 from src.control.charts import DOTS, LINE, Plot, Series, draw_chart
 from src.control.jobs import JobManager
+from src.control.maps_data import watch_stage
 from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
 from src.control.text import fit, header
 from src.control.tooltips import Tooltips
@@ -402,9 +403,8 @@ class RunsTab:
         start = f"{self.data.who}@{name}"
         self.picked = None
         if key == "watch":
-            self._started(
-                self.run_action("Watch a driver", {"Driver": f"agent:{start}"})
-            )
+            values = {"Driver": f"agent:{start}", "Stage": self._stage()}
+            self._started(self.run_action("Watch a driver", values))
         else:
             self.branch(start)
 
@@ -582,6 +582,10 @@ class RunsTab:
         rect.clamp_ip(self.main_rect.inflate(-8, -8))
         return rect
 
+    def _stage(self) -> str:
+        """Where to watch a checkpoint: the stage this run trained on."""
+        return watch_stage((self.data.config.get("stage") or {}).get("name"))
+
     def _popover_texts(self) -> tuple[str, str]:
         name, decisions, score = self.picked
         return (
@@ -630,6 +634,8 @@ class RunsTab:
                 anchor="center",
             )
             self.popover_buttons[key] = rect
+            if key == "watch":
+                self.tips.add(rect, f"Watch it drive on {self._stage()}.")
             bx += width + GAP
 
     def _draw_status(self, surface, data, row, x, y, width) -> None:

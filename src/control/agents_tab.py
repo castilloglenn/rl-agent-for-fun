@@ -34,6 +34,7 @@ from src.control.charts import (
     percent,
 )
 from src.control.jobs import JobManager
+from src.control.maps_data import watch_stage
 from src.control.radar import draw_radar
 from src.control.text import PAD, fit, header, wrap
 from src.control.tooltips import Tooltips
@@ -347,7 +348,8 @@ class AgentsTab:
         started = None
         if name == "Watch best":
             started = self.run_action(
-                "Watch a driver", {"Driver": f"agent:{agent.id}"}
+                "Watch a driver",
+                {"Driver": f"agent:{agent.id}", "Stage": self._stage(agent)},
             )
         elif name == "Showcase":
             started = self.run_action("Showcase", {"Agent": agent.id})
@@ -372,6 +374,10 @@ class AgentsTab:
 
     # Drawing
 
+    def _stage(self, agent) -> str:
+        """Where to watch it: its newest training's stage."""
+        return watch_stage(agent.stage)
+
     def draw(self, surface) -> None:
         for rect in (self.list_box, self.detail):
             pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
@@ -395,6 +401,11 @@ class AgentsTab:
         agent = self.agent
         if agent:
             self._draw_profile(surface, agent)
+            self.tips.add(
+                self.buttons["Watch best"].rect,
+                f"Watch its best checkpoint drive on {self._stage(agent)}, "
+                "the stage of its newest training.",
+            )
         if self.message:
             text, color = self.message
             room = self.buttons["Delete agent"].rect.x - self.message_x - 8

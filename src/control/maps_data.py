@@ -105,6 +105,16 @@ def load_maps(
     return found
 
 
+def watch_stage(name: str | None, root: Path | None = None) -> str:
+    """The stage to watch a driver on: `name` (a run's or an agent's
+    stage), or the box if it has none or its file is gone.
+    """
+    root = root or REPO
+    if name and (root / "stages" / f"{name}.json").exists():
+        return name
+    return DEFAULT
+
+
 def sort_maps(maps: list[MapInfo], by: str) -> list[MapInfo]:
     keys = {
         "name": lambda m: m.name.lower(),

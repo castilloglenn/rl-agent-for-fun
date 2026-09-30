@@ -9,7 +9,7 @@ The Runs tab's score chart shows each checkpoint's suite score as a dot ([decisi
 ## Decision
 
 - **Click a suite dot** (within 9 px): a small box opens by it with the checkpoint (`rookie@d1700k`), its suite score and decisions, and two buttons. The dot gets a white ring. Esc, or a click elsewhere, closes it; Esc closes the box before it would ask to quit.
-  - **Watch it drive** starts the Commands tab's "Watch a driver" with `agent:<id>@<checkpoint>` (a game window).
+  - **Watch it drive** starts the Commands tab's "Watch a driver" with `agent:<id>@<checkpoint>` (a game window), on the stage the run trained on ([decision 037](037-watch-on-its-stage.md)).
   - **Branch from it** opens the Training tab set to RL for a new agent, with Start `<id>@<checkpoint>`, the name field focused.
   - The buttons are drawn by hand and act on release, like the confirmation box.
 - **Charts report where they drew** (`draw_chart` returns a `Plot` with its area and mapping), so a click finds the nearest dot.

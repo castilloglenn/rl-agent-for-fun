@@ -205,6 +205,17 @@ def test_watch_it_drive(window):
     _release_on(window, tab, "watch")
     label, argv = window.started[0]
     assert "agent:pupil@d0100" in argv
+    assert argv[argv.index("--stage") + 1] == "box"  # its run has none
+
+
+def test_watch_it_drive_on_the_stage_it_trained_on(window):
+    tab = _open_box(window)
+    tab.data.config["stage"] = {"name": "arena"}
+    window.draw()
+    assert any("on arena" in text for _, text in window.tips.targets)
+    _release_on(window, tab, "watch")
+    label, argv = window.started[0]
+    assert argv[argv.index("--stage") + 1] == "arena"
 
 
 def test_branch_from_it_opens_the_training_tab(window):

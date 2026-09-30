@@ -211,7 +211,7 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 | `tooltips.py` | `Tooltips`: tabs register help areas while drawing (and draw the "i" marker); the window draws the one under the mouse after 0.5 s |
 | `recordings_data.py` | The recordings browser's data ([decision 031](decisions/031-recordings-browser.md)): `players`, `recordings` (rows from file names and headers), and `uses` (whether a dataset's rules let a round in) |
 | `recordings_view.py` | `RecordingsView`: the table of a player's rounds, with Watch, Keep, Unkeep, and Delete (inside the Files tab) |
-| `maps_data.py` | The Maps tab's data ([decision 036](decisions/036-maps-tab.md)): `load_maps` (every stage, with the runs that played on it and the suites that use it, and whether it's protected), `sort_maps`, `check_new_name`, and `duplicate` |
+| `maps_data.py` | The Maps tab's data ([decision 036](decisions/036-maps-tab.md)): `load_maps` (every stage, with the runs that played on it and the suites that use it, and whether it's protected), `sort_maps`, `check_new_name`, `duplicate`, and `watch_stage` (where the Runs and Agents tabs watch a driver: its stage, or the box, [decision 037](decisions/037-watch-on-its-stage.md)) |
 | `stage_preview.py` | `draw_stage_preview`: a stage drawn small, in its own shape (walls, the spawn, checkpoints) |
 | `maps_tab.py` | `MapsTab`: map cards with previews and badges, and the selected map's details, what uses it, and Edit, Drive, Watch, New map, Duplicate, and Delete |
 | `files_tab.py` | `FilesTab`: the file list per kind, the editor (a `Form` of the file's fields), and Save, Revert, Duplicate as…, and Delete |
