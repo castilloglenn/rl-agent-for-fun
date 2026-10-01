@@ -18,6 +18,7 @@ from src.sim.components import (
     Sensors,
     Transform,
 )
+from src.sim import route
 from src.sim.resources import RoundState, SimConfig
 from src.sim.systems.sensors import RAY_LAYOUT
 
@@ -35,6 +36,12 @@ OBSERVATION_NAMES = (
     "checkpoint_distance",  # 0..1, of DISTANCE_SCALE
     "checkpoint_sin",  # relative angle: + is to the left
     "checkpoint_cos",  # relative angle: + is ahead
+    # The remembered route (7f7): its distance, and the direction of a
+    # waypoint about one corner ahead along it, relative to the heading.
+    "route_distance",  # 0..1, of DISTANCE_SCALE
+    "route_sin",  # + is to the left
+    "route_cos",  # + is ahead
+    "stuck",  # 0..1: seconds since it last got closer, of STUCK_CAP
     "time_left",  # 1 at the start of the round .. 0
     "health",  # 1 (full) .. 0 (wrecked)
 )
@@ -54,9 +61,31 @@ def observe(world: World, car: int) -> np.ndarray:
     values.append(motion.speed * sim.steps_per_second / sim.max_speed)
     values.append(motion.steering)
     values.extend(_checkpoint_compass(world, transform, scale))
+    values.extend(_route(world, car, transform, scale))
     values.append(state.steps_left / state.steps_total)
     values.append(world.component(car, Health).share)
     return np.array(values, dtype=np.float32)
+
+
+def _route(
+    world: World, car: int, transform: Transform, scale: float
+) -> tuple[float, float, float, float]:
+    """The remembered route's distance and waypoint direction, relative to
+    the heading, and the stuck timer. With no checkpoint: (1, 0, 0, 0).
+    """
+    sense = route.sense(world, car)
+    if sense.goal is None or sense.waypoint is None:
+        return 1.0, 0.0, 0.0, 0.0
+    x, y = sense.waypoint
+    bearing = math.atan2(-(y - transform.y), x - transform.x)
+    relative = bearing - math.radians(transform.angle)
+    stuck = route.stuck_seconds(world, sense) / route.STUCK_CAP
+    return (
+        min(sense.distance / scale, 1.0),
+        math.sin(relative),
+        math.cos(relative),
+        min(stuck, 1.0),
+    )
 
 
 def _checkpoint_compass(

@@ -99,7 +99,7 @@ Rays only detect things a car can hit (the border and walls now; later other car
 
 ### Observation (what the agent sees)
 
-**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4; 12 rays in 7f3). 19 float32 numbers:
+**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4; 12 rays in 7f3; the route and stuck timer in 7f7). 23 float32 numbers:
 
 | # | Input | Range and normalization |
 |---|---|---|
@@ -109,8 +109,12 @@ Rays only detect things a car can hit (the border and walls now; later other car
 | 14 | Checkpoint distance | 0 to 1, divided by 980.5 px on every map (7d2) |
 | 15 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
 | 16 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
-| 17 | Time left in the round | 1 at the start, down to 0 |
-| 18 | Health | 1 (full) down to 0 (wrecked) |
+| 17 | Route distance (remembered, 7f7) | 0 to 1, divided by 980.5 px: the drivable route's length, refreshed with the waypoint |
+| 18 | Route sin (the waypoint's relative angle) | -1 to 1, positive = to the left: a remembered point about one corner ahead along the route (the checkpoint itself when in sight), refreshed when reached or every 2 s |
+| 19 | Route cos | -1 to 1, positive = ahead |
+| 20 | Stuck | 0 to 1: seconds since the car last got closer along the route, over 10 s |
+| 21 | Time left in the round | 1 at the start, down to 0 |
+| 22 | Health | 1 (full) down to 0 (wrecked) |
 
 - **Direction is relative to the car**, like a compass ("ahead-left, fairly close"). Sin and cos avoid the jump from 359° to 0°.
 - **Fixed size:** a neural network needs a fixed number of inputs. Objects that vary in count use the **nearest K of each type**, with empty slots filled by zeros plus an "absent" flag. For now there's always exactly 1 checkpoint.

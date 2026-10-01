@@ -36,10 +36,10 @@ def _place_checkpoint(world, car, dx, dy):
     spot.x, spot.y = transform.x + dx, transform.y + dy
 
 
-def test_layout_is_19_named_float32_values():
+def test_layout_is_23_named_float32_values():
     env = _env()
     observation, info = env.reset()
-    assert len(OBSERVATION_NAMES) == 19 == observation.shape[0]  # 12 rays
+    assert len(OBSERVATION_NAMES) == 23 == observation.shape[0]  # 7f7
     assert OBSERVATION_NAMES[-1] == "health" and observation[-1] == 1.0
     assert observation.dtype == np.float32
     assert env.observation_version == 1

@@ -29,8 +29,8 @@ from src.sim.observation import (
     OBSERVATION_VERSION,
     observe,
 )
-from src.sim.paths import PathField
-from src.sim.resources import Field, RoundState, SimClock, SimConfig, Walls
+from src.sim.route import route_fields
+from src.sim.resources import RoundState, SimClock, SimConfig
 from src.sim.rules import Rules, load_rules
 from src.sim.stage import Stage
 from src.sim.systems.sensors import RAY_LAYOUT
@@ -102,7 +102,6 @@ class MazeCarEnv(Environment):
             rules=self.rules,
         )
         self.running: bool = True
-        self._paths: dict[tuple, PathField] = {}  # by goal, this stage
         self.last_reward = 0.0
         self.round_reward = 0.0  # agent reward summed over this game
         # Each term's share of it, summed over this game (for the HUD).
@@ -151,18 +150,8 @@ class MazeCarEnv(Environment):
         """The car's path length to `goal` around the walls (inf: none)."""
         if goal is None:
             return math.inf
-        path = self._paths.get(goal)
-        if path is None:
-            if len(self._paths) > 64:  # random checkpoints never repeat
-                self._paths.clear()
-            field = self.world.resource(Field)
-            walls = self.world.resource(Walls).boxes
-            path = PathField(
-                (field.x, field.y, field.width, field.height),
-                [(w.left, w.top, w.right, w.bottom) for w in walls],
-                goal,
-            )
-            self._paths[goal] = path
+        # One route field per checkpoint, shared with the route sense (7f7).
+        path = route_fields(self.world).field(self.world, goal)
         car = self.world.component(self.car, Transform)
         return path.distance(car.x, car.y)
 
