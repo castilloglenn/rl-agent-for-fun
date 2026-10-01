@@ -7,9 +7,14 @@ from src.sim.resources import Field, SimConfig, Walls
 from src.sim.walls import ray_to_walls
 
 # Name and angle (degrees, counterclockwise from the heading) of each ray,
-# going around the car.
+# going around the car. Denser in front (7f3, decision 059): a ray every
+# 15 degrees across the front 90, so a 48 px gap or a 30 px pillar shows
+# from 184 and 115 px away (45 degrees apart: from 63 and 39 px, closer
+# than the car needs to brake from full speed). Sides and back stay 45.
 RAY_LAYOUT = (
     ("front", 0),
+    ("front_left_15", 15),
+    ("front_left_30", 30),
     ("front_left", 45),
     ("left", 90),
     ("back_left", 135),
@@ -17,6 +22,8 @@ RAY_LAYOUT = (
     ("back_right", -135),
     ("right", -90),
     ("front_right", -45),
+    ("front_right_30", -30),
+    ("front_right_15", -15),
 )
 
 

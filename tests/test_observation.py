@@ -36,10 +36,10 @@ def _place_checkpoint(world, car, dx, dy):
     spot.x, spot.y = transform.x + dx, transform.y + dy
 
 
-def test_layout_is_15_named_float32_values():
+def test_layout_is_19_named_float32_values():
     env = _env()
     observation, info = env.reset()
-    assert len(OBSERVATION_NAMES) == 15 == observation.shape[0]
+    assert len(OBSERVATION_NAMES) == 19 == observation.shape[0]  # 12 rays
     assert OBSERVATION_NAMES[-1] == "health" and observation[-1] == 1.0
     assert observation.dtype == np.float32
     assert env.observation_version == 1
@@ -100,8 +100,8 @@ def test_compass_is_relative_to_the_heading():
 def test_values_stay_in_range_during_random_driving():
     env = _env()
     rng = random.Random(3)
-    lows = np.full(15, np.inf)
-    highs = np.full(15, -np.inf)
+    lows = np.full(len(OBSERVATION_NAMES), np.inf)
+    highs = np.full(len(OBSERVATION_NAMES), -np.inf)
     for episode in range(3):
         observation, _ = env.reset(seed=episode)
         for _ in range(2000):

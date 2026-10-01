@@ -95,22 +95,22 @@ The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
 
 Rays only detect things a car can hit (the border and walls now; later other cars and explosion hazards). They pass through checkpoints and fuel, which agents perceive through the compass inputs instead (see Observation).
 
-8 rays at 0°, ±45°, ±90°, ±135°, and 180° around the car's heading: front, front-left, left, back-left, back, back-right, right, front-right. Each ray starts where it leaves the car's body, so distance 0 means touching. Distances are exact floats. **Implemented in step 3e.**
+12 rays around the car's heading, denser in front (7f3, [decision 059](decisions/059-twelve-rays-and-instruments.md)): 0°, ±15°, ±30°, ±45°, ±90°, ±135°, and 180°: front, front-left 15°, front-left 30°, front-left (45°), left, back-left, back, back-right, right, front-right (45°), front-right 30°, front-right 15°. A 48 px gap shows from 184 px away and a 30 px pillar from 115 px (with 8 rays 45° apart: 63 and 39 px). Each ray starts where it leaves the car's body, so distance 0 means touching. Distances are exact floats. **Implemented in step 3e.**
 
 ### Observation (what the agent sees)
 
-**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4). 15 float32 numbers:
+**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4; 12 rays in 7f3). 19 float32 numbers:
 
 | # | Input | Range and normalization |
 |---|---|---|
-| 0-7 | Ray distances (front, front-left, left, back-left, back, back-right, right, front-right) | 0 to 1, divided by 980.5 px (the box's diagonal) on every map (7d2) |
-| 8 | Speed | -⅓ (full reverse) to 1, divided by max speed |
-| 9 | Steering wheel position | -1 (full right) to 1 (full left) |
-| 10 | Checkpoint distance | 0 to 1, divided by 980.5 px on every map (7d2) |
-| 11 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
-| 12 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
-| 13 | Time left in the round | 1 at the start, down to 0 |
-| 14 | Health | 1 (full) down to 0 (wrecked) |
+| 0-11 | Ray distances, in the rays' order around the car (front, front-left 15°, 30°, 45°, left, back-left, back, back-right, right, front-right 45°, 30°, 15°) | 0 to 1, divided by 980.5 px (the box's diagonal) on every map (7d2) |
+| 12 | Speed | -⅓ (full reverse) to 1, divided by max speed |
+| 13 | Steering wheel position | -1 (full right) to 1 (full left) |
+| 14 | Checkpoint distance | 0 to 1, divided by 980.5 px on every map (7d2) |
+| 15 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
+| 16 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
+| 17 | Time left in the round | 1 at the start, down to 0 |
+| 18 | Health | 1 (full) down to 0 (wrecked) |
 
 - **Direction is relative to the car**, like a compass ("ahead-left, fairly close"). Sin and cos avoid the jump from 359° to 0°.
 - **Fixed size:** a neural network needs a fixed number of inputs. Objects that vary in count use the **nearest K of each type**, with empty slots filled by zeros plus an "absent" flag. For now there's always exactly 1 checkpoint.

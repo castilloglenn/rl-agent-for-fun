@@ -44,7 +44,7 @@ ORPHANED = 1  # the parent of a process whose parent ended (launchd)
 # for 64x64 and 128x128, 0.62 GB for 2048x2048, 1.41 GB for 4096x4096.
 BASE_GB = 0.30  # the process, with a small model
 BYTES_PER_PARAM = 40  # measured 33 to 38: weights, gradients, Adam, a save
-INPUTS, ACTIONS = 15, 12  # observation layout 1, canonical12 (tested)
+INPUTS, ACTIONS = 19, 12  # observation (12 rays, 7f3), canonical12 (tested)
 DEFAULT_MODEL = "small"  # app.py's --model default
 
 

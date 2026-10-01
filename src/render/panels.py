@@ -16,7 +16,7 @@ import pygame
 from pygame import Rect, Surface
 
 from src.ecs import World
-from src.render import theme, warnings
+from src.render import instruments, theme, warnings
 from src.render.layout import MARGIN
 from src.sim.components import (
     ActionInput,
@@ -149,18 +149,6 @@ def car_infos(world: World) -> list[CarInfo]:
     ]
 
 
-DIRECTIONS = (
-    "ahead",
-    "ahead-left",
-    "left",
-    "behind-left",
-    "behind",
-    "behind-right",
-    "right",
-    "ahead-right",
-)
-
-
 def health_color(share: float) -> ColorValue:
     if share > 0.6:
         return theme.GOOD
@@ -171,9 +159,10 @@ def health_color(share: float) -> ColorValue:
 
 def nearest_checkpoint(
     world: World, car: CarInfo
-) -> tuple[float, str] | None:
-    """Distance (center to center) and direction, relative to the car's
-    heading, of the nearest checkpoint.
+) -> tuple[float, float] | None:
+    """Distance (center to center) and angle, relative to the car's
+    heading (counterclockwise: + is to its left), of the nearest
+    checkpoint.
     """
     spots = [spot for _, (spot, _) in world.query(Transform, Checkpoint)]
     if not spots:
@@ -181,9 +170,8 @@ def nearest_checkpoint(
     x, y = car.center
     spot = min(spots, key=lambda s: math.dist((s.x, s.y), (x, y)))
     bearing = math.degrees(math.atan2(-(spot.y - y), spot.x - x))
-    relative = (bearing - car.heading) % 360
-    direction = DIRECTIONS[int((relative + 22.5) // 45) % 8]
-    return math.dist((spot.x, spot.y), (x, y)), direction
+    relative = (bearing - car.heading + 180) % 360 - 180
+    return math.dist((spot.x, spot.y), (x, y)), relative
 
 
 def format_time(seconds: float) -> str:
@@ -499,55 +487,120 @@ def draw_car_panel(
     hud: ConfigDict,
     display: tuple[float, int, bool] = (0.0, 60, False),
     camera: str = "1:1",
+    readouts: instruments.Readouts | None = None,
 ) -> None:
     """Right: the car's live instruments, next to the field, and the
     display. display: (fps, target frame rate, vsync). camera: its mode
-    (step 7b), for example "fit 53 %".
+    (step 7b), for example "fit 53 %". readouts: the window's steady
+    numbers (7f3: a mean, redrawn 4 times a second).
     """
+    readouts = readouts or instruments.Readouts()
     column = _Column(surface, rect)
     car = cars[0] if cars else None
+    sim = world.resource(SimConfig)
     stop_distance = 0.0
     if car:
         stop_distance = warnings.stopping_distance(
-            car.speed,
-            hud.reaction_time,
-            world.resource(SimConfig).brake_deceleration,
+            car.speed, hud.reaction_time, sim.brake_deceleration
         )
 
     column.header("CAR")
     if car:
-        column.row(
+        level = warnings.speed_level(
+            _ahead_distance(car), car.speed, stop_distance
+        )
+        _instrument_row(
+            column,
             "Speed",
-            f"{car.speed:,.1f} px/s",
-            warnings.speed_level(
-                _ahead_distance(car), car.speed, stop_distance
+            readouts.text("speed", car.speed, lambda v: f"{v:,.0f} px/s"),
+            warnings.value_color(level),
+            lambda area: instruments.draw_speed_bar(
+                surface,
+                Rect(area.x, area.centery - 4, area.w, 8),
+                car.speed,
+                sim.max_speed,
+                sim.max_reverse_speed,
+                level,
             ),
         )
-        column.row("Stop dist", f"{stop_distance:,.0f} px")
-        column.row("Pedal", car.pedal)
-        column.row("Steering", _steering_text(car.steering))
-        column.row("Heading", f"{car.heading:.0f}°")
-        column.row("Position", f"{car.center[0]:.1f}, {car.center[1]:.1f}")
+        _instrument_row(
+            column,
+            "Steering",
+            "",
+            theme.TEXT,
+            lambda area: instruments.draw_slider(surface, area, car.steering),
+        )
+        _instrument_row(
+            column,
+            "Heading",
+            readouts.text(
+                "heading", car.heading, lambda v: f"{v:.0f}°", mean=False
+            ),
+            theme.TEXT,
+            lambda area: instruments.draw_dial(
+                surface, (area.x + 8, area.centery), 8, car.heading
+            ),
+        )
+        x = readouts.text("x", car.center[0], lambda v: f"{v:.0f}")
+        y = readouts.text("y", car.center[1], lambda v: f"{v:.0f}")
+        column.row("Position", f"{x}, {y}")
         _draw_inputs(column, car.action)
     else:
         column.note("No car")
     column.gap()
 
-    column.header("SENSORS (px to a wall)")
+    column.header("SENSORS")
     if car:
-        _draw_sensors(
-            column, car, world.resource(SimConfig).brake_deceleration, hud
+        levels = warnings.ray_levels(
+            car.rays, car.speed, sim.brake_deceleration, hud
         )
+        radius = 50
+        center = ((column.left + column.right) // 2, column.y + radius + 4)
+        closest = instruments.draw_radar(
+            surface, center, radius, car.rays, levels, car.speed,
+            stop_distance,
+        )
+        column.y += 2 * radius + 12
+        if closest:
+            name, distance = closest
+            near = readouts.text(
+                "closest", distance, lambda v: f"{v:,.0f} px"
+            )
+            which = readouts.text(
+                "closest_ray",
+                0.0,
+                lambda _, n=name: instruments.ray_label(n),
+                mean=False,
+            )
+            column.note(
+                f"closest {near} · {which}",
+                warnings.value_color(levels.get(name, warnings.NORMAL)),
+            )
     column.gap()
 
     column.header("OBJECTIVE")
     checkpoint = nearest_checkpoint(world, car) if car else None
     if checkpoint:
-        distance, direction = checkpoint
-        column.row(
+        distance, relative = checkpoint
+        level = warnings.checkpoint_level(distance, hud)
+        color = warnings.value_color(level)
+
+        def compass(area: Rect) -> None:
+            instruments.draw_arrow(
+                surface, (area.x + 8, area.centery), 8, relative, theme.ACCENT
+            )
+            bar = Rect(area.x + 24, area.centery - 3, area.w - 24, 6)
+            pygame.draw.rect(surface, theme.BAR_EMPTY, bar)
+            share = min(distance / instruments.RADAR_RANGE / 3, 1.0)
+            fill = Rect(bar.x, bar.y, round(bar.w * share), bar.h)
+            pygame.draw.rect(surface, color, fill)
+
+        _instrument_row(
+            column,
             "Checkpoint",
-            f"{distance:,.0f} px {direction}",
-            warnings.checkpoint_level(distance, hud),
+            readouts.text("checkpoint", distance, lambda v: f"{v:,.0f} px"),
+            color,
+            compass,
         )
     else:
         column.row("Checkpoint", DASH)
@@ -557,7 +610,7 @@ def draw_car_panel(
     column.header("DISPLAY")
     column.row(
         "FPS",
-        f"{fps:.0f}/{frame_rate}",
+        f"{readouts.text('fps', fps, lambda v: f'{v:.0f}')}/{frame_rate}",
         warnings.fps_level(fps, frame_rate, hud),
     )
     column.row("Vsync", "on" if vsync else "off")
@@ -566,69 +619,41 @@ def draw_car_panel(
     column.finish()
 
 
-# Mirrored columns: the car's left side on the left, right side on the right.
-SENSOR_ROWS = (
-    ("front", "back"),
-    ("front_left", "front_right"),
-    ("left", "right"),
-    ("back_left", "back_right"),
-)
-SENSOR_LABELS = {
-    "front": "Front",
-    "front_left": "F-left",
-    "left": "Left",
-    "back_left": "B-left",
-    "back": "Back",
-    "back_right": "B-right",
-    "right": "Right",
-    "front_right": "F-right",
-}
+LABEL_WIDTH = 86  # an instrument row's label column
+
+
+def _instrument_row(
+    column: "_Column", label: str, text: str, color, draw
+) -> None:
+    """A label, an instrument drawn in the room between, and a steady
+    number on the right.
+    """
+    surface = column.surface
+    draw_text(
+        surface, label, (column.left, column.y), theme.TEXT_SIZE,
+        theme.TEXT_DIM,
+    )
+    right = column.right
+    if text:
+        shown = draw_text(
+            surface, text, (column.right, column.y), theme.TEXT_SIZE, color,
+            anchor="topright",
+        )
+        right = shown.left - 10
+    area = Rect(
+        column.left + LABEL_WIDTH,
+        column.y,
+        max(right - column.left - LABEL_WIDTH, 10),
+        theme.LINE_HEIGHT - 4,
+    )
+    draw(area)
+    column.y += theme.LINE_HEIGHT
 
 
 def _ahead_distance(car: CarInfo) -> float | None:
     """Distance straight along the direction of travel."""
     name = "front" if car.speed > 0 else "back" if car.speed < 0 else None
     return next((ray.distance for ray in car.rays if ray.name == name), None)
-
-
-def _draw_sensors(
-    column: _Column, car: CarInfo, brake_deceleration: float, hud: ConfigDict
-) -> None:
-    rays = {ray.name: ray for ray in car.rays}
-    levels = warnings.ray_levels(car.rays, car.speed, brake_deceleration, hud)
-    middle = (column.left + column.right) // 2
-    for left_name, right_name in SENSOR_ROWS:
-        for name, x, right_edge in (
-            (left_name, column.left, middle - 12),
-            (right_name, middle + 12, column.right),
-        ):
-            if name not in rays:
-                continue
-            ray = rays[name]
-            level = levels[name]
-            draw_text(
-                column.surface,
-                SENSOR_LABELS.get(name, name),
-                (x, column.y),
-                theme.TEXT_SIZE,
-                warnings.label_color(level),
-            )
-            draw_text(
-                column.surface,
-                f"{ray.distance:.1f}",
-                (right_edge, column.y),
-                theme.TEXT_SIZE,
-                warnings.value_color(level),
-                anchor="topright",
-            )
-        column.y += theme.LINE_HEIGHT
-
-
-def _steering_text(steering: float) -> str:
-    if steering == 0:
-        return "Center"
-    side = "Left" if steering > 0 else "Right"
-    return f"{side} {abs(steering) * 100:.0f} %"
 
 
 def _draw_inputs(column: _Column, action: ActionInput) -> None:

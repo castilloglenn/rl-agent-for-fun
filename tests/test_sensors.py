@@ -27,11 +27,14 @@ def _rays(world, car):
     return {ray.name: ray for ray in world.component(car, Sensors).rays}
 
 
-def test_eight_rays_around_the_car():
+def test_twelve_rays_around_the_car_denser_in_front():
+    """7f3: a ray every 15 degrees across the front 90, 45 elsewhere."""
     world, car = _car(400, 300)
     rays = world.component(car, Sensors).rays
     assert [(ray.name, ray.angle) for ray in rays] == [
         ("front", 0),
+        ("front_left_15", 15),
+        ("front_left_30", 30),
         ("front_left", 45),
         ("left", 90),
         ("back_left", 135),
@@ -39,6 +42,8 @@ def test_eight_rays_around_the_car():
         ("back_right", -135),
         ("right", -90),
         ("front_right", -45),
+        ("front_right_30", -30),
+        ("front_right_15", -15),
     ]
 
 

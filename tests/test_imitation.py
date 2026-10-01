@@ -29,6 +29,7 @@ from src.experiments.imitation import _returns, _split, imitate
 from src.replay.format import read_replay, write_replay
 from src.replay.recorder import human_driver
 from src.replay.recordings import LibraryRecorder, RecordingLibrary
+from src.sim.observation import OBSERVATION_NAMES
 from tests.test_training import SHORT, TINY, TrainerSpec, _train
 
 IDLE = (False,) * 5
@@ -110,8 +111,9 @@ def test_samples_skip_the_idle_start_and_take_the_most_pressed(tmp_path):
     (round_,) = dataset.rounds
     assert len(round_.actions) == 30  # the 3 idle decisions are left out
     assert {CANONICAL_NAMES[a] for a in round_.actions} == {"none+gas"}
-    assert round_.observations.shape == (30, 15)
-    assert round_.observations[0][8] == 0  # stopped, about to press gas
+    assert round_.observations.shape == (30, len(OBSERVATION_NAMES))
+    speed = OBSERVATION_NAMES.index("speed")
+    assert round_.observations[0][speed] == 0  # stopped, about to press gas
 
 
 def test_rounds_without_keys_or_that_dont_verify_are_skipped(tmp_path):

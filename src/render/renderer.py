@@ -9,6 +9,7 @@ from src.render import camera, panels, theme, warnings
 from src.render.camera import FIT, FOLLOW, MAP_CARD_EXTRA, MAP_TOP
 from src.render.layout import MARGIN, Layout
 from src.render.map_picker import MapChoice, draw_map_picker
+from src.render.instruments import Readouts
 from src.render.spinner import draw_spinner
 from src.sim.components import (
     Checkpoint,
@@ -116,6 +117,8 @@ class Renderer:
         # Keys a mode takes over from the window (a test drive's T).
         self.mode_keys: set[int] = set()
         self.keys_pressed: list[int] = []  # this frame's keys, for modes
+        # The side panel's steady numbers (7f3: a mean, 4 times a second).
+        self.readouts = Readouts()
         # The playback state last drawn (speed, paused), and when it
         # changed (ms), for the flash.
         self._speed: tuple | None = None
@@ -339,6 +342,7 @@ class Renderer:
             self.config.hud,
             (self.clock.get_fps(), self.frame_rate, self.vsync),
             self.camera.label(),
+            self.readouts,
         )
         if self.confirm_quit:
             self._draw_centered_lines(
