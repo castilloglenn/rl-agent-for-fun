@@ -26,11 +26,11 @@ from pygame_gui.elements import UIButton, UIDropDownMenu, UITextEntryLine
 from src.control import actions, help, maps_data
 from src.control.confirm import Confirm
 from src.control.maps_data import MapError, MapInfo
-from src.control.stage_preview import draw_stage_preview
 from src.control.text import PAD, fit, header, wrap
 from src.control.tooltips import Tooltips
 from src.control.trash import Trash, TrashError
 from src.render import theme
+from src.render.stage_preview import draw_stage_preview
 from src.utils.ui import draw_text
 
 LIST_WIDTH = 600

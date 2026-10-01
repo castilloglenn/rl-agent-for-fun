@@ -1,3 +1,5 @@
+import json
+
 import pygame
 from ml_collections import ConfigDict
 
@@ -5,12 +7,15 @@ from src.drivers.keyboard import KeyboardDriver
 from src.drivers.registry import make_driver
 from src.envs.maze_car.env import MazeCarEnv
 from src.render import theme
+from src.render.map_picker import MapChoice
 from src.render.panels import LIVE_SHORTCUTS, ModeInfo
 from src.replay.recordings import LibraryRecorder, RecordingLibrary
 from src.replay.viewer import TRAIL_EVERY
 from src.sim.components import Transform
 from src.sim.resources import Rng, RoundState, SimClock
 from src.sim.rules import load_rules
+from src.sim.stage import load_stage
+from src.utils import named_files
 from src.utils.timing import FixedStepClock
 
 RECORDING_SHORTCUTS = (
@@ -71,15 +76,8 @@ class MazeCarDemo:
             self.recorder = LibraryRecorder(
                 {"1": self.driver.record()}, RecordingLibrary(player)
             )
-        self.env = MazeCarEnv(
-            config,
-            driver=self.driver.label,
-            random_seeds=True,
-            reward=reward,
-            rules=rules,
-            recorder=self.recorder,
-            stage=stage,
-        )
+        self.config, self.rules, self.reward = config, rules, reward
+        self._build_env(stage)
         if test_drive:
             self.env.renderer.mode_keys = {pygame.K_t}  # T: back
             self.env.renderer.quit_words = (
@@ -90,12 +88,47 @@ class MazeCarDemo:
         # doesn't run while you get ready. Other drivers start at once.
         self.wait_for_keys = isinstance(self.driver, KeyboardDriver)
         self.watching = not self.wait_for_keys  # a driver drives: a trail
+        # Watching, M picks another map (never while you drive: it would
+        # cut a recording short; a test drive stays on its map).
+        self.maps: list[str] = []
+        if self.watching and not test_drive:
+            self.maps = named_files.ordered("stages")
+            self._offer_maps(stage.name if stage else config.stage)
         self.trail: list[tuple[float, float]] = []  # where the car has been
         self.paused = False
         self.clock = FixedStepClock(self.env.config.sim.steps_per_second)
         self._new_round()
         if autorun:
             self.run()
+
+    def _build_env(self, stage) -> None:
+        self.env = MazeCarEnv(
+            self.config,
+            driver=self.driver.label,
+            random_seeds=True,
+            reward=self.reward,
+            rules=self.rules,
+            recorder=self.recorder,
+            stage=stage,
+        )
+
+    def _offer_maps(self, playing: str) -> None:
+        choices = []
+        for name in self.maps:
+            path = named_files.find("stages", name)
+            label = name
+            if not named_files.is_built_in("stages", name):
+                label += " · yours"
+            choices.append(MapChoice(label, json.loads(path.read_text())))
+        current = self.maps.index(playing) if playing in self.maps else -1
+        self.env.renderer.offer_maps(choices, current)
+
+    def play_map(self, name: str) -> None:
+        """A fresh round on another map, with the same driver."""
+        self._build_env(load_stage(name))
+        self._offer_maps(name)
+        self.paused = False
+        self._new_round()
 
     def _new_round(self) -> None:
         self.world = self.env.world
@@ -120,6 +153,9 @@ class MazeCarDemo:
         box is open, or the round waits for your first key), then draws.
         Returns the real seconds this frame took.
         """
+        picked = self.env.renderer.take_map_pick()
+        if picked is not None:  # the MAPS box (M)
+            self.play_map(self.maps[picked])
         if self.env.world is not self.world:  # R started a new game
             self._new_round()
         keys = self.env.renderer.keys_pressed

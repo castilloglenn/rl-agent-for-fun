@@ -257,17 +257,29 @@ def test_planning_reports_its_steps_and_can_be_cancelled(trained):
     assert not any(t.startswith("Scoring") for t in heard)  # stopped first
 
 
-def test_m_plays_the_next_skills_map_and_round(trained):
+def test_m_picks_a_skills_map_and_round(trained):
     _, folder, stops, suite = trained
     show = _show(trained)
     assert show.skill.name == "open_field" and show.env.stage.name == "box"
     names = [s.name for s in suite.scenarios]
-    show.handle_key(pygame.K_m)
+    # The MAPS box lists the skills with their maps, this one marked.
+    renderer = show.renderer
+    labels = [c.label for c in renderer.map_choices]
+    assert labels == [f"{s.label} · {s.stage}" for s in suite.scenarios]
+    assert renderer.map_current == names.index("open_field")
+    renderer._key(pygame.K_m, False, set())
+    assert renderer.show_maps and renderer.modal_open
+    renderer._key(pygame.K_DOWN, False, set())
+    renderer._key(pygame.K_RETURN, False, set())
+    assert not renderer.show_maps
+    show.pick_skill(renderer.take_map_pick())
     assert show.skill.name == names[(names.index("open_field") + 1) % 3]
     assert show.env.stage.name == show.skill.stage
     assert show.card and show.index == 0  # the same checkpoint, its card
-    while show.skill.kind != "braking":
-        show.handle_key(pygame.K_m)
+    assert show.renderer.map_current == show.skill_index  # the new window
+    show.pick_skill(next(
+        i for i, s in enumerate(suite.scenarios) if s.kind == "braking"
+    ))
     # Braking starts at speed, aimed at a wall, as the evaluation's did.
     from src.sim.components import Motion
 

@@ -8,6 +8,7 @@ from src.ecs import World
 from src.render import camera, panels, theme, warnings
 from src.render.camera import FIT, FOLLOW, MAP_CARD_EXTRA, MAP_TOP
 from src.render.layout import MARGIN, Layout
+from src.render.map_picker import MapChoice, draw_map_picker
 from src.sim.components import (
     Checkpoint,
     Eliminated,
@@ -99,6 +100,13 @@ class Renderer:
         self.show_settings = False
         self.setting = 0  # the box's selected row
         self.show_trail = False  # T toggles the trail (replays, watching)
+        # The MAPS box: M opens it when the window offers maps
+        # (`offer_maps`), and the window plays the one picked.
+        self.map_choices: list[MapChoice] = []
+        self.map_current = -1  # the one playing now (-1: none listed)
+        self.show_maps = False
+        self.map_row = 0  # the box's picked row
+        self.map_picked: int | None = None  # Enter's pick, for the window
         self._logged_world = None  # the game whose events were printed
         self._logged = 0  # how many of its events
         self.confirm_quit = False  # Esc asks first, Enter confirms
@@ -166,6 +174,7 @@ class Renderer:
         return (
             self.show_shortcuts
             or self.show_settings
+            or self.show_maps
             or self.confirm_quit
             or self.camera.in_intro
         )
@@ -196,9 +205,24 @@ class Renderer:
                     print(f"click at world ({x:g}, {y:g})", flush=True)
         return commands
 
+    def offer_maps(self, choices: list[MapChoice], current: int) -> None:
+        """M opens a box to pick one of `choices`; `current` is the one
+        playing now (-1: none of them).
+        """
+        self.map_choices = list(choices)
+        self.map_current = current
+
+    def take_map_pick(self) -> int | None:
+        """The index picked in the MAPS box since the last call, if any."""
+        picked, self.map_picked = self.map_picked, None
+        return picked
+
     def _key(self, key: int, game_over: bool, commands: set) -> None:
         if self.show_settings:
             self._settings_key(key)
+            return
+        if self.show_maps:
+            self._maps_key(key)
             return
         if key in self.mode_keys:
             self.keys_pressed.append(key)
@@ -221,6 +245,10 @@ class Renderer:
         elif key == pygame.K_o:
             self.show_shortcuts = False
             self.show_settings = True
+        elif key == pygame.K_m and self.map_choices:
+            self.show_shortcuts = False
+            self.show_maps = True
+            self.map_row = max(self.map_current, 0)
         # H, T, and F change your settings too, so the keys, the SETTINGS
         # box, and the next window always agree.
         elif key == pygame.K_h:
@@ -255,6 +283,21 @@ class Renderer:
             option = OPTIONS[self.setting]
             self.settings.step(option.key, by)
             self._apply(option.key)
+
+    def _maps_key(self, key: int) -> None:
+        """The MAPS box: Up and Down pick, Enter plays it, Esc or M
+        closes it.
+        """
+        count = len(self.map_choices)
+        if key in (pygame.K_ESCAPE, pygame.K_m):
+            self.show_maps = False
+        elif key in (pygame.K_UP, pygame.K_w):
+            self.map_row = (self.map_row - 1) % count
+        elif key in (pygame.K_DOWN, pygame.K_s):
+            self.map_row = (self.map_row + 1) % count
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self.show_maps = False
+            self.map_picked = self.map_row
 
     def draw(
         self,
@@ -310,6 +353,15 @@ class Renderer:
             )
         elif self.show_settings:
             self._draw_settings()
+        elif self.show_maps:
+            draw_map_picker(
+                self.display,
+                self.layout.field_view,
+                self.map_choices,
+                self.map_row,
+                self.map_current,
+                self._draw_backdrop,
+            )
         elif self.show_shortcuts:
             self._draw_shortcuts(mode)
         else:
@@ -747,6 +799,9 @@ class Renderer:
                 len(shortcuts),
             )
             shortcuts.insert(at, ("O", "settings"))
+        if self.map_choices and all(key != "M" for key, _ in shortcuts):
+            at = next(i for i, (key, _) in enumerate(shortcuts) if key == "O")
+            shortcuts.insert(at, ("M", "maps: pick one to play"))
         # Keys are drawn bold, so they're measured bold.
         key_font = get_font(theme.TEXT_SIZE, True)
         keys = max(key_font.size(key)[0] for key, _ in shortcuts)

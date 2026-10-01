@@ -1,5 +1,6 @@
 """A stage drawn small (roadmap step 7c3): the Maps tab's cards and
-detail. The stage in its own shape, centered in the rect: the border,
+detail, and the game window's MAPS box (moved here from src/control/ so
+the game window can use it). The stage in its own shape, centered in the rect: the border,
 walls, the spawn as the car (with its heading), and checkpoints, in
 order (numbered, if there's room) or random (their border margin,
 dashed).

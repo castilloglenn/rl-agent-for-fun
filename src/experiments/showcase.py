@@ -6,15 +6,16 @@ checkpoint, in the simulation window (roadmap step 5c).
 
 The window opens at once, and gets ready behind a card that says each
 step (scoring what isn't scored yet, 7c8). Every checkpoint plays the same
-round, a skill's first seed (Open field by default; M cycles the suite's
-skills), so you watch the same situation handled better and better. Play
-is deterministic, so each round is exactly what the evaluation saw. A
-title card with the checkpoint's scores comes first, and the round's
-result stays until Enter, then the next checkpoint's card.
+round, a skill's first seed (Open field by default; M picks another of
+the suite's skills, with a preview of its map), so you watch the same
+situation handled better and better. Play is deterministic, so each
+round is exactly what the evaluation saw. A title card with the
+checkpoint's scores comes first, and the round's result stays until
+Enter, then the next checkpoint's card.
 
 Enter start the round, SPACE/P pause, 1-4 speed, N one step while
 paused, R restart this checkpoint, Left/Right previous/next checkpoint,
-M another skill, H lines, Esc quit.
+M pick a skill, H lines, Esc quit.
 """
 
 import csv
@@ -44,6 +45,7 @@ from src.experiments.evaluation import (
 )
 from src.experiments.runner import RUNS_DIR
 from src.render import theme
+from src.render.map_picker import MapChoice
 from src.render.panels import ModeInfo, PlaybackInfo
 from src.render.renderer import Command
 from src.replay.viewer import SPEEDS, TRAIL_EVERY, PlaybackControl
@@ -51,10 +53,11 @@ from src.sim.components import Transform
 from src.sim.resources import RoundState, SimClock
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
+from src.utils import named_files
 from src.utils.timing import FixedStepClock
 
 DEFAULT_SPEED = 2  # index in the viewer's speeds: 2x
-DEFAULT_SKILL = "open_field"  # the box: one familiar map (7c8: M changes it)
+DEFAULT_SKILL = "open_field"  # the box: one familiar map (M picks another)
 HIGHLIGHTS = 8
 SHORTCUTS = (
     ("Enter", "start the round, or go on after it ends"),
@@ -62,7 +65,7 @@ SHORTCUTS = (
     ("1-4", "speed: 0.5x, 1x, 2x, 4x"),
     ("N", "one step while paused"),
     ("<- ->", "previous / next checkpoint"),
-    ("M", "another skill: its map and round"),
+    ("M", "skills: pick one, its map and round"),
     ("R", "restart this checkpoint"),
     ("H", "lines"),
     ("F", "camera: follow or fit (big stages)"),
@@ -335,10 +338,25 @@ class Showcase:
         self.clock = FixedStepClock(sps, max_steps_per_frame=32)
         self.observation, _ = self.env.reset(seed=self.seed)
         self.trail: list[tuple[float, float]] = [self._car_position()]
+        # M: the MAPS box lists the skills, each with its map.
+        self.renderer.offer_maps(
+            [
+                MapChoice(
+                    f"{s.label} · {s.stage}",
+                    json.loads(
+                        named_files.find("stages", s.stage).read_text()
+                    ),
+                )
+                for s in self.skills
+            ],
+            self.skill_index,
+        )
 
-    def next_skill(self) -> None:
-        """M: the next skill's map, the same checkpoint, from its card."""
-        self.skill_index = (self.skill_index + 1) % len(self.skills)
+    def pick_skill(self, index: int) -> None:
+        """The skill picked in the MAPS box (M): its map and round, the
+        same checkpoint, from its card.
+        """
+        self.skill_index = index
         self._build_env()
         if self.ready and not self.finished:
             self._start(self.index)
@@ -381,9 +399,7 @@ class Showcase:
             self._start(self.index - 1)
 
     def handle_key(self, key: int) -> None:
-        if key == pygame.K_m:
-            self.next_skill()
-        elif not self.ready:
+        if not self.ready:
             return
         elif key in (pygame.K_RETURN, pygame.K_KP_ENTER):
             if self.card:
@@ -621,6 +637,9 @@ class Showcase:
                 break
             for key in self.renderer.keys_pressed:
                 self.handle_key(key)
+            picked = self.renderer.take_map_pick()
+            if picked is not None:
+                self.pick_skill(picked)
             self.tick(0.0 if self.renderer.modal_open else elapsed)
             playing = self.ready and not (self.control.paused or self.card)
             alpha = self.clock.alpha if playing else 1.0
