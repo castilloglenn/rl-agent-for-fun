@@ -51,6 +51,15 @@ TRAINING_CHARTS = (
     ("Value loss", "value_loss"),
     ("KL divergence", "approx_kl"),
     ("Clip fraction", "clip_fraction"),
+    # Not from learning.csv: each scored checkpoint's driving style (7c9).
+    ("Driving style", None),
+)
+STYLE_CHART = "Driving style"
+STYLE_LINES = (  # (label, column, color)
+    ("forward", "style_forward", theme.GOOD),
+    ("brake", "style_brake", theme.WARN),
+    ("coast", "style_coast", theme.TEXT_DIM),
+    ("reverse", "style_reverse", theme.BAD),
 )
 IMITATION_CHARTS = (
     ("Loss", ("train_loss", "held_out_loss")),
@@ -334,6 +343,8 @@ class RunData:
         self.metrics = CsvTail(folder / "metrics.csv")
         self._history_seen = -1.0
         self.suite_points: list[tuple[str, float, float]] = []
+        # Each scored checkpoint's driving style: (decisions, its shares).
+        self.style_points: list[tuple[float, dict]] = []
         self.best: tuple[str, float, float] | None = None
         self.baseline: float | None = None
         suite = self.config.get("suite")
@@ -376,7 +387,7 @@ class RunData:
         if seen == self._history_seen:
             return False
         self._history_seen = seen
-        saved, scores = {}, {}
+        saved, scores, styles = {}, {}, {}
         for line in path.read_text().splitlines():
             try:
                 event = json.loads(line)
@@ -388,6 +399,11 @@ class RunData:
             elif event.get("event") == "scored":
                 if event.get("suite") == self.suite:
                     scores[event["checkpoint"]] = event["score_mean"]
+                    styles[event["checkpoint"]] = {
+                        k: v
+                        for k, v in event.items()
+                        if k.startswith("style_")
+                    }
         self.suite_points = sorted(
             (
                 (name, float(decisions), float(scores[name]))
@@ -395,6 +411,11 @@ class RunData:
                 if name in scores
             ),
             key=lambda p: p[1],
+        )
+        self.style_points = sorted(
+            (float(decisions), styles[name])
+            for name, decisions in saved.items()
+            if styles.get(name)
         )
         best = read_json(agent / "evaluations" / "best.json")
         self.best = next(
@@ -540,6 +561,22 @@ class RunData:
         )
 
     def second_chart(self, option: str) -> Chart:
+        if self.kind == TRAINING and option == STYLE_CHART:
+            chart = Chart(
+                option.upper(),
+                [
+                    Series(
+                        label,
+                        [(d, s[column]) for d, s in self.style_points
+                         if column in s],
+                        color,
+                    )
+                    for label, column, color in STYLE_LINES
+                ],
+                "{} decisions",
+            )
+            chart.y_format = chart.value_format = charts.percent
+            return chart
         if self.kind == TRAINING:
             column = dict(TRAINING_CHARTS)[option]
             start = self.start_decisions

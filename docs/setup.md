@@ -67,7 +67,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make edit_map STAGE=name` | The map editor: open a stage (built-in or yours), or start a new one (saved in `user/stages/`, out of git). A built-in map saves only as a new map of yours (Ctrl+S asks for its name). W draws walls, P places the spawn, C adds checkpoints, V selects and moves (drag the stage's edge to resize it); T test drives it (Shift+T: the heuristic); Ctrl+Z undoes, Ctrl+S saves (only a valid stage) ([decision 035](decisions/035-map-editor.md)) |
 | `make showcase AGENT=id` | Watch an agent's progression: highlight checkpoints on the same round, each after a title card (decisions, training time, suite scores, badges) that stays until Enter. Each round's result also waits for Enter. SPACE or P pause, 1-4 speed, Left/Right checkpoint, R restart, Esc quit. The window opens at once and shows what it's getting ready (scoring checkpoints not yet scored, the heuristic's scores if out of date); M plays another skill's map and round (the control center's Showcase has a Skill field) |
 | `make showcase_all AGENT=id` | The same, for every scored checkpoint |
-| `make agent AGENT=id` | An agent's digest: lineage, best scores next to the heuristic, score trend, totals, milestone |
+| `make agent AGENT=id` | An agent's digest: lineage, best scores next to the heuristic, score trend, totals, milestone. Its driving style too (the share of steps on each pedal, turning, and moving backward), with a warning when one habit dominates |
 | `make resume_last` | Resume the newest stopped training run |
 | `make test` | Run all tests |
 | `make test_file FILE=path` | Run one test file |

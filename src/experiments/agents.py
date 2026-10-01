@@ -6,6 +6,7 @@ from pathlib import Path
 from src.agents.history import read_profile
 from src.agents.store import AGENTS_DIR, AgentError, load_agent
 from src.experiments.runner import RUNS_DIR
+from src.utils import driving_style
 from src.experiments.evaluation import (
     DEFAULT_SUITE,
     best_row,
@@ -117,6 +118,11 @@ def agent_summary(
         )
         if skills:
             lines.append(f"  skills: {skills}")
+        style = driving_style.summary(best)
+        if style:
+            lines.append(f"  driving: {style}")
+            for warning in driving_style.warnings(best):
+                lines.append(f"  ! it {warning}")
     else:
         lines.append(f"  not scored yet: make eval AGENT={profile['id']}")
     if len(rows) > 1:

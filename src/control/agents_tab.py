@@ -38,6 +38,7 @@ from src.control.maps_data import watch_stage
 from src.control.radar import draw_radar
 from src.control.text import PAD, fit, header, wrap
 from src.control.tooltips import Tooltips
+from src.utils import driving_style
 from src.control.training_plan import busy_agents
 from src.render import theme
 from src.utils.ui import draw_text
@@ -64,13 +65,14 @@ BADGE_COLORS = {
 # The leaderboard's columns: (title, width, value).
 COLUMNS = (
     ("#", 26, lambda r: "" if r.place is None else str(r.place)),
-    ("agent", 150, lambda r: r.name),
-    ("score", 70, lambda r: _num(r.metrics.get("score_mean"))),
+    ("agent", 130, lambda r: r.name),
+    ("share", 50, lambda r: _num(r.metrics.get("share"), 2)),  # the rank
+    ("score", 64, lambda r: _num(r.metrics.get("score_mean"))),
     ("survive", 62, lambda r: _pct(r.metrics.get("survival"))),
     ("wrecks", 58, lambda r: _pct(r.metrics.get("wreck_rate"))),
     ("cp/min", 56, lambda r: _num(r.metrics.get("checkpoints_per_min"), 1)),
     ("brake", 52, lambda r: _pct(r.metrics.get("braking"))),
-    ("best", 90, lambda r: r.checkpoint),
+    ("best", 80, lambda r: r.checkpoint),
 )
 BUTTONS_A = (  # (name, width)
     ("Watch best", 110),
@@ -143,12 +145,14 @@ class AgentsTab:
         self.hit: list[tuple[Rect, str]] = []  # cards or rows: agent id
 
         d = self.detail
-        self.skills_rect = Rect(d.x + PAD, d.y + 116, 250, 236)
+        # Under the name, the info, the milestone, and the driving style
+        # (7c9) lines: the skills and their history.
+        self.skills_rect = Rect(d.x + PAD, d.y + 138, 250, 214)
         self.history_rect = Rect(
             self.skills_rect.right + 12,
-            d.y + 116,
+            d.y + 138,
             d.right - PAD - self.skills_rect.right - 12,
-            236,
+            214,
         )
         self.history_menu = UIDropDownMenu(
             [label for label, _ in HISTORY],
@@ -480,9 +484,11 @@ class AgentsTab:
         )
         y += 24
         if agent.score is not None:
+            # Its game score big; its share of the heuristic's (the
+            # ranking, 7d3b) beside it.
             score = draw_text(
                 surface,
-                f"{agent.score:,.0f}",
+                f"{agent.best.get('score_mean', 0):,.0f}",
                 (x, y),
                 theme.BIG_SIZE,
                 theme.TEXT,
@@ -492,7 +498,7 @@ class AgentsTab:
             if ratio:
                 shown = draw_text(
                     surface,
-                    f"{ratio:.1f}× heuristic",
+                    f"{ratio:.2f}× heuristic",
                     (score.right + 8, y + 4),
                     theme.HEADER_SIZE,
                     theme.GOOD if ratio >= 1 else theme.TEXT_DIM,
@@ -639,9 +645,10 @@ class AgentsTab:
         if milestone:
             text = (
                 f"MILESTONE {milestone['name']} at {milestone['checkpoint']} "
-                f"(suite {milestone['score_mean']:,.0f}, heuristic "
-                f"{milestone['heuristic_score']:,.0f})"
+                f"on {milestone.get('suite', 'the suite')}"
             )
+            if milestone.get("share") is not None:
+                text += f" (share {milestone['share']:.2f})"
             color = theme.WARN
         elif agent.live:
             text, color = f"TRAINING now: run {agent.live}", theme.GOOD
@@ -650,6 +657,7 @@ class AgentsTab:
         draw_text(
             surface, fit(text, width), (x, d.y + 84), theme.TEXT_SIZE, color
         )
+        self._draw_style(surface, agent, x, d.y + 106, width)
         self._draw_skills(surface, agent)
         draw_chart(
             surface,
@@ -671,6 +679,21 @@ class AgentsTab:
             bold=True,
         )
 
+    def _draw_style(self, surface, agent, x: int, y: int, width: int) -> None:
+        """DRIVING: the best checkpoint's style, and what stands out."""
+        style = driving_style.summary(agent.best)
+        warned = driving_style.warnings(agent.best)
+        if not style:
+            text = "DRIVING: not measured yet (Evaluate)"
+            color = theme.TEXT_DIM
+        elif warned:
+            text, color = f"DRIVING  {', '.join(warned)}: {style}", theme.WARN
+        else:
+            text, color = f"DRIVING  {style}", theme.TEXT
+        size = theme.TEXT_SIZE
+        label = draw_text(surface, fit(text, width), (x, y), size, color)
+        self.tips.add(label, help.topic("driving style"))
+
     def _draw_skills(self, surface, agent: AgentInfo) -> None:
         rect = self.skills_rect
         pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
@@ -686,7 +709,7 @@ class AgentsTab:
             theme.ACCENT,
             bold=True,
         )
-        center = (rect.centerx, rect.y + 120)
+        center = (rect.centerx, rect.y + 110)
         if not agent.best:
             draw_text(
                 surface,
@@ -701,7 +724,7 @@ class AgentsTab:
         drawn = draw_radar(
             surface,
             center,
-            60,
+            48,  # room for the labels in the shorter panel (7c9)
             agents_data.skills(agent.best, self.refs),
             reference=(
                 agents_data.skills(heuristic, self.refs) if heuristic else None
@@ -737,7 +760,9 @@ class AgentsTab:
                 )
             )
         chart = Chart("SKILL HISTORY", series, "{} decisions")
-        if metric in ("survival", "wreck_rate", "braking"):
+        if metric in ("survival", "wreck_rate", "braking") or (
+            metric.startswith("style_")
+        ):
             chart.y_format = chart.value_format = percent
         return chart
 

@@ -215,6 +215,10 @@ TOPICS: dict[str, str] = {
     "chart:Agent reward": "The agent's reward per episode (mean of the last "
     "20): what it actually optimizes, from its reward profile. It should "
     "rise and level off.",
+    "chart:Driving style": "How each scored checkpoint drives, over the "
+    "suite's rounds: the share of steps on each pedal (forward, brake, "
+    "coast, reverse). A good mix is mostly forward, with some braking, "
+    "coasting, and reversing (7c9).",
     "chart:Entropy": "How random its choices are. Fully random is about "
     "2.48 (12 actions). It should fall slowly; a fast drop to near 0 means "
     "it stopped exploring early.",
@@ -263,8 +267,12 @@ TOPICS: dict[str, str] = {
     "skill:Intact": "The share of rounds that didn't end wrecked.",
     "skill:Clean": "How rarely it touches walls: 1 / (1 + wall contacts per "
     "round). 0 contacts is 1.0, 1 per round is 0.5.",
-    "column:#": "Its place by suite score. Baselines aren't ranked.",
-    "column:score": "The best checkpoint's mean suite score.",
+    "column:#": "Its place by share of the heuristic's score. Baselines "
+    "aren't ranked.",
+    "column:share": "The best checkpoint's average share of the heuristic's "
+    "score across the skills (1.00: as good as the heuristic): the ranking.",
+    "column:score": "The best checkpoint's mean game score over the skills' "
+    "rounds.",
     "column:survive": "The share of each round survived.",
     "column:wrecks": "The share of rounds that ended wrecked.",
     "column:cp/min": "Checkpoints collected per minute.",
@@ -296,6 +304,11 @@ TOPICS: dict[str, str] = {
     "recording:datasets": "The datasets that read it, by their rules "
     "(include, min_score). make dataset shows what's actually usable.",
     # Maps tab
+    "driving style": "How the best checkpoint drives, over the suite's "
+    "rounds: the share of steps on each pedal (forward, brake, coast, "
+    "reverse), turning left or right, and moving backward. It warns when "
+    "one habit dominates: backward over 40 %, braking over 50 %, coasting "
+    "over 70 %, or turning one way over 80 %.",
     "map:BUILT-IN": "Ships with the app and changes only in code, so tests "
     "and suites can rely on it. Edit opens it to save as a new map of yours; "
     "Duplicate makes a copy.",

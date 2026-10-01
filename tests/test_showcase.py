@@ -235,7 +235,7 @@ def test_an_error_shows_in_the_window(trained):
 
 
 def test_planning_reports_its_steps_and_can_be_cancelled(trained):
-    tmp_path, *_ = trained
+    tmp_path, _, _, suite = trained
     heard = []
     plan(
         "pupil",
@@ -244,7 +244,8 @@ def test_planning_reports_its_steps_and_can_be_cancelled(trained):
         on_progress=heard.append,
     )
     assert heard == []  # all scored already: nothing to wait for
-    (tmp_path / "agents" / "pupil" / "evaluations" / "skills-v1.csv").unlink()
+    results = tmp_path / "agents" / "pupil" / "evaluations"
+    (results / f"{suite.label}.csv").unlink()  # unscored again
     with pytest.raises(showcase.Cancelled):
         plan(
             "pupil",

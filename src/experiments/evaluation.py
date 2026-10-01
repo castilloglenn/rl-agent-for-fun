@@ -34,7 +34,7 @@ from src.sim.resources import Field, SimConfig
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.sim.systems.sensors import cast_rays
-from src.utils import named_files, test_maps
+from src.utils import driving_style, named_files, test_maps
 from src.utils.version import code_version
 
 SUITE_FORMAT = 2
@@ -60,6 +60,7 @@ COLUMNS = (
     "contacts",  # per round
     "braking",  # share of braking starts with no damage
     "share",  # the skills' average share of the heuristic's: the ranking
+    *driving_style.COLUMNS,  # how it drives, over the rounds (7c9)
 )
 
 
@@ -162,11 +163,14 @@ def evaluate(
     """
     result: dict = {}
     games, means, brakes = [], [], []
+    style = driving_style.Counter()  # over the rounds, not braking starts
     for scenario in suite.scenarios:
         env = _env(scenario, base_config)
         if scenario.kind == "round":
             played = _round(env, driver, scenario)
             games.extend(played)
+            for game in played:
+                style.merge(game["style"])
             means.append(statistics.mean(g["score"] for g in played))
             result[scenario.column] = means[-1]
         else:
@@ -186,6 +190,7 @@ def evaluate(
             "wreck_rate": _mean([float(g["wrecked"]) for g in games]),
             "contacts": _mean([g["contacts"] for g in games]),
             "braking": _mean(brakes),
+            **style.shares(),
         }
     )
     return result
@@ -234,10 +239,13 @@ def _play(env: MazeCarEnv, driver: Driver, seed: int, setup=None) -> dict:
     steps = 0
     terminated = truncated = False
     info: dict = {}
+    style = driving_style.Counter()
+    sps = env.world.resource(SimConfig).steps_per_second
     while not (terminated or truncated):
-        observation, _, terminated, truncated, info = env.step(
-            driver.act(observation)
-        )
+        action = driver.act(observation)
+        observation, _, terminated, truncated, info = env.step(action)
+        speed = env.world.component(env.car, Motion).speed * sps
+        style.add(action, speed)
         steps += 1
     health = env.world.component(env.car, Health)
     return {
@@ -247,6 +255,7 @@ def _play(env: MazeCarEnv, driver: Driver, seed: int, setup=None) -> dict:
         "wrecked": terminated,
         "contacts": health.contacts,
         "damage": health.maximum - health.current,
+        "style": style,
     }
 
 

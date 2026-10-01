@@ -39,12 +39,13 @@ SKILLS = json.loads((SUITES_DIR / "skills.json").read_text())
 BRAKING = next(s for s in SKILLS["scenarios"] if s["kind"] == "braking")
 
 
-def _tiny_suite(tmp_path, version=1):
-    """The skills suite (same name, so it also writes best.json), cut down
-    to 3 skills of a few short games: braking, open field, and detour.
+def _tiny_suite(tmp_path, version=None):
+    """The skills suite (same name and version, so it also writes best.json
+    and is the suite the tabs read), cut down to 3 skills of a few short
+    games: braking, open field, and detour.
     """
     data = json.loads(json.dumps(SKILLS))
-    data["version"] = version
+    data["version"] = SKILLS["version"] if version is None else version
     keep = ("braking", "open_field", "detour")
     data["scenarios"] = [s for s in data["scenarios"] if s["name"] in keep]
     for scenario in data["scenarios"]:
@@ -67,7 +68,7 @@ def _agent(tmp_path, name="pupil"):
 def test_the_skills_suite_loads():
     """7d3b: 7 skills in 3 groups, each on its own map, 5 games each."""
     suite = load_suite("skills")
-    assert suite.label == "skills-v1"
+    assert suite.label == f"skills-v{SKILLS['version']}"
     assert [s.name for s in suite.scenarios] == [
         "braking", "threading", "open_field", "long_range", "obstacles",
         "corridor", "detour",
@@ -189,10 +190,11 @@ def test_scoring_a_checkpoint_saves_a_row_and_the_best(tmp_path):
     rows = read_results(folder, suite)
     assert len(rows) == 1 and rows[0]["checkpoint"] == "initial"
     assert rows[0]["score_mean"] == pytest.approx(row["score_mean"])
-    with open(folder / "evaluations" / "skills-v1.csv") as file:
+    label = suite.label
+    with open(folder / "evaluations" / f"{label}.csv") as file:
         assert tuple(next(csv.reader(file))) == suite.columns
     assert 0 < row["share"]  # of the heuristic's, cached in baselines/
-    assert (tmp_path / "agents" / "baselines" / "skills-v1.json").exists()
+    assert (tmp_path / "agents" / "baselines" / f"{label}.json").exists()
 
 
 def test_suite_versions_are_never_mixed(tmp_path):
@@ -237,7 +239,9 @@ def test_the_best_is_the_highest_average_share_then_survival():
 def _best_json(folder, checkpoint):
     (folder / "evaluations").mkdir(exist_ok=True)
     (folder / "evaluations" / "best.json").write_text(
-        json.dumps({"suite": "skills-v1", "checkpoint": checkpoint})
+        json.dumps(
+            {"suite": f"skills-v{SKILLS['version']}", "checkpoint": checkpoint}
+        )
     )
 
 
@@ -290,7 +294,7 @@ def test_scoring_during_training_changes_nothing_else(tmp_path, monkeypatch):
     folder = tmp_path / "scored" / "agents" / "pupil"
     assert [r["checkpoint"] for r in read_results(folder, suite)] == evaluated
     config = json.loads((scored.folder / "config.json").read_text())
-    assert config["suite"] == {"name": "skills", "version": 1}
+    assert config["suite"] == {"name": "skills", "version": SKILLS["version"]}
     assert load_agent(folder, "best").checkpoint in evaluated
 
 
@@ -355,3 +359,36 @@ def test_scoring_an_agent_says_before_each_checkpoint(tmp_path):
         (summary.checkpoints[1], 3, 3),
     ]
     assert unscored(folder, suite) == []
+
+
+# Driving style (7c9)
+
+
+def test_the_style_is_counted_over_the_rounds(tmp_path):
+    from src.utils import driving_style
+
+    suite = _tiny_suite(tmp_path)
+    style = evaluate(CompassDriver(), suite)
+    pedals = [style[f"style_{p}"] for p in driving_style.PEDALS]
+    assert sum(pedals) == pytest.approx(1.0)
+    assert style["style_forward"] > 0.5  # the heuristic drives forward
+    assert style["style_backward"] < 0.05
+    assert driving_style.warnings(style) == []
+
+
+def test_style_warnings_and_summary():
+    from src.utils import driving_style
+
+    agent_1 = {  # measured 2026-09-30 at its best checkpoint, about
+        "style_forward": 0.01, "style_brake": 0.0, "style_coast": 0.04,
+        "style_reverse": 0.95, "style_left": 0.42, "style_right": 0.24,
+        "style_backward": 0.98,
+    }
+    assert driving_style.warnings(agent_1) == [
+        "drives backward most of the time"
+    ]
+    assert driving_style.summary(agent_1).startswith("forward 1% · brake 0%")
+    assert driving_style.summary({}) == ""  # not measured
+    assert driving_style.pedal((0, 0, 1, 1, 1)) == "brake"  # brake wins
+    assert driving_style.pedal((0, 0, 1, 1, 0)) == "forward"  # gas beats
+    assert driving_style.turn((1, 1, 0, 0, 0)) is None  # both: straight

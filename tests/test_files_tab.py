@@ -112,13 +112,14 @@ def test_reward_terms_can_be_added_and_dropped(repo):
 def test_saving_a_changed_suite_makes_the_next_version(repo):
     kind = KIND["suites"]
     data = files.load(repo, kind, "my_suite")
+    before = data["version"]
     files.save(repo, kind, "my_suite", data)  # unchanged: same version
-    assert files.load(repo, kind, "my_suite")["version"] == 1
+    assert files.load(repo, kind, "my_suite")["version"] == before
     edited = files.rebuild("suites", data, {"scenarios.0.episodes": "30"})
     written = files.save(repo, kind, "my_suite", edited)
-    assert written["version"] == 2
+    assert written["version"] == before + 1
     path = repo / "user" / "suites" / "my_suite.json"
-    assert agents_data.current_suite(path) == "my_suite-v2"
+    assert agents_data.current_suite(path) == f"my_suite-v{before + 1}"
 
 
 def test_a_built_in_file_is_never_saved(repo):

@@ -41,6 +41,9 @@ HISTORY = (
     ("Wreck rate", "wreck_rate"),
     ("Wall contacts", "contacts"),
     ("Lowest score", "score_min"),
+    ("Driving: forward", "style_forward"),  # 7c9
+    ("Driving: reversing", "style_reverse"),
+    ("Driving: backward", "style_backward"),
 )
 _SCORE = re.compile(r"_score(-?\d+)_")
 

@@ -115,14 +115,14 @@ def _scored(tmp_path, monkeypatch, share):
 
 
 def test_scores_and_the_best_are_recorded(tmp_path, monkeypatch):
-    folder, _ = _scored(tmp_path, monkeypatch, share=0.2)
+    folder, suite = _scored(tmp_path, monkeypatch, share=0.2)
     events = _events(folder)
     assert events.count("scored") == 3  # initial and two checkpoints
     assert "new_best" in events
     assert "milestone" not in events  # 0.2 of the heuristic: not yet
     profile = read_profile(folder)
     assert profile["checkpoints"]["best"] is not None
-    assert profile["best"]["suite"] == "skills-v1"
+    assert profile["best"]["suite"] == suite.label
     assert profile["milestone"] is None
 
 
@@ -133,7 +133,7 @@ def test_the_milestone_is_recorded_once(tmp_path, monkeypatch):
     assert _events(folder).count("milestone") == 1
     milestone = read_profile(folder)["milestone"]
     assert milestone["name"] == "first skilled agent"
-    assert milestone["share"] == 1.5 and milestone["suite"] == "skills-v1"
+    assert milestone["share"] == 1.5 and milestone["suite"] == suite.label
     assert "milestone: first skilled agent" in agent_summary(folder)
 
 

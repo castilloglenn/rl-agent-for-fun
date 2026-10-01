@@ -174,6 +174,8 @@ def test_a_training_run_has_its_curves(tmp_path):
     assert training.label == "training" and len(training.points) == 4
     assert data.options()[0] == "Agent reward"
     for option in data.options():
+        if option == "Driving style":  # from scored checkpoints: below
+            continue
         assert data.second_chart(option).series[0].points
     assert "pupil from initial" in data.description()
     assert not data.refresh()  # nothing new
@@ -196,7 +198,8 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
         {"event": "checkpoint_saved", "run": "other", "checkpoint": "b",
          "decisions": 150},
         {"event": "scored", "checkpoint": "a", "suite": "box-v1",
-         "score_mean": 40.0},
+         "score_mean": 40.0, "style_forward": 0.7, "style_brake": 0.1,
+         "style_coast": 0.15, "style_reverse": 0.05},
         {"event": "scored", "checkpoint": "b", "suite": "box-v1",
          "score_mean": 50.0},
     ]
@@ -213,6 +216,12 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
     assert data.suite_points == [("a", 100.0, 40.0)]  # only this run's
     assert data.best == ("a", 100.0, 40.0)
     assert data.notes() == "suite best a 40"
+    # 7c9: its driving style over the checkpoints, a line per pedal.
+    style = data.second_chart("Driving style")
+    assert [s.label for s in style.series] == [
+        "forward", "brake", "coast", "reverse",
+    ]
+    assert style.series[0].points == [(100.0, 0.7)]
     labels = [s.label for s in data.main_chart().series]
     assert labels == ["training", "suite box-v1", "best a", "heuristic"]
     assert data.seconds_left() == pytest.approx(8.0)  # 800 more at 100/s
