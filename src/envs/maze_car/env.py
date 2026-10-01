@@ -239,6 +239,7 @@ class MazeCarEnv(Environment):
         health = self.world.component(self.car, Health)
         health_before = health.current
         contacts_before = health.contacts
+        touched_before = health.contact_step  # its last step at a wall
         was_out = self._is_out()
         # Progress along the path (7e), only for a profile that uses it.
         tracking = "progress" in self.reward_profile.terms
@@ -262,6 +263,9 @@ class MazeCarEnv(Environment):
             damage=(health_before - health.current) / health.maximum,
             wrecked=self._is_out() and not was_out,
             contacts=health.contacts - contacts_before,
+            clear_seconds=_clear_seconds(
+                touched_before, health.contact_step, sim.steps_per_second
+            ),
             stopped=motion.speed == 0,
             time_up=self._time_up(),
             distance=max(motion.moved, 0.0),
@@ -316,3 +320,13 @@ class MazeCarEnv(Environment):
             self.reset()
         self.renderer.draw(self.world, alpha, self.reward_status(), mode)
         return self.renderer.present()
+
+
+def _clear_seconds(before: int | None, now: int | None, sps: int) -> float:
+    """Seconds between the car's last wall touch before this step and
+    its touch this step (inf: no touch before). Only read for a new
+    contact.
+    """
+    if before is None or now is None:
+        return math.inf
+    return max(now - before - 1, 0) / sps

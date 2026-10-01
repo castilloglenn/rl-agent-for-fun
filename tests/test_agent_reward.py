@@ -3,6 +3,7 @@
 """
 
 import json
+import math
 
 import pytest
 
@@ -426,3 +427,26 @@ def test_a_share_parameter_goes_from_0_to_1():
             {"format": 1, "name": "t",
              "terms": {"checkpoint_speed": {"weight": 1, "window": 0}}}
         )
+
+
+def test_a_contact_counts_again_only_after_a_real_gap():
+    """Wiggling against a wall made one round's contact cost reach
+    -20,000: a new contact now counts only after `clear` seconds clear
+    of walls (0.5 s by default). The game's own contacts don't change.
+    """
+    contact = TERMS["contact"]
+    assert contact(_events(contacts=1)) == 1.0  # its first touch ever
+    assert contact(_events(contacts=1, clear_seconds=0.6)) == 1.0
+    assert contact(_events(contacts=1, clear_seconds=0.1)) == 0.0  # wiggle
+    assert contact(_events(contacts=0, clear_seconds=9.0)) == 0.0
+    assert contact(_events(contacts=1, clear_seconds=0.2), {"clear": 0.1})
+    profile = load_reward_profile("default")
+    assert profile.params["contact"]["clear"] == 0.5
+
+
+def test_the_gap_is_measured_between_wall_touches():
+    from src.envs.maze_car.env import _clear_seconds
+
+    assert _clear_seconds(None, 50, 120) == math.inf  # never touched
+    assert _clear_seconds(10, 12, 120) == pytest.approx(1 / 120)
+    assert _clear_seconds(10, 131, 120) == pytest.approx(1.0)

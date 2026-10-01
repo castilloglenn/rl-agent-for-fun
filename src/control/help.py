@@ -181,7 +181,8 @@ TERMS: dict[str, tuple[str, str]] = {
                "a 25 % hit is 0.25."),
     "wrecked": ("per wreck", "1 on the step health reaches 0."),
     "contact": ("per contact", "New wall contacts: each hit or scrape "
-                "counts once, however long it lasts."),
+                "counts once, however long it lasts, and a new one only "
+                "after the car was clear of walls for `clear` seconds."),
     "stopped": ("per step stopped", f"1 for each step at speed 0 (idle or "
                 f"pinned): {STEPS_PER_SECOND} steps/s."),
     "time_up": ("per round", "1 on the step the round ends on time."),
@@ -206,6 +207,9 @@ TERM_PARAMS: dict[str, tuple[str, str]] = {
                          "in full."),
     "checkpoint_speed.window": ("s", "After this long, a checkpoint is "
                                 "worth 0 of this term."),
+    "contact.clear": ("s", "How long the car must be clear of walls before "
+                      "a touch counts as a new contact: wiggling against a "
+                      "wall counts once."),
 }
 
 # Everything else, by topic.

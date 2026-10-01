@@ -8,6 +8,7 @@ docs/decisions/011-reward-profiles.md.
 """
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -45,6 +46,10 @@ class StepEvents:
     # negative when farther), and whether the car was reversing.
     progress: float = 0.0
     reversing: bool = False
+    # Seconds the car had been clear of walls before this step's new
+    # contact (inf: it never touched one). The contact term counts a
+    # contact only after a real gap, not a wiggle against the wall.
+    clear_seconds: float = math.inf
 
 
 @dataclass(frozen=True)
@@ -73,6 +78,17 @@ def _progress(events: StepEvents, params: Mapping) -> float:
     return gain
 
 
+def _contact(events: StepEvents, params: Mapping) -> float:
+    """New wall contacts, counted only after the car was clear of walls
+    for `clear` seconds: wiggling against a wall starts a new contact
+    every few steps (the game's rule for damage), which made one round's
+    contact cost reach -20,000. The game's health doesn't change.
+    """
+    if events.contacts and events.clear_seconds >= params["clear"]:
+        return float(events.contacts)
+    return 0.0
+
+
 def _checkpoint_speed(events: StepEvents, params: Mapping) -> float:
     """1 for a checkpoint reached instantly, down to 0 at `window` s."""
     window = params["window"]
@@ -93,7 +109,7 @@ TERMS: Mapping[str, Term] = MappingProxyType(
         ),
         "damage": Term(lambda e, p: e.damage),
         "wrecked": Term(lambda e, p: float(e.wrecked)),
-        "contact": Term(lambda e, p: e.contacts),
+        "contact": Term(_contact, MappingProxyType({"clear": 0.5})),
         "stopped": Term(lambda e, p: float(e.stopped)),
         "time_up": Term(lambda e, p: float(e.time_up)),
         "per_step": Term(lambda e, p: 1.0),

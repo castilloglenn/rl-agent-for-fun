@@ -1,11 +1,11 @@
 {
   "format": 1,
   "name": "default",
-  "description": "Progress toward the checkpoint along a drivable path (+0.1 per px closer when driving forward, nothing while reversing, -0.1 per px farther), +500 per checkpoint, -100 per wall contact (even a harmless bump), -1000 for a full loss of health (a 25 % hit costs -250), -3000 for a wreck, and -0.25 per step stopped (-30/s). Game points don't count: they're the score, not the lesson.",
+  "description": "Progress toward the checkpoint along a drivable path (+0.1 per px closer when driving forward, nothing while reversing, -0.1 per px farther), +500 per checkpoint, -100 per wall contact (even a harmless bump; again only after 0.5 s clear of walls, so wiggling against one counts once), -1000 for a full loss of health (a 25 % hit costs -250), -3000 for a wreck, and -0.25 per step stopped (-30/s). Game points don't count: they're the score, not the lesson.",
   "terms": {
     "progress": {"weight": 0.1, "reverse": 0.0},
     "checkpoints": 500,
-    "contact": -100,
+    "contact": {"weight": -100, "clear": 0.5},
     "damage": -1000,
     "wrecked": -3000,
     "stopped": -0.25
