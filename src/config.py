@@ -2,6 +2,9 @@ from absl import flags
 from ml_collections import ConfigDict
 
 flags.DEFINE_boolean("tests", False, "Run unit tests.")
+flags.DEFINE_boolean(
+    "check", False, "Check the command's arguments, then stop (7h)."
+)
 flags.DEFINE_string("demo", "", "Run games with human inputs.")
 flags.DEFINE_string("replay", "", "Play a replay file in the window.")
 flags.DEFINE_string(

@@ -313,6 +313,8 @@ every drawn frame:
 
 `driving_style` (`src/utils/driving_style.py`, no torch, 7c9): how an agent spends its steps, counted while its checkpoints are scored (`Counter`: each step's pedal, forward, brake, coast, or reverse in the game's order, its turning, and whether the car moved backward), the `style_*` columns, `summary`, and `warnings` (backward over 40 %, braking over 50 %, coasting over 70 %, one way over 80 %) ([decision 046](decisions/046-driving-style.md)).
 
+`app_checks` (`src/app_checks.py`, no torch, 7h): `problems(cl_args, config)`, each command's arguments checked before it runs (named files exist, the stage is a kind it plays, the driver fits); `app.py` calls it first, and `-check` stops after it. `tests/test_guard_rails.py` runs every form's defaults, every action with every choice, and every make target through it ([decision 065](decisions/065-guard-rails.md)).
+
 `curricula` (`src/utils/curricula.py`, no torch, 7f5): curricula (named files of levels) and the `Teacher` that picks each episode's map by share and moves up a level when every map beats the heuristic's rate there and has leveled off, or at a cap; `map_baselines.heuristic_rates` (`src/experiments/`) measures the heuristic on each training map once and caches it ([decision 063](decisions/063-automatic-curriculum.md)).
 
 `mixes` (`src/utils/mixes.py`, no torch, 7d5a): map mixes, named files listing stages (`load_mix`, `is_mix`: a stage of the same name wins, `stages_of`: a mix's stages or the stage itself). Training, the test-map warning, and the Stage dropdowns use it ([decision 050](decisions/050-map-mixes.md)).

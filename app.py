@@ -25,6 +25,17 @@ def _dispatch(cl_args) -> None:
 
         config.window.settings_file = str(SETTINGS_PATH)
 
+    # Every command's arguments are checked first (7h): a plain message,
+    # not a crash halfway in. -check stops there.
+    from src.app_checks import problems
+
+    found = problems(cl_args, config)
+    if found:
+        raise SystemExit("\n".join(found))
+    if cl_args.check:
+        print("check: ok", flush=True)
+        return
+
     if _heavy(cl_args):
         _share_the_machine()
     if cl_args.tests:
