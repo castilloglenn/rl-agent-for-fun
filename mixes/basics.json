@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "name": "basics",
+  "description": "The practice maps in turn, none of them a skill_ test map.",
+  "stages": ["box", "pillars", "s_curve", "arena"]
+}

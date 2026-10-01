@@ -9,7 +9,7 @@ No torch here: the control center reads it too.
 
 from pathlib import Path
 
-from src.utils import named_files
+from src.utils import mixes, named_files
 from src.utils import skills as suite_skills
 
 SUITE = "skills"  # the default suite (src/experiments/evaluation.py)
@@ -35,7 +35,23 @@ def skills_on(stage: str, root: Path = named_files.REPO) -> list[str]:
 
 
 def warning(stage: str, root: Path = named_files.REPO) -> str | None:
-    """What to say before training on `stage` (None: nothing)."""
+    """What to say before training on `stage`, a stage or a mix (7d5a:
+    every map in it). None: nothing.
+    """
+    try:
+        names = mixes.stages_of(stage, root)
+    except mixes.MixError:
+        return None  # a broken mix: training reports it
+    found = [_warning(name, root) for name in names]
+    found = [text for text in found if text]
+    if not found:
+        return None
+    if names == [stage]:
+        return found[0]
+    return f"mix {stage}: " + "; ".join(found)
+
+
+def _warning(stage: str, root: Path) -> str | None:
     if stage == TRAINING_MAP:
         return None
     skills = skills_on(stage, root)

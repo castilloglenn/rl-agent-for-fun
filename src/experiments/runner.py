@@ -41,6 +41,7 @@ METRICS_COLUMNS = (
     "checkpoints",
     "reward",
     "ended_by",
+    "stage",  # the map it played (7d5a: a mix plays several)
 )
 
 
@@ -98,7 +99,11 @@ def run_experiment(
                 seed = first_seed + episode
                 result = run_episode(env, driver, seed)
                 results.append(result)
-                writer.writerow(_metrics_row(episode, result, config))
+                writer.writerow(
+                    _metrics_row(
+                        episode, result, config, env.world.resource(Stage).name
+                    )
+                )
                 file.flush()
                 if result.score > best_score:
                     best_score, best_episode = result.score, episode
@@ -154,7 +159,9 @@ def _write_config(folder, name, env, driver, episodes, first_seed) -> None:
     (folder / "config.json").write_text(json.dumps(config, indent=2) + "\n")
 
 
-def _metrics_row(episode: int, result: EpisodeResult, config) -> list:
+def _metrics_row(
+    episode: int, result: EpisodeResult, config, stage: str
+) -> list:
     seconds = result.steps / config.sim.steps_per_second
     return [
         episode,
@@ -166,6 +173,7 @@ def _metrics_row(episode: int, result: EpisodeResult, config) -> list:
         result.checkpoints,
         round(result.reward, 6),
         result.ended_by or "",
+        stage,
     ]
 
 

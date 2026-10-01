@@ -39,6 +39,7 @@ def test_load_by_path():
         ({"spawns": []}, "at least one spawn"),
         ({"spawns": [{"x": 9999, "y": 10}]}, "outside the stage"),
         ({"checkpoints": {"mode": "zigzag"}}, "unknown checkpoint mode"),
+        ({"checkpoints": {"start": "middle"}}, "unknown checkpoint start"),
         ({"checkpoints": {"mode": "scripted"}}, "need points"),
         ({"checkpoints": {"border_margin": 300}}, "leaves no room"),
     ],
@@ -68,3 +69,13 @@ def test_a_custom_stage_changes_the_world():
     world, car = create_game(get_maze_car_config(), stage=Stage.from_dict(data))
     assert world.resource(Field).rect.size == (1200, 400)
     assert world.component(car, Transform).angle == 90
+
+
+def test_a_seeded_start_round_trips_and_the_default_stays_out():
+    data = json.loads((STAGES_DIR / "skill_gaps.json").read_text())
+    assert "start" not in load_stage("skill_gaps").to_dict()["checkpoints"]
+    data["checkpoints"]["start"] = "seeded"
+    stage = Stage.from_dict(data)
+    assert stage.checkpoints.start == "seeded"
+    assert stage.to_dict()["checkpoints"]["start"] == "seeded"
+    assert Stage.from_dict(stage.to_dict()) == stage

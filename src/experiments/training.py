@@ -57,7 +57,8 @@ from src.experiments.runner import (
 )
 from src.replay.recorder import ReplayRecorder
 from src.sim.rules import Rules
-from src.sim.stage import Stage
+from src.sim.stage import Stage, load_stage
+from src.utils.mixes import Mix, is_mix, load_mix
 from src.utils.version import code_version
 
 LEARNING_COLUMNS = (
@@ -145,7 +146,11 @@ def train_agent(
     loaded = load_agent(agent, root=agents_root)
     config = config.copy_and_resolve_references()
     config.show_gui = False
-    env = _env(loaded, config, reward, rules=rules)
+    # A mix plays its maps in turn (7d5a); a stage plays as before.
+    mix = load_mix(config.stage) if is_mix(config.stage) else None
+    stages = [load_stage(name) for name in mix.stages] if mix else []
+    first = stages[0] if stages else None
+    env = _env(loaded, config, reward, rules=rules, stage=first)
     folder = _new_folder(
         runs_dir or RUNS_DIR, f"train-{loaded.agent_id}", first_seed
     )
@@ -159,6 +164,8 @@ def train_agent(
         start_decisions=loaded.decisions,
         branched_from=loaded.branched_from,
         suite=suite,
+        mix=mix,
+        stages=stages,
     )
     training.write_config()
     if on_start:
@@ -174,6 +181,7 @@ def train_agent(
         rules=world.resource(Rules).name,
         start_checkpoint=loaded.checkpoint,
         start_decisions=loaded.decisions,
+        **({"mix": mix.name, "stages": list(mix.stages)} if mix else {}),
     )
     (folder / "notes.md").write_text(
         f"# {folder.name}\n\nYour observations.\n"
@@ -225,12 +233,15 @@ def resume_training(
 
     config = config_with_game(run_config["game_config"], base_config)
     config.show_gui = False
+    mixed = run_config.get("mix")  # the maps as they were (7d5a)
+    stages = [Stage.from_dict(s) for s in mixed["stages"]] if mixed else []
+    mix = Mix(mixed["name"], tuple(s.name for s in stages)) if mixed else None
     env = _env(
         loaded,
         config,
         RewardProfile.from_dict(run_config["reward"]),
         rules=Rules.from_dict(run_config["rules"]),
-        stage=Stage.from_dict(run_config["stage"]),
+        stage=stages[0] if stages else Stage.from_dict(run_config["stage"]),
     )
     training = _Training(
         loaded,
@@ -242,6 +253,8 @@ def resume_training(
         start_decisions=agent_info["start_decisions"],
         branched_from=agent_info.get("branched_from"),
         suite=(run_config.get("suite") or {}).get("name", suite),
+        mix=mix,
+        stages=stages,
     )
     training.restore(state)
     if on_start:
@@ -318,8 +331,13 @@ class _Training:
         start_decisions: int,
         branched_from: dict | None,
         suite: str = DEFAULT_SUITE,
+        mix: Mix | None = None,
+        stages: list[Stage] | None = None,
     ) -> None:
         self.agent = agent
+        # A mix's maps, played in turn: episode i on map i mod n (7d5a).
+        self.mix = mix
+        self.stages = stages or []
         # Scoring checkpoints plays separate games with its own driver, so
         # it never changes the training (exact resume still holds).
         self.suite = load_suite(suite) if trainer.evaluate else None
@@ -455,6 +473,8 @@ class _Training:
                 },
             }
         }
+        if self.stages:
+            self.env.stage = self.stages[self.episode % len(self.stages)]
         self.observation, _ = self.env.reset(
             seed=self.first_seed + self.episode
         )
@@ -522,7 +542,12 @@ class _Training:
         result = episode_result(self.env, seed, self.steps, truncated, info)
         self.results.append(result)
         self.metrics.writerow(
-            _metrics_row(self.episode, result, self.env.config)
+            _metrics_row(
+                self.episode,
+                result,
+                self.env.config,
+                self.env.world.resource(Stage).name,
+            )
         )
         if result.score > self.best_score:
             self.best_score, self.best_episode = result.score, self.episode
@@ -698,7 +723,15 @@ class _Training:
                 else None
             ),
             "first_seed": self.first_seed,
-            "stage": world.resource(Stage).to_dict(),
+            "stage": world.resource(Stage).to_dict(),  # a mix's first map
+            "mix": (
+                {
+                    "name": self.mix.name,
+                    "stages": [stage.to_dict() for stage in self.stages],
+                }
+                if self.mix
+                else None
+            ),
             "rules": world.resource(Rules).to_dict(),
             "reward": self.env.reward_profile.to_dict(),
             "game_config": game_config(self.env.config),

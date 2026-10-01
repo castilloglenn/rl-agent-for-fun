@@ -71,6 +71,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - One on the field at a time. Collecting it spawns the next one.
 - Random position from a **seeded** random number generator, so replays reproduce it.
 - Radius 15 px. Spawns at least 100 px from the car and 40 px from the border and any wall.
+- Or **scripted**: the stage lists the points, played in order and looping. With `"start": "seeded"` (7d5a), the first one is picked from the seed, so a training course practices every zone ([decision 050](decisions/050-map-mixes.md)).
 
 ### Controls (realistic driving)
 

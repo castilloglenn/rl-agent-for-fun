@@ -107,12 +107,12 @@ def load_maps(
                 info.suites.append(suite.stem)
     for folder in (runs_dir or runs.RUNS_DIR).glob("*/"):
         config = runs.read_json(folder / "config.json")
-        stage = (config.get("stage") or {}).get("name")
-        info = by_name.get(stage)
-        if not info:
-            continue
-        key = (runs.run_who(config), runs.run_kind(config))
-        info.played[key] = info.played.get(key, 0) + 1
+        for stage in runs.run_stages(config):  # every map of a mix
+            info = by_name.get(stage)
+            if not info:
+                continue
+            key = (runs.run_who(config), runs.run_kind(config))
+            info.played[key] = info.played.get(key, 0) + 1
     return found
 
 

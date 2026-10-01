@@ -384,3 +384,30 @@ def test_resume_training_starts_the_resume_action(window, monkeypatch):
         "-resume",
         "2026-09-27_000000_train-pupil_seed0",
     ]
+
+
+def test_a_mixed_run_names_its_mix_and_marks_its_maps(tmp_path):
+    """7d5a: every map of the mix counts as trained on."""
+    folder = _folder(
+        tmp_path / "runs",
+        "m",
+        learning_csv="decisions,score_mean,seconds\n100,5,1\n",
+    )
+    config = json.loads((folder / "config.json").read_text())
+    config["suite"] = {"name": "skills", "version": 1}
+    config["stage"] = {"name": "box"}
+    config["mix"] = {
+        "name": "basics",
+        "stages": [{"name": n} for n in ("box", "skill_gaps")],
+    }
+    (folder / "config.json").write_text(json.dumps(config))
+    assert runs.run_stages(config) == ["box", "skill_gaps"]
+    assert runs.run_place(config) == "mix basics (2 maps)"
+    data = RunData(folder, tmp_path / "agents")
+    assert "mix basics (2 maps)" in data.description()
+    assert data.main_chart().series[0].label == "training (mixed)"
+    labels = [s.label for s in data.second_chart("Skills").series]
+    assert "Open field (trained here)" in labels  # on the box
+    assert "Threading (trained here)" in labels  # on skill_gaps
+    title = data.second_chart("Skills").title
+    assert title == "SKILLS · trained on mix basics"

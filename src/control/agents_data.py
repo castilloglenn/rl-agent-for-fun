@@ -271,7 +271,7 @@ def lineage(
         else:
             text = (
                 f"Reinforcement learning, trainer {phase.get('trainer')}, "
-                f"{phase.get('stage')} / {phase.get('rules')}, "
+                f"{_place(phase)} / {phase.get('rules')}, "
                 f"{phase.get('start_decisions', 0):,.0f} to "
                 f"{phase.get('end_decisions', 0):,.0f} decisions"
             )
@@ -361,6 +361,8 @@ def high_scores(
         best = runs.read_json(folder / "summary.json").get("best_score")
         if not config or best is None or "stage" not in config:
             continue
+        if config.get("mix"):
+            continue  # its best round could be on any of its maps
         key = _game_key(config["stage"], config["rules"])
         who = runs.run_who(config)
         found.setdefault(key, []).append(
@@ -383,6 +385,13 @@ def high_scores(
         key: sorted(scores, key=lambda s: -s.score)[:HIGH_SCORES]
         for key, scores in sorted(found.items())
     }
+
+
+def _place(phase: dict) -> str:
+    """A phase's map, or its mix: "mix basics" (7d5a)."""
+    if phase.get("mix"):
+        return f"mix {phase['mix']}"
+    return str(phase.get("stage"))
 
 
 def _game_key(stage: dict, rules: dict) -> str:

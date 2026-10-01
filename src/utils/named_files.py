@@ -1,11 +1,12 @@
 """Built-in named files and yours (roadmap 7d1, decision 039).
 
 A named file is a JSON file found by its name: a stage, rules, a reward
-profile, a trainer, a model, a dataset, or a suite. **Built-in** ones ship
-with the app in `<kind>/` (committed; they change only in code). **Yours**
-are in `user/<kind>/` (out of git): the ones you make in the app. One name
-per kind: a name is looked up in the built-ins first, and a new file can't
-take a built-in's name, so a name always means one file.
+profile, a trainer, a model, a dataset, a suite, or a map mix.
+**Built-in** ones ship with the app in `<kind>/` (committed; they change
+only in code). **Yours** are in `user/<kind>/` (out of git): the ones you
+make in the app. One name per kind: a name is looked up in the built-ins
+first, and a new file can't take a built-in's name, so a name always
+means one file.
 """
 
 from pathlib import Path
@@ -13,6 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 KINDS = (
     "stages", "rules", "rewards", "trainers", "models", "datasets", "suites",
+    "mixes",  # 7d5a
 )
 USER = "user"  # your files: user/<kind>/
 

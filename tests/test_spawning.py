@@ -76,3 +76,31 @@ def test_crowded_stage_picks_the_least_crowded_candidate():
     )
     spot = tiny.next_spot(cars)
     assert spot == max(candidates, key=lambda c: math.dist(c, cars[0]))
+
+
+# A seeded start (7d5a): a training course starts anywhere.
+
+POINTS = ((100.0, 100.0), (300.0, 100.0), (500.0, 100.0), (700.0, 100.0))
+
+
+def test_scripted_checkpoints_start_at_the_first_by_default():
+    rules = CheckpointRules(mode="scripted", points=POINTS)
+    for seed in range(5):
+        schedule = _schedule(seed, rules=rules)
+        spots = [schedule.next_spot([]) for _ in range(5)]
+        assert spots == [*POINTS, POINTS[0]]  # in order, then it loops
+
+
+def test_a_seeded_start_picks_the_first_from_the_seed():
+    rules = CheckpointRules(mode="scripted", points=POINTS, start="seeded")
+    firsts = set()
+    for seed in range(20):
+        schedule = _schedule(seed, rules=rules)
+        spots = [schedule.next_spot([]) for _ in range(5)]
+        first = POINTS.index(spots[0])
+        # Still in order and looping, from wherever it started.
+        assert spots == [POINTS[(first + i) % 4] for i in range(5)]
+        again = _schedule(seed, rules=rules).next_spot([])
+        assert again == spots[0]  # the same seed, the same start
+        firsts.add(first)
+    assert len(firsts) > 1  # seeds start at different points

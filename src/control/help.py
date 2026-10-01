@@ -113,6 +113,14 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
         "min_score": ("points", "Rounds that scored below this are left "
                       "out, so the clone learns from good driving."),
     },
+    "mixes": {
+        "name": ("", "The file's name. Pick it as the Stage to train on all "
+                 "its maps."),
+        "description": ("", "What this mix practices, in plain words."),
+        "stages": ("", "The maps, played in turn: episode 1 on the first, "
+                   "episode 2 on the second, and so on, then from the "
+                   "start again. Names of stages, separated by commas."),
+    },
     "suites": {
         "name": ("", "The file's name."),
         "description": ("", "What this suite measures, in plain words."),

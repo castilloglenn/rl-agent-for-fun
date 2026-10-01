@@ -211,3 +211,25 @@ def test_the_model_file_is_unchanged_by_training(tmp_path):
     model = json.loads((tmp_path / "agents/pupil/model.json").read_text())
     assert model == load_model_spec("small").to_dict()
     assert TINY.total_decisions == 512  # the tests above assume it
+
+
+def test_a_mixed_run_resumes_exactly(tmp_path):
+    """7d5a: the maps keep their turns across a stop."""
+
+    def train(where, **kwargs):
+        from src.agents.store import create_agent
+
+        root = where / "agents"
+        create_agent("pupil", load_model_spec("small"), root=root)
+        config = get_maze_car_config()
+        config.stage = "basics"
+        return training.train_agent(
+            "pupil", TINY, config, rules=SHORT, runs_dir=where / "runs",
+            agents_root=root, **kwargs,
+        )
+
+    whole = train(tmp_path / "whole")
+    stopped = train(tmp_path, on_update=_stop_at(3))
+    resumed = _resume(tmp_path, stopped.folder)
+    _same_run(whole.folder, resumed.folder)
+    _same_weights(_weights(tmp_path / "whole"), _weights(tmp_path))

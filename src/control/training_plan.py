@@ -17,7 +17,7 @@ from pathlib import Path
 
 from src.control import runs
 from src.control.actions import ACTIONS, NONE
-from src.utils import named_files, test_maps
+from src.utils import mixes, named_files, test_maps
 
 REPO = Path(__file__).resolve().parents[2]
 RL = "Reinforcement learning"
@@ -158,7 +158,11 @@ def make_plan(
     if uses_rl(mode):
         trainer = _trainer(values["Trainer"])
         decisions = trainer.get("total_decisions", 0)
-        game = f"{values['Stage']} / {values['Rules']}"
+        place = values["Stage"]
+        if mixes.is_mix(place):
+            maps = ", ".join(mixes.stages_of(place))
+            place = f"mix {place} ({maps}, in turn)"  # 7d5a
+        game = f"{place} / {values['Rules']}"
         if seconds:
             game += f", {seconds} s rounds"
         plan.steps.append(

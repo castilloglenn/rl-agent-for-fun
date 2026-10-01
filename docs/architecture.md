@@ -46,7 +46,7 @@ Every world is independent. Nothing is global, so several worlds can exist in on
 | `paths.py` | `PathField`: a point's path length to a goal around the walls (a 10 px grid, walls grown by half the car's width, Dijkstra over 8 neighbors, blended between cells so it never jumps; the straight line when a stage has no walls). The env's progress reward uses it ([decision 041](decisions/041-progress-reward.md)) |
 | `stage.py` | `Stage` (size, walls, spawns, checkpoint rules), `load_stage(name or path)`, validation, and `to_dict()` for embedding in replays |
 | `rules.py` | `Rules` (round length, rounds per game, scoring), `load_rules(name or path)`, validation, `to_dict()`, and `with_round_seconds()` (a renamed round-length override). The `Rules` object is also the world resource the reward and round systems read. See [decision 013](decisions/013-game-rules-files.md) |
-| `spawning.py` | `SpawnSchedule`: stage + seed decide every spawn. Slot N's candidates depend only on (seed, spawner, N); `random` or `scripted` mode. Random spots keep the border margin from walls too |
+| `spawning.py` | `SpawnSchedule`: stage + seed decide every spawn. Slot N's candidates depend only on (seed, spawner, N); `random` or `scripted` mode (scripted can start at a point picked from the seed, `"start": "seeded"`, 7d5a). Random spots keep the border margin from walls too |
 | `factories.py` | `create_game(config, label, seed, stage, rules)` (world + car at the stage's spawn + checkpoint: used by the env and tests), `create_world`, `create_car`, `create_start_car`, `create_checkpoint` |
 | `geometry.py` | `car_corners` (the 4 real hitbox corners), `inside`, and `max_move_fraction` (how far a move can go before a corner touches the border) |
 | `walls.py` | Walls inside the field ([decision 033](decisions/033-walls-in-the-simulation.md)): `Box`, `wall_contact` (the first contact of a moving hitbox, with its normal), `slide`, `overlaps`, `ray_to_walls`, and `rotation_into_walls` |
@@ -131,7 +131,7 @@ runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
                  profile, game-defining config, observation version, code
   metrics.csv    one row per episode, flushed as it goes: episode, seed,
                  steps, seconds, score, distance points, checkpoints,
-                 agent reward, how it ended
+                 agent reward, how it ended, stage
   replays/       each new best episode by game score, gzipped and
                  self-verifying (ep0012_score2456.jsonl.gz)
   summary.json   episodes, mean and best score, checkpoints, survival rate
@@ -150,7 +150,8 @@ runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
 ```
 runs/<date>_<time>_train-<id>_seed<N>/
   config.json    kind "training", agent (model, start checkpoint and
-                 decisions), trainer, stage, rules, reward, game config
+                 decisions), trainer, stage, mix (or null), rules,
+                 reward, game config
   metrics.csv    one row per training episode (same columns as runs)
   learning.csv   one row per update: decisions, episodes, mean score and
                  reward of the last 20 episodes, losses, entropy, KL, clip
@@ -160,6 +161,7 @@ runs/<date>_<time>_train-<id>_seed<N>/
 agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 ```
 
+- **Map mixes** (7d5a, [decision 050](decisions/050-map-mixes.md)): with a mix as the stage, episode *i* plays the mix's map *i* mod *n* (the env's stage is swapped before each reset). The config keeps every map's full content for an exact resume, and `"stage"` is the first map.
 - Each decision samples the policy, holds it `action_repeat` steps, and its reward is the reward profile summed over them. A wreck or time up ends the value chain. That's right for time up too, because `time_left` is in the observation.
 - Checkpoints are named by the agent's total decisions at the mark they passed (`d0100k` holds the weights after the first update past 100,000; the exact count is inside). A second phase continues the count.
 - **Exact resume** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md)): after every update, `runs/<run>/resume.pt` holds the weights, optimizer, torch random state, counters, episode results, and the current episode's seed and decisions. `resume_training(run)` rebuilds the game by re-simulating that episode, and the run ends exactly as if it had never stopped. `last_stopped_run()` finds the newest stopped one.
@@ -303,6 +305,8 @@ every drawn frame:
 `FixedStepClock` (`src/utils/timing.py`) turns real time into a whole number of steps. After a stall it skips the backlog (at most 8 steps per frame).
 
 `driving_style` (`src/utils/driving_style.py`, no torch, 7c9): how an agent spends its steps, counted while its checkpoints are scored (`Counter`: each step's pedal, forward, brake, coast, or reverse in the game's order, its turning, and whether the car moved backward), the `style_*` columns, `summary`, and `warnings` (backward over 40 %, braking over 50 %, coasting over 70 %, one way over 80 %) ([decision 046](decisions/046-driving-style.md)).
+
+`mixes` (`src/utils/mixes.py`, no torch, 7d5a): map mixes, named files listing stages (`load_mix`, `is_mix`: a stage of the same name wins, `stages_of`: a mix's stages or the stage itself). Training, the test-map warning, and the Stage dropdowns use it ([decision 050](decisions/050-map-mixes.md)).
 
 `skills` (`src/utils/skills.py`, no torch, 7d4): the default suite's skills (`load`: name, label, kind, stage) and `shares` (each skill's value over the heuristic's, the heuristic's counted as at least its floor). The evaluation, the Runs tab, and the Agents tab all use it ([decision 049](decisions/049-skills-chart-and-radar.md)).
 

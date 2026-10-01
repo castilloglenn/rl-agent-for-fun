@@ -12,6 +12,9 @@ from src.utils import named_files
 STAGE_FORMAT = 1
 STAGES_DIR = Path(__file__).resolve().parents[2] / "stages"
 SCHEDULE_MODES = ("random", "scripted")
+# Where scripted checkpoints start: the first point, or one picked from
+# the seed (7d5a: a training course practices every zone).
+STARTS = ("first", "seeded")
 # A spawn this close to a wall would start with the car touching it (a
 # car is 24 x 16: 14.4 px from its center to a corner).
 SPAWN_CLEARANCE = 16.0
@@ -35,6 +38,7 @@ class CheckpointRules:
     border_margin: float = 40.0  # random mode: px inside the border
     min_car_distance: float = 100.0  # random mode: px from any car
     points: tuple[tuple[float, float], ...] = ()  # scripted mode, in order
+    start: str = "first"  # scripted mode: "first" or "seeded" (STARTS)
 
 
 @dataclass(frozen=True)
@@ -76,6 +80,10 @@ class Stage:
         checkpoints["points"] = [list(p) for p in self.checkpoints.points]
         if self.checkpoints.mode != "scripted":
             del checkpoints["points"]
+        if self.checkpoints.mode != "scripted" or (
+            self.checkpoints.start == "first"
+        ):
+            del checkpoints["start"]  # the default: files stay as they were
         return {
             "format": self.format,
             "name": self.name,
@@ -119,6 +127,8 @@ class Stage:
         rules = self.checkpoints
         if rules.mode not in SCHEDULE_MODES:
             raise StageError(f"unknown checkpoint mode {rules.mode!r}")
+        if rules.start not in STARTS:
+            raise StageError(f"unknown checkpoint start {rules.start!r}")
         if rules.mode == "scripted":
             if not rules.points:
                 raise StageError("scripted checkpoints need points")

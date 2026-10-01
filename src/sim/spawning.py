@@ -37,7 +37,13 @@ class SpawnSchedule:
         self.next_slot += 1
         if self.rules.mode == "scripted":
             points = self.rules.points
-            return tuple(points[slot % len(points)])  # loops at the end
+            # Loops at the end; a "seeded" start begins at a point picked
+            # from the seed (7d5a), the same for every driver.
+            first = 0
+            if self.rules.start == "seeded":
+                rng = random.Random(f"{self.seed}:{self.name}:start")
+                first = rng.randrange(len(points))
+            return tuple(points[(slot + first) % len(points)])
         candidates = self.candidates(slot)
         for candidate in candidates:
             if all(

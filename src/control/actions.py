@@ -132,6 +132,17 @@ def _replays() -> list[str]:
 
 # Fields the game actions share.
 STAGE = Field("Stage", _files("stages"), "box")
+
+
+def _stages_and_mixes() -> list[str]:
+    """Stages, then map mixes ("mix: basics", 7d5a): training only."""
+    return choices.named("stages") + [
+        choices.Choice(name, f"mix: {getattr(name, 'label', name)}")
+        for name in choices.named("mixes")
+    ]
+
+
+TRAIN_STAGE = Field("Stage", _stages_and_mixes, "box")
 RULES = Field("Rules", _files("rules"), "standard")
 SECONDS = Field("Round seconds", None, "", "blank: the rules' own")
 REWARD = Field("Reward profile", _files("rewards"), "default")
@@ -405,7 +416,7 @@ ACTIONS = (
             Field("Agent", choices.agents),
             Field("Trainer", _trainers("rl"), "default"),
             Field("Seed", None, "0", "the first episode's seed"),
-            STAGE,
+            TRAIN_STAGE,
             RULES,
             SECONDS,
             REWARD,

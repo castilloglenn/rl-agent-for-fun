@@ -235,6 +235,23 @@ def run_who(config: dict) -> str:
     return str(who or "?")
 
 
+def run_stages(config: dict) -> list[str]:
+    """The maps a run played: a mix's (7d5a), or its stage."""
+    mix = config.get("mix")
+    if mix:
+        return [stage["name"] for stage in mix["stages"]]
+    name = (config.get("stage") or {}).get("name")
+    return [name] if name else []
+
+
+def run_place(config: dict) -> str:
+    """Where it played, as shown: "mix basics (4 maps)", or the stage."""
+    mix = config.get("mix")
+    if mix:
+        return f"mix {mix['name']} ({len(mix['stages'])} maps)"
+    return _name(config, "stage")
+
+
 def status_of(
     folder: Path,
     kind: str,
@@ -374,6 +391,8 @@ class RunData:
         # Each skill's share over the checkpoints (7d4): name -> points.
         self.skill_points: dict[str, list[tuple[float, float]]] = {}
         self.stage = (self.config.get("stage") or {}).get("name", "")
+        self.mix = (self.config.get("mix") or {}).get("name")
+        self.stages = run_stages(self.config)  # every map it trains on
         suite = self.config.get("suite")
         self.suite = f"{suite['name']}-v{suite['version']}" if suite else None
         self.skills = skills.load(suite["name"]) if suite else []
@@ -484,7 +503,7 @@ class RunData:
                 f"{_name(c, 'dataset')} · {rounds} rounds"
             )
         game = (
-            f"{_name(c, 'stage')} · {_name(c, 'rules')} · reward "
+            f"{run_place(c)} · {_name(c, 'rules')} · reward "
             f"{_name(c, 'reward')} · seed {c.get('first_seed', 0)}"
         )
         if self.kind == TRAINING:
@@ -553,7 +572,12 @@ class RunData:
                 for x, y in self.learning.column("score_mean", "decisions")
             ]
             series = [
-                Series("training", training, theme.ACCENT, LINE),
+                Series(
+                    "training (mixed)" if self.mix else "training",
+                    training,
+                    theme.ACCENT,
+                    LINE,
+                ),
                 Series(
                     f"suite {self.suite}",
                     [(d, s) for _, d, s in self.suite_points],
@@ -617,7 +641,7 @@ class RunData:
         """
         series = []
         for i, skill in enumerate(self.skills):
-            here = skill.stage == self.stage
+            here = skill.stage in self.stages
             series.append(
                 Series(
                     skill.label + (" (trained here)" if here else ""),
@@ -656,7 +680,8 @@ class RunData:
                     priority=1,
                 )
             )
-        trained = f" · trained on {self.stage}" if self.stage else ""
+        place = f"mix {self.mix}" if self.mix else self.stage
+        trained = f" · trained on {place}" if place else ""
         chart = Chart(f"SKILLS{trained}", series, "{} decisions")
         chart.y_format = chart.value_format = "{:.2f}".format
         chart.legend_rows = 3  # seven skills and the rest

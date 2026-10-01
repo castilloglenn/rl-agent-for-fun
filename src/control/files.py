@@ -78,6 +78,12 @@ def _suites(data: dict) -> None:
     Suite.from_dict(data)
 
 
+def _mixes(data: dict) -> None:
+    from src.utils.mixes import Mix
+
+    Mix.from_dict(data).check()
+
+
 VALIDATORS: dict[str, Callable[[dict], None]] = {
     "rewards": _rewards,
     "rules": _rules,
@@ -85,6 +91,7 @@ VALIDATORS: dict[str, Callable[[dict], None]] = {
     "models": _models,
     "datasets": _datasets,
     "suites": _suites,
+    "mixes": _mixes,
 }
 KINDS = (
     Kind("Reward profiles", "rewards", ("default",)),
@@ -93,6 +100,7 @@ KINDS = (
     Kind("Models", "models", ("small",)),
     Kind("Datasets", "datasets", ("mine",)),
     Kind("Suites", "suites", ("skills",)),
+    Kind("Map mixes", "mixes", ("basics",)),  # 7d5a
 )
 # Values tied to code or to the file's shape: shown, not edited.
 READONLY = {

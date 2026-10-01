@@ -295,3 +295,45 @@ def test_reward_scale_changes_learning_not_metrics(tmp_path):
 def test_reward_scale_must_be_positive():
     with pytest.raises(TrainerError, match="reward_scale"):
         TrainerSpec.from_dict({**DEFAULT.to_dict(), "reward_scale": 0})
+
+
+# Map mixes (7d5a)
+
+
+def test_a_mix_plays_its_maps_in_turn(tmp_path):
+    root = tmp_path / "agents"
+    create_agent("pupil", load_model_spec("small"), root=root)
+    config = get_maze_car_config()
+    config.stage = "basics"  # box, pillars, s_curve, arena (built-in)
+    summary = train_agent(
+        "pupil",
+        TINY,
+        config,
+        rules=SHORT,
+        runs_dir=tmp_path / "runs",
+        agents_root=root,
+    )
+    rows = _rows(summary.folder / "metrics.csv")
+    maps = ["box", "pillars", "s_curve", "arena"]
+    assert [r["stage"] for r in rows] == [
+        maps[i % 4] for i in range(len(rows))
+    ]
+    run = json.loads((summary.folder / "config.json").read_text())
+    assert run["mix"]["name"] == "basics"
+    assert [s["name"] for s in run["mix"]["stages"]] == maps
+    assert run["stage"]["name"] == "box"  # its first map
+    history = [
+        json.loads(line)
+        for line in (root / "pupil" / "history.jsonl").read_text().split("\n")
+        if line
+    ]
+    started = next(e for e in history if e["event"] == "phase_started")
+    assert started["mix"] == "basics" and started["stages"] == maps
+
+
+def test_a_single_stage_has_no_mix(tmp_path):
+    summary = _train(tmp_path)
+    run = json.loads((summary.folder / "config.json").read_text())
+    assert run["mix"] is None
+    rows = _rows(summary.folder / "metrics.csv")
+    assert {r["stage"] for r in rows} == {"box"}
