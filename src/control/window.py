@@ -13,6 +13,7 @@ jobs.py), started with the same `app.py` command you'd type.
 """
 
 import html
+import sys
 import time
 from pathlib import Path
 
@@ -71,6 +72,11 @@ TABS = (
     ("Commands", None),
     ("Settings", None),
 )
+# Cmd+1 ... on a Mac, Ctrl+1 ... elsewhere, open the tabs in order (7c12).
+SHORTCUT = "Cmd" if sys.platform == "darwin" else "Ctrl"
+TAB_KEYS = {
+    getattr(pygame, f"K_{n}"): n - 1 for n in range(1, 10)
+}
 LIST_BG = (8, 8, 10)  # an open dropdown's list, darker than the fields
 CONSOLE_FONT = "menlo"  # monospace, like a terminal: tables line up
 ITEM = {  # list and dropdown rows: left-aligned, with room around the text
@@ -754,6 +760,8 @@ class ControlCenter:
         if self.box:  # an open box takes every key and click
             self._handle_box(event)
             return
+        if self._tab_shortcut(event):
+            return  # before any text field: Cmd+3 never types a 3
         self.gui.process_events(event)
         if event.type == pygame.QUIT:
             self.ask_to_quit()
@@ -779,6 +787,19 @@ class ControlCenter:
             self.settings_tab.handle(event)
         else:
             self._handle_commands(event)
+
+    def _tab_shortcut(self, event) -> bool:
+        """Cmd+1 to Cmd+7 (Ctrl on Windows and Linux) open the tabs in
+        their order (7c12). True if it was one.
+        """
+        if event.type != pygame.KEYDOWN or event.key not in TAB_KEYS:
+            return False
+        if not event.mod & (pygame.KMOD_META | pygame.KMOD_CTRL):
+            return False
+        index = TAB_KEYS[event.key]
+        if index < len(TABS) and _available(TABS[index][0]):
+            self.open_tab(TABS[index][0])
+        return True
 
     def _handle_commands(self, event) -> None:
         if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
@@ -1023,6 +1044,8 @@ class ControlCenter:
         )
         for name, step in TABS:
             rect = self.tab_rects[name]
+            number = [n for n, _ in TABS].index(name) + 1
+            self.tips.add(rect, f"{name}: {SHORTCUT}+{number}")
             active = name == self.tab
             if active:  # the open tab: a lit box
                 pygame.draw.rect(self.screen, (20, 60, 95), rect)

@@ -492,3 +492,21 @@ def test_samples_are_reused_within_a_second():
 def test_the_strip_draws(window):
     window.draw()
     assert window.stats.snapshot is not None
+
+
+def test_cmd_or_ctrl_and_a_number_opens_that_tab(window):
+    """7c12: Cmd+1..7 on a Mac, Ctrl+1..7 elsewhere, in the tabs' order."""
+    def press(key, mod):
+        window.handle(pygame.event.Event(pygame.KEYDOWN, key=key, mod=mod))
+
+    press(pygame.K_3, pygame.KMOD_LMETA)
+    assert window.tab == "Agents"
+    press(pygame.K_6, pygame.KMOD_LCTRL)
+    assert window.tab == "Commands"
+    press(pygame.K_1, 0)  # a plain 1 is just a 1
+    assert window.tab == "Commands"
+    press(pygame.K_9, pygame.KMOD_LMETA)  # no ninth tab: nothing
+    assert window.tab == "Commands"
+    window.ask_to_quit()  # a box open takes every key
+    press(pygame.K_2, pygame.KMOD_LMETA)
+    assert window.tab == "Commands"
