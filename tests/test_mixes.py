@@ -82,3 +82,13 @@ def test_the_skill_training_mix_has_no_test_map():
     assert mix.stages == ("box", "arena", "course_small", "course_large")
     assert not any(s.startswith("skill_") for s in mix.stages)
     assert test_maps.warning("skill_training") is None
+
+
+def test_the_easy_mix_is_the_first_level():
+    """7f2: skill_training_easy swaps in the easy course, no test map."""
+    easy = mixes.load_mix("skill_training_easy").stages
+    hard = mixes.load_mix("skill_training").stages
+    assert easy == tuple(
+        "course_small_easy" if s == "course_small" else s for s in hard
+    )
+    assert test_maps.warning("skill_training_easy") is None

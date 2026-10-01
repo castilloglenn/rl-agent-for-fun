@@ -110,3 +110,30 @@ def test_every_scripted_checkpoint_can_be_reached():
 def test_the_courses_start_anywhere():
     for name in ("course_small", "course_large"):
         assert load_stage(name).checkpoints.start == "seeded"
+
+
+def test_the_easy_course_keeps_each_next_checkpoint_in_sight():
+    """7f2: on course_small_easy every leg is a straight line with room
+    for the car (at least 24 px from any wall), and the heuristic, which
+    only steers at the checkpoint, drives most of a loop in 60 s.
+    """
+    from src.config import get_maze_car_config
+    from src.drivers.episode import run_episode
+    from src.drivers.registry import make_driver
+    from src.envs.maze_car.env import MazeCarEnv
+    from src.sim.walls import Box
+
+    stage = load_stage("course_small_easy")
+    boxes = [Box.from_list(wall) for wall in stage.walls]
+    points = stage.checkpoints.points
+    for i, (bx, by) in enumerate(points):
+        ax, ay = points[i - 1]
+        n = int(max(abs(bx - ax), abs(by - ay)) // 2) + 1
+        for k in range(n + 1):
+            x, y = ax + (bx - ax) * k / n, ay + (by - ay) * k / n
+            assert min(b.distance(x, y) for b in boxes) >= 24, (i, x, y)
+    config = get_maze_car_config()
+    config.show_gui = False
+    env = MazeCarEnv(config, stage=stage)
+    result = run_episode(env, make_driver("heuristic"), 50_000)
+    assert result.checkpoints >= 20  # most of the loop's 28 in 60 s
