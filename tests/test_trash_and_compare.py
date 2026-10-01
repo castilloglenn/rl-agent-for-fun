@@ -180,7 +180,7 @@ def _open_box(window):
 
 def test_clicking_a_suite_dot_opens_its_box(window):
     tab = _open_box(window)
-    assert tab.picked == ("d0100", 100.0, 0.7)
+    assert tab.picked == ("d0100", 100.0, 7.0)
     window.draw()
     assert set(tab.popover_buttons) == {"watch", "branch"}
     _key(window, pygame.K_ESCAPE)  # closes the box, not the window
@@ -245,7 +245,7 @@ def test_a_compared_run_adds_muted_lines(window):
     tab.select(RUN)
     tab._set_compare(("", OTHER))
     chart = tab._with_compare(
-        tab.data.main_chart(), lambda c: c.main_chart(), ("dots",)
+        tab.data.main_chart(), lambda c: c.main_chart(), ("line",)
     )
     tags = [s.label for s in chart.series]
     assert "pupil 01:48" in tags

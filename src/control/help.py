@@ -203,12 +203,15 @@ TERM_PARAMS: dict[str, tuple[str, str]] = {
 # Everything else, by topic.
 TOPICS: dict[str, str] = {
     # Runs tab charts
-    "chart:score": "Each skill's share of the heuristic's score, per scored "
+    "chart:score": "Game points per round. The line is the training score "
+    "(mean of the last 20 episodes, on its own map). Dots are each "
+    "checkpoint's mean score on the skills' maps (fixed rounds, a fair "
+    "comparison): click one to watch it or branch from it. The ring is the "
+    "best checkpoint by share, and the dashed line is the heuristic's score.",
+    "chart:Skills": "Each skill's share of the heuristic's score, per scored "
     "checkpoint (1.0: as good as the heuristic). The dashed skill is the "
-    "one on the stage it trains on. Dots are the average share (the "
+    "one on the map it trains on. Dots are the average share (the "
     "ranking), the ring is the best checkpoint.",
-    "chart:Training score": "Game points per round while training, on its "
-    "own stage (mean of the last 20 episodes).",
     "chart:accuracy": "How often the clone picks the action you picked: on "
     "the rounds it learned from, and on held-out rounds it never saw. A gap "
     "between them means it memorizes more than it learns.",
@@ -240,13 +243,14 @@ TOPICS: dict[str, str] = {
     "chart:Distance points": "Game points from driving only, per episode.",
     "chart:Steps": f"How long each episode lasted, in steps "
     f"({STEPS_PER_SECOND}/s).",
+    "legend:suite": "The checkpoint's mean game score on the skills' maps. "
+    "Click a dot to watch it drive, or branch from it.",
     "legend:average": "The checkpoint's average share of the heuristic's "
-    "score across the skills: the ranking. Click a dot to watch it drive, or "
-    "branch from it.",
+    "score across the skills: the ranking.",
     "legend:best": "The checkpoint with the best average share, used by "
     "'Watch best'.",
-    "legend:heuristic": "The heuristic's share of its own score: 1.0. Above "
-    "the line is better than the heuristic.",
+    "legend:heuristic": "The heuristic: its game score on the score chart, "
+    "1.0 (its own share) on Skills. Above the line is better than it.",
     "compare": "Draws another run of the same kind on both charts, muted.",
     # Run statuses
     "status:running": "Running as a job of this control center.",

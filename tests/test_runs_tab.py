@@ -169,12 +169,12 @@ def test_a_training_run_has_its_curves(tmp_path):
     data = RunData(summary.folder, tmp_path / "agents")
     done, total, unit = data.counts()
     assert (done, total, unit) == (512, 512, "decisions")
-    assert data.main_chart().title.startswith("SKILLS")  # 7d4
-    assert data.options()[0] == "Training score"
-    training = data.second_chart("Training score").series[0]
-    assert len(training.points) == 4
+    chart = data.main_chart()
+    training = chart.series[0]
+    assert training.label == "training" and len(training.points) == 4
+    assert data.options()[0] == "Skills"  # 7d4: the default
     for option in data.options():
-        if option == "Driving style":  # from scored checkpoints: below
+        if option in ("Skills", "Driving style"):  # scored ones: below
             continue
         assert data.second_chart(option).series[0].points
     assert "pupil from initial" in data.description()
@@ -215,8 +215,9 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
         "heuristic": {"skill:open_field": 100.0, "skill:braking": 0.8},
     }}))
     data = RunData(folder, tmp_path / "agents")
-    assert data.suite_points == [("a", 100.0, 1.25)]  # only this run's
-    assert data.best == ("a", 100.0, 1.25)
+    assert data.suite_points == [("a", 100.0, 40.0)]  # only this run's
+    assert data.shares == {"a": 1.25}
+    assert data.best == ("a", 100.0, 40.0)
     assert data.notes() == "best a: share 1.25"
     # 7d4: each skill's share of the heuristic's.
     assert data.skill_points == {
@@ -228,11 +229,14 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
         "forward", "brake", "coast", "reverse",
     ]
     assert style.series[0].points == [(100.0, 0.7)]
-    chart = data.main_chart()
+    labels = [s.label for s in data.main_chart().series]
+    assert labels == ["training", "suite skills-v1", "best a"]
+    chart = data.second_chart("Skills")
     assert chart.title == "SKILLS · trained on box"
     labels = [s.label for s in chart.series]
     assert "Open field (trained here)" in labels  # the box: dashed
     assert labels[-3:] == ["average share", "best a", "heuristic"]
+    assert chart.series[-2].points == [(100.0, 1.25)]  # the best, by share
     assert data.seconds_left() == pytest.approx(8.0)  # 800 more at 100/s
 
 

@@ -26,7 +26,7 @@ from pygame import Rect
 from pygame_gui.elements import UIButton, UIDropDownMenu, UISelectionList
 
 from src.control import help, runs
-from src.control.charts import DOTS, LINE, Plot, Series, draw_chart
+from src.control.charts import DOTS, LINE, Plot, Series, compact, draw_chart
 from src.control.jobs import JobManager
 from src.control.maps_data import watch_stage
 from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
@@ -499,19 +499,17 @@ class RunsTab:
         mouse = pygame.mouse.get_pos()
         if self.dropdown_open() or self.picked:
             mouse = None  # an open list or box covers the chart
-        # Training compares the average share, not seven more lines (7d4).
         main = self._with_compare(
-            data.main_chart(),
-            lambda c: c.main_chart(),
-            (DOTS,) if data.kind == runs.TRAINING else (LINE,),
+            data.main_chart(), lambda c: c.main_chart(), (LINE,)
         )
         self._plot = draw_chart(surface, self.main_rect, main, mouse)
         self._chart_help(surface, self._plot, CHART_TOPICS[data.kind])
         option = self.choice.get(data.kind, data.options()[0])
+        # Skills compares the average share, not seven more lines (7d4).
         second = self._with_compare(
             data.second_chart(option),
             lambda c: c.second_chart(option),
-            (LINE, DOTS),
+            (DOTS,) if option == runs.SKILLS_CHART else (LINE, DOTS),
         )
         plot = draw_chart(
             surface,
@@ -603,9 +601,13 @@ class RunsTab:
 
     def _popover_texts(self) -> tuple[str, str]:
         name, decisions, score = self.picked
+        share = self.data.shares.get(name)
+        detail = f"score {score:,.0f} · "
+        if share is not None:
+            detail += f"share {share:.2f} · "
         return (
             f"{self.data.who}@{name}",
-            f"share {score:.2f} · {decisions:,.0f} decisions",
+            detail + f"{compact(decisions)} decisions",
         )
 
     def _draw_popover(self, surface) -> None:

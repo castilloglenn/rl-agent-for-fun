@@ -93,7 +93,8 @@ def test_every_topic_the_tabs_ask_for_exists():
     keys += ["badge:FROM YOUR DRIVING", "skills", "history", "estimate"]
     keys += [f"stat:{s}" for s in ("CPU", "MEMORY", "BATTERY", "DISK")]
     keys += ["stat:JOBS", "compare", "high scores", "heuristic ratio"]
-    keys += ["legend:average", "legend:best", "legend:heuristic"]
+    keys += ["legend:suite", "legend:average", "legend:best"]
+    keys += ["legend:heuristic"]
     from src.control.recordings_view import COLUMNS
 
     keys += [f"recording:{name}" for name, _, _, _ in COLUMNS]
