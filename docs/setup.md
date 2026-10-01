@@ -32,7 +32,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make stop_all` | The manual dead switch: stops every job of this project, also ones started in a terminal (Ctrl+C first, so training keeps its resume state; `make resume_last` continues it). Not the control center |
 | `make maze_car` | Drive with the keyboard: WASD/arrows, SPACE brakes, P pauses, R restarts, H toggles lines, O opens your display settings (in every game window), ? shows all shortcuts, Esc asks before quitting (Enter quits). A round starts with your first driving key. **Every round is recorded** to `recordings/<player>/` (REC in the left panel). K keeps the last recording for good |
 | `make maze_car_norecord` | Drive without recording |
-| `make maze_car_heuristic` | Watch the heuristic baseline drive (T shows its trail, and M picks another map with a preview, as for any driver you watch) |
+| `make maze_car_heuristic` | Watch the heuristic baseline drive (T shows its trail, M picks another map with a preview, and holding a driving key takes over until you let go, for testing, as for any driver you watch) |
 | `make maze_car_random` | Watch the random baseline drive |
 | `make maze_car_driver DRIVER=name` | Any driver: `keyboard`, `random`, `heuristic`, `agent:<id>` |
 | `make maze_car_player PLAYER=name` | Drive with your player name (HUD, and recordings from 4i) |

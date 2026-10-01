@@ -31,6 +31,8 @@ RECORDING_SHORTCUTS = (
 )
 # Watching a driver (not the keyboard): T shows its trail, as in replays.
 WATCH_SHORTCUTS = (
+    ("W A S D / arrows", "take over while held (testing only)"),
+    ("SPACE", "brake, taking over"),
     *LIVE_SHORTCUTS[2:-2],
     ("T", "trail: where the car has been"),
     *LIVE_SHORTCUTS[-2:],
@@ -88,6 +90,13 @@ class MazeCarDemo:
         # doesn't run while you get ready. Other drivers start at once.
         self.wait_for_keys = isinstance(self.driver, KeyboardDriver)
         self.watching = not self.wait_for_keys  # a driver drives: a trail
+        # Watching, holding a driving key takes over (7f9): your keys
+        # drive until you let go, then the driver goes on from there. For
+        # testing only: nothing is recorded, nothing is learned.
+        self.override = KeyboardDriver() if self.watching else None
+        self.overriding = False
+        self.takeovers = 0  # this round: how many times, and for how long
+        self.override_steps = 0
         # Watching, M picks another map (never while you drive: it would
         # cut a recording short; a test drive stays on its map).
         self.maps: list[str] = []
@@ -133,6 +142,8 @@ class MazeCarDemo:
     def _new_round(self) -> None:
         self.world = self.env.world
         self.driver.reset(self._seed())
+        self.takeovers = self.override_steps = 0
+        self.overriding = False
         self.waiting = self.wait_for_keys
         self.trail = []
         if self.watching:
@@ -177,8 +188,18 @@ class MazeCarDemo:
         if frozen or self.waiting:
             self.clock.advance(0)
         else:
+            yours = self.override.act() if self.override else None
+            taking = bool(yours and any(yours))
+            if taking and not self.overriding:
+                self.takeovers += 1
+            self.overriding = taking
             for _ in range(self.clock.advance(elapsed)):
+                # The driver always decides, so its MIND still shows what
+                # it would do while your keys drive.
                 action = self.driver.act(self.env.last_observation)
+                if taking:
+                    action = yours
+                    self.override_steps += 1
                 self.env.step_world(action)
                 self._grow_trail()
         alpha = 1.0 if frozen or self.waiting else self.clock.alpha
@@ -205,9 +226,18 @@ class MazeCarDemo:
                 messages,
             )
         if self.watching:
+            label, color = "Live play", theme.TEXT_DIM
+            if self.overriding:
+                label, color = "YOU are driving", theme.WARN
+            elif self.takeovers:
+                sps = self.env.config.sim.steps_per_second
+                label = (
+                    f"Live play · you took over {self.takeovers}x "
+                    f"({self.override_steps / sps:.0f} s)"
+                )
             return ModeInfo(
-                "Live play",
-                theme.TEXT_DIM,
+                label,
+                color,
                 WATCH_SHORTCUTS,
                 messages,
                 trail=self.trail,

@@ -140,7 +140,8 @@ def test_watching_a_driver_keeps_its_trail():
     assert mode.trail is demo.trail
     assert len(demo.trail) == 1 + _step(demo) // 2  # 60 points per second
     assert ("T", "trail: where the car has been") in mode.shortcuts
-    assert all(key != "SPACE" for key, _ in mode.shortcuts)  # no driving
+    # Driving keys take over while held (7f9), for testing only.
+    assert ("SPACE", "brake, taking over") in mode.shortcuts
     demo.env.reset(seed=1)  # R: a new round, a new trail
     demo.frame(0.1)
     assert len(demo.trail) == 1 + _step(demo) // 2

@@ -89,7 +89,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - The side panel shows the speed, steering, and heading as instruments (7f3). With the lines (H), the field also shows the agent's remembered route waypoint, the OBJECTIVE card how long it's been stuck, and when an agent drives, a MIND card shows its next move's odds and its outlook (7f8, [decision 062](decisions/062-seeing-what-the-agent-senses.md)).
 - **O** opens your display settings in any game window (7c5, [decision 040](decisions/040-settings-of-yours.md)): the car's bars above or below it, which lines show, the faint full route (7f8), the trail, the camera on big stages, the map intro, and the FPS cap.
 
-The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`. **Stopped, an agent must press gas or reverse** (7f6, [decision 060](decisions/060-a-stopped-agent-moves.md)): at speed 0 the other pedals can't move the car and steering needs speed, so those choices are blocked; moving, every action is open. Keyboard driving is unchanged.
+Watching a driver, holding a driving key takes over until you let go, for testing only (7f9, [decision 064](decisions/064-taking-over-while-watching.md)). The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`. **Stopped, an agent must press gas or reverse** (7f6, [decision 060](decisions/060-a-stopped-agent-moves.md)): at speed 0 the other pedals can't move the car and steering needs speed, so those choices are blocked; moving, every action is open. Keyboard driving is unchanged.
 
 ### Sensors
 
