@@ -203,10 +203,12 @@ TERM_PARAMS: dict[str, tuple[str, str]] = {
 # Everything else, by topic.
 TOPICS: dict[str, str] = {
     # Runs tab charts
-    "chart:score": "Game points per round. The line is the training score "
-    "(mean of the last 20 episodes). Dots are each checkpoint's suite score "
-    "(fixed rounds, a fair comparison), the ring is the best checkpoint, "
-    "and the dashed line is the heuristic's suite score.",
+    "chart:score": "Each skill's share of the heuristic's score, per scored "
+    "checkpoint (1.0: as good as the heuristic). The dashed skill is the "
+    "one on the stage it trains on. Dots are the average share (the "
+    "ranking), the ring is the best checkpoint.",
+    "chart:Training score": "Game points per round while training, on its "
+    "own stage (mean of the last 20 episodes).",
     "chart:accuracy": "How often the clone picks the action you picked: on "
     "the rounds it learned from, and on held-out rounds it never saw. A gap "
     "between them means it memorizes more than it learns.",
@@ -238,11 +240,13 @@ TOPICS: dict[str, str] = {
     "chart:Distance points": "Game points from driving only, per episode.",
     "chart:Steps": f"How long each episode lasted, in steps "
     f"({STEPS_PER_SECOND}/s).",
-    "legend:suite": "The checkpoint's score on the evaluation suite. Click "
-    "a dot to watch it drive or branch from it.",
-    "legend:best": "The best checkpoint on the suite, used by 'Watch best'.",
-    "legend:heuristic": "The heuristic baseline's suite score: the bar an "
-    "agent has to clear.",
+    "legend:average": "The checkpoint's average share of the heuristic's "
+    "score across the skills: the ranking. Click a dot to watch it drive, or "
+    "branch from it.",
+    "legend:best": "The checkpoint with the best average share, used by "
+    "'Watch best'.",
+    "legend:heuristic": "The heuristic's share of its own score: 1.0. Above "
+    "the line is better than the heuristic.",
     "compare": "Draws another run of the same kind on both charts, muted.",
     # Run statuses
     "status:running": "Running as a job of this control center.",
@@ -256,17 +260,22 @@ TOPICS: dict[str, str] = {
     "status:ended unexpectedly": "It has no summary and isn't running: it "
     "crashed or was killed. A training run can still resume.",
     # Agents tab
-    "skills": "The best checkpoint's results on the evaluation suite, each "
-    "from 0 (center) to 1 (rim). The outline is the heuristic.",
-    "skill:Score": "The mean suite score, relative to the best among all "
-    "agents and the heuristic.",
-    "skill:Survival": "The share of each round the car was still alive.",
-    "skill:Hunting": "Checkpoints per minute, relative to the fastest.",
-    "skill:Braking": "Starting at 300 px/s aimed at a wall 80 to 140 px "
-    "away: the share of starts it stops without damage.",
-    "skill:Intact": "The share of rounds that didn't end wrecked.",
-    "skill:Clean": "How rarely it touches walls: 1 / (1 + wall contacts per "
-    "round). 0 contacts is 1.0, 1 per round is 0.5.",
+    "skills": "The best checkpoint's share of the heuristic's score on each "
+    "skill. The outline is the heuristic (1.0), the rim is 1.5.",
+    "skill:Braking": "Starts at 300 px/s aimed at a wall 80 to 140 px away, "
+    "on the box: the share of stops with no damage.",
+    "skill:Threading": "skill_gaps: three wall columns, each with one gap "
+    "about 2.5 cars wide, checkpoints in order through them.",
+    "skill:Open field": "The box: checkpoints anywhere, no walls. Fast "
+    "hunting.",
+    "skill:Long range": "skill_long: a big empty map (1600 x 1200), "
+    "checkpoints far away.",
+    "skill:Obstacles": "skill_pillars: twelve scattered pillars, checkpoints "
+    "anywhere.",
+    "skill:Corridor": "skill_corridor: a winding lane, checkpoints in order "
+    "along it.",
+    "skill:Detour": "skill_detour: a checkpoint inside a U that opens away "
+    "from the start: the straight line hits its back wall.",
     "column:#": "Its place by share of the heuristic's score. Baselines "
     "aren't ranked.",
     "column:share": "The best checkpoint's average share of the heuristic's "

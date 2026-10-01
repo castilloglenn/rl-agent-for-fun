@@ -499,8 +499,11 @@ class RunsTab:
         mouse = pygame.mouse.get_pos()
         if self.dropdown_open() or self.picked:
             mouse = None  # an open list or box covers the chart
+        # Training compares the average share, not seven more lines (7d4).
         main = self._with_compare(
-            data.main_chart(), lambda c: c.main_chart(), (LINE,)
+            data.main_chart(),
+            lambda c: c.main_chart(),
+            (DOTS,) if data.kind == runs.TRAINING else (LINE,),
         )
         self._plot = draw_chart(surface, self.main_rect, main, mouse)
         self._chart_help(surface, self._plot, CHART_TOPICS[data.kind])
@@ -542,8 +545,15 @@ class RunsTab:
             )
             self.tips.add(plot.title.union(mark), help.topic(title_topic))
         for rect, label in plot.legend:
-            key = label.split(" ")[0]  # "suite box-v1", "best d1700k"
-            self.tips.add(rect, help.topic(f"legend:{key}"))
+            key = label.split(" ")[0]  # "average share", "best d1700k"
+            skill = label.replace(" (trained here)", "")
+            text = help.topic(f"legend:{key}") or help.topic(f"skill:{skill}")
+            if label.endswith("(trained here)"):
+                text += (
+                    " Trained here: this run's map is this skill's test map, "
+                    "so it measures memory too."
+                )
+            self.tips.add(rect, text)
 
     def draw_after(self, surface) -> None:
         """After the GUI: the checkpoint box, on top of everything."""
@@ -595,7 +605,7 @@ class RunsTab:
         name, decisions, score = self.picked
         return (
             f"{self.data.who}@{name}",
-            f"suite {score:,.0f} · {decisions:,.0f} decisions",
+            f"share {score:.2f} · {decisions:,.0f} decisions",
         )
 
     def _draw_popover(self, surface) -> None:

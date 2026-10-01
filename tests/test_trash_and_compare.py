@@ -108,15 +108,15 @@ def window(tmp_path):
             learning_csv="decisions,score_mean,seconds\n100,5,1\n200,9,2\n",
         )
     config = json.loads((runs_dir / RUN / "config.json").read_text())
-    config["suite"] = {"name": "box", "version": 1}
+    config["suite"] = {"name": "skills", "version": 1}
     (runs_dir / RUN / "config.json").write_text(json.dumps(config))
     agent = tmp_path / "agents" / "pupil"
     agent.mkdir(parents=True)
     events = [
         {"event": "checkpoint_saved", "run": RUN, "checkpoint": "d0100",
          "decisions": 100},
-        {"event": "scored", "checkpoint": "d0100", "suite": "box-v1",
-         "score_mean": 7.0},
+        {"event": "scored", "checkpoint": "d0100", "suite": "skills-v1",
+         "score_mean": 7.0, "share": 0.7},
     ]
     (agent / "history.jsonl").write_text(
         "\n".join(json.dumps(e) for e in events) + "\n"
@@ -180,7 +180,7 @@ def _open_box(window):
 
 def test_clicking_a_suite_dot_opens_its_box(window):
     tab = _open_box(window)
-    assert tab.picked == ("d0100", 100.0, 7.0)
+    assert tab.picked == ("d0100", 100.0, 0.7)
     window.draw()
     assert set(tab.popover_buttons) == {"watch", "branch"}
     _key(window, pygame.K_ESCAPE)  # closes the box, not the window
@@ -245,7 +245,7 @@ def test_a_compared_run_adds_muted_lines(window):
     tab.select(RUN)
     tab._set_compare(("", OTHER))
     chart = tab._with_compare(
-        tab.data.main_chart(), lambda c: c.main_chart(), ("line",)
+        tab.data.main_chart(), lambda c: c.main_chart(), ("dots",)
     )
     tags = [s.label for s in chart.series]
     assert "pupil 01:48" in tags

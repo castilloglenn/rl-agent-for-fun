@@ -14,6 +14,7 @@ import pytest  # noqa: E402
 
 from src.control import agents_data  # noqa: E402
 from src.control.trash import Trash, TrashError  # noqa: E402
+from src.utils import skills  # noqa: E402
 from tests.test_runs_tab import _folder, _job  # noqa: E402
 
 BEST = {
@@ -63,15 +64,31 @@ def _baselines(root):
 # The data
 
 
-def test_skills_run_from_zero_to_one():
-    refs = {"score_mean": 5000.0, "checkpoints_per_min": 30.0}
-    values = agents_data.skills(BEST, refs)
-    labels = [label for label, _, _ in agents_data.SKILLS]
-    by = dict(zip(labels, values))
-    assert by["Score"] == 1.0 and by["Hunting"] == 1.0
-    assert by["Intact"] == pytest.approx(0.9)  # 10 % wrecks
-    assert by["Clean"] == pytest.approx(0.5)  # one contact a round
-    assert all(0 <= v <= 1 for v in agents_data.skills({}, refs))
+def test_the_radar_shows_shares_with_the_rim_at_one_and_a_half():
+    found = skills.load()
+    heuristic = {s.column: 100.0 for s in found}
+    metrics = {s.column: 100.0 for s in found}
+    metrics[found[0].column] = 300.0  # 3 times the heuristic: clipped
+    metrics[found[1].column] = 75.0
+    del metrics[found[2].column]  # not scored: 0
+    values = agents_data.skills(metrics, heuristic, found)
+    assert len(values) == len(found)
+    assert values[0] == 1.0
+    assert values[1] == pytest.approx(0.5)  # 0.75 of 1.5
+    assert values[2] == 0.0
+    assert values[3] == pytest.approx(1 / agents_data.RADAR_RIM)
+
+
+def test_the_history_adds_each_skills_share():
+    found = skills.load()
+    heuristic = {found[0].column: 200.0}
+    rows = agents_data.with_shares(
+        [{"decisions": 1.0, found[0].column: 100.0}], heuristic, found
+    )
+    assert rows[0][agents_data.SHARE + found[0].name] == pytest.approx(0.5)
+    choices = dict(agents_data.history_choices(found))
+    assert choices["Average share"] == "share"
+    assert choices[f"{found[0].label} share"] == "share:" + found[0].name
 
 
 def test_the_leaderboard_ranks_agents_and_places_the_baselines(tmp_path):

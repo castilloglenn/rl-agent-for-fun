@@ -20,12 +20,14 @@ from src.utils.ui import draw_text, get_font
 
 GRID = (26, 27, 32)  # fainter than the box borders
 HEADER = 30  # the title and legend row
+LEGEND_ROW = 18  # each legend row under the header (7d4)
 LEFT = 58  # the y labels
 BOTTOM = 24  # the x labels
 RIGHT = 14
 DOT = 4
 DASH, DASH_GAP = 6, 4
 LINE, DOTS, RING, LEVEL = "line", "dots", "ring", "level"
+DASHED = "dashed"  # a line drawn in dashes (7d4: a skill trained on)
 
 
 @dataclass
@@ -60,6 +62,9 @@ class Chart:
     value_format: Callable[[float], str] = field(
         default=lambda v: readable(v)
     )
+    # Legend rows at most: past the header row, full-width rows under it
+    # (as many as it needs), and the plot shrinks by them (7d4).
+    legend_rows: int = 1
 
     @property
     def empty(self) -> bool:
@@ -106,12 +111,13 @@ def nice_ticks(low: float, high: float, count: int = 5) -> list[float]:
     return [round(i * step, 10) for i in range(first, last + 1)]
 
 
-def plot_area(rect: Rect) -> Rect:
+def plot_area(rect: Rect, extra_rows: int = 0) -> Rect:
+    header = HEADER + extra_rows * LEGEND_ROW
     return Rect(
         rect.x + LEFT,
-        rect.y + HEADER + 6,
+        rect.y + header + 6,
         rect.w - LEFT - RIGHT,
-        rect.h - HEADER - 6 - BOTTOM,
+        rect.h - header - 6 - BOTTOM,
     )
 
 
@@ -141,9 +147,12 @@ def draw_chart(
         )
         title_width = title_rect.w + 22  # room for its help marker
     left = rect.x + 12 + title_width + 16  # where the legend must stop
-    area = plot_area(rect)
+    rows = len(
+        _legend_rows(_legend_items(chart, None), rect, left, chart.legend_rows)
+    )
+    area = plot_area(rect, rows - 1)
     if chart.empty:
-        legend = _legend(surface, rect, chart, None, left)
+        legend = _legend(surface, rect, chart, None, left, rows)
         draw_text(
             surface,
             "No data yet",
@@ -222,7 +231,7 @@ def draw_chart(
                     surface, theme.TEXT, to_screen(*point), DOT + 1, 1
                 )
         hovered["_x"] = x_value
-    legend = _legend(surface, rect, chart, hovered, left)
+    legend = _legend(surface, rect, chart, hovered, left, rows)
     return Plot(area, to_screen, title_rect, legend)
 
 
@@ -255,6 +264,11 @@ def _draw_series(surface, series: Series, to_screen, area: Rect) -> None:
             pygame.draw.lines(surface, series.color, False, screen, 2)
         else:
             pygame.draw.circle(surface, series.color, screen[0], 2)
+    elif series.style == DASHED:
+        if len(screen) == 1:
+            pygame.draw.circle(surface, series.color, screen[0], 2)
+        for start, end in zip(screen, screen[1:]):
+            _dashes(surface, series.color, start, end)
     elif series.style == DOTS:
         for point in screen:
             pygame.draw.circle(surface, series.color, point, DOT)
@@ -263,12 +277,29 @@ def _draw_series(surface, series: Series, to_screen, area: Rect) -> None:
             pygame.draw.circle(surface, series.color, point, DOT + 3, 2)
 
 
-def _legend(
-    surface, rect: Rect, chart: Chart, hovered: dict | None, left: int
-) -> list:
-    """Right-aligned in the header row: each series with its latest value,
-    or the hovered one. Hovering also shows the x value first. Past
-    `left` there's no room: the highest-priority-number items go first.
+def _dashes(surface, color, start, end) -> None:
+    """A line from `start` to `end` in dashes."""
+    (x0, y0), (x1, y1) = start, end
+    length = math.hypot(x1 - x0, y1 - y0)
+    if not length:
+        return
+    step = DASH + DASH_GAP
+    at = 0.0
+    while at < length:
+        stop = min(at + DASH, length)
+        pygame.draw.line(
+            surface,
+            color,
+            (x0 + (x1 - x0) * at / length, y0 + (y1 - y0) * at / length),
+            (x0 + (x1 - x0) * stop / length, y0 + (y1 - y0) * stop / length),
+            2,
+        )
+        at += step
+
+
+def _legend_items(chart: Chart, hovered: dict | None) -> list:
+    """(series, text) per legend item: each series with its latest value,
+    or the hovered one. Hovering also shows the x value first.
     """
     items = []
     if hovered:
@@ -284,37 +315,84 @@ def _legend(
             point = series.points[-1]
         value = "" if point is None else f" {chart.value_format(point[1])}"
         items.append((series, (series.label + value).strip()))
-    font = get_font(theme.HEADER_SIZE)
+    return items
 
-    def width(item) -> int:
-        series, text = item
-        return font.size(text)[0] + (18 if series else 0) + 16
 
-    while sum(width(i) for i in items) > rect.right - 12 - left:
+def _item_width(item) -> int:
+    series, text = item
+    swatch = 18 if series else 0
+    return get_font(theme.HEADER_SIZE).size(text)[0] + swatch + 16
+
+
+def _fill(items: list, rect: Rect, left: int, rows: int, force: bool):
+    """`items` in rows, placed from the last: the header row (right of
+    `left`) first, then full-width rows under it. None if they don't fit
+    (with `force`, the last row takes the rest).
+    """
+    found: list[list] = [[]]
+    room = rect.right - 12 - left
+    for item in reversed(items):
+        width = _item_width(item)
+        while width > room and found[-1]:
+            if len(found) == rows:
+                if not force:
+                    return None
+                break
+            found.append([])
+            room = rect.w - 24
+        found[-1].insert(0, item)
+        room -= width
+    return found
+
+
+def _legend_rows(items: list, rect: Rect, left: int, rows: int) -> list:
+    """The items' rows. Past the last row there's no room: the
+    highest-priority-number items go first.
+    """
+    items = list(items)
+    while True:
+        found = _fill(items, rect, left, rows, False)
+        if found is not None:
+            return found
         droppable = [i for i in items if i[0] and i[0].priority > 0]
         if not droppable:
-            break
+            return _fill(items, rect, left, rows, True)
         items.remove(max(droppable, key=lambda i: i[0].priority))
-    x = rect.right - 12
-    y = rect.y + 10 + font.get_height() // 2
+
+
+def _legend(
+    surface,
+    rect: Rect,
+    chart: Chart,
+    hovered: dict | None,
+    left: int,
+    rows: int = 1,
+) -> list:
+    """Right-aligned in the header row (and the rows under it): each
+    series with its latest value, or the hovered one.
+    """
+    font = get_font(theme.HEADER_SIZE)
+    laid = _legend_rows(_legend_items(chart, hovered), rect, left, rows)
     drawn = []
-    for series, text in reversed(items):
-        width = font.size(text)[0]
-        x -= width
-        label = draw_text(
-            surface,
-            text,
-            (x, y),
-            theme.HEADER_SIZE,
-            theme.TEXT if series else theme.TEXT_DIM,
-            anchor="midleft",
-        )
-        if series:
-            x -= 18
-            _swatch(surface, series, (x + 6, y))
-            swatch = Rect(x, label.y, 18, label.h)
-            drawn.append((label.union(swatch), series.label))
-        x -= 16
+    for row, items in enumerate(laid):
+        x = rect.right - 12
+        y = rect.y + 10 + font.get_height() // 2 + row * LEGEND_ROW
+        for series, text in reversed(items):
+            x -= font.size(text)[0]
+            label = draw_text(
+                surface,
+                text,
+                (x, y),
+                theme.HEADER_SIZE,
+                theme.TEXT if series else theme.TEXT_DIM,
+                anchor="midleft",
+            )
+            if series:
+                x -= 18
+                _swatch(surface, series, (x + 6, y))
+                swatch = Rect(x, label.y, 18, label.h)
+                drawn.append((label.union(swatch), series.label))
+            x -= 16
     return drawn
 
 
@@ -322,7 +400,7 @@ def _swatch(surface, series: Series, center: tuple[int, int]) -> None:
     x, y = center
     if series.style == LINE:
         pygame.draw.line(surface, series.color, (x - 6, y), (x + 6, y), 2)
-    elif series.style == LEVEL:
+    elif series.style in (LEVEL, DASHED):
         pygame.draw.line(surface, series.color, (x - 6, y), (x - 1, y))
         pygame.draw.line(surface, series.color, (x + 2, y), (x + 6, y))
     elif series.style == DOTS:

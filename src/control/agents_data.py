@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.control import runs
+from src.utils import skills as suite_skills
 
 REPO = Path(__file__).resolve().parents[2]
 AGENTS_DIR = REPO / "agents"
@@ -22,22 +23,13 @@ RECORDINGS_DIR = REPO / "recordings"
 SUITE_FILE = REPO / "suites" / "skills.json"  # the default suite
 HIGH_SCORES = 5  # per stage, rules, and round length
 
-# The radar's axes: (label, metric, how it maps to 0..1). "relative"
-# divides by the best among all agents and the heuristic.
-SKILLS = (
-    ("Score", "score_mean", "relative"),
-    ("Survival", "survival", "rate"),
-    ("Hunting", "checkpoints_per_min", "relative"),  # checkpoints/min
-    ("Braking", "braking", "rate"),
-    ("Intact", "wreck_rate", "inverse"),  # no wrecks
-    ("Clean", "contacts", "fewer"),  # few wall contacts
-)
-# The skill history's choices: (label, suite metric).
+RADAR_RIM = 1.5  # the radar's rim, as a share of the heuristic's (7d4)
+# The skill history's other choices: (label, suite metric). The average
+# share and each skill's share come first (history_choices).
 HISTORY = (
-    ("Suite score", "score_mean"),
+    ("Game score", "score_mean"),
     ("Survival", "survival"),
     ("Checkpoints per min", "checkpoints_per_min"),
-    ("Braking", "braking"),
     ("Wreck rate", "wreck_rate"),
     ("Wall contacts", "contacts"),
     ("Lowest score", "score_min"),
@@ -45,6 +37,7 @@ HISTORY = (
     ("Driving: reversing", "style_reverse"),
     ("Driving: backward", "style_backward"),
 )
+SHARE = "share:"  # a skill's share in history rows: "share:open_field"
 _SCORE = re.compile(r"_score(-?\d+)_")
 
 
@@ -191,37 +184,40 @@ def heuristic_ratio(agent: AgentInfo, base: dict) -> float | None:
 # Skills
 
 
-def references(agents: list[AgentInfo], base: dict) -> dict:
-    """The best score and checkpoint pace among agents and the heuristic,
-    for the radar's relative axes.
+def skills(metrics: dict, heuristic: dict, found: list) -> list[float]:
+    """One value per radar axis (each of `found` skills): its share of the
+    heuristic's over RADAR_RIM, so the heuristic sits at 1 / RADAR_RIM and
+    the rim is 1.5 times as good. Clipped to 0..1.
     """
-    rows = [a.best for a in agents if a.best]
-    if base.get("heuristic"):
-        rows.append(base["heuristic"])
-    refs = {}
-    for _, metric, how in SKILLS:
-        if how == "relative":
-            refs[metric] = max((r.get(metric) or 0 for r in rows), default=0)
-    return refs
+    shares = suite_skills.shares(metrics, heuristic, found)
+    return [
+        min(max(shares.get(s.name, 0.0) / RADAR_RIM, 0.0), 1.0) for s in found
+    ]
 
 
-def skills(metrics: dict, refs: dict) -> list[float]:
-    """One value per radar axis, 0 to 1."""
-    values = []
-    for _, metric, how in SKILLS:
-        value = metrics.get(metric)
-        if value is None:
-            values.append(0.0)
-        elif how == "relative":
-            top = refs.get(metric) or 0
-            values.append(value / top if top > 0 else 0.0)
-        elif how == "inverse":
-            values.append(1.0 - value)
-        elif how == "fewer":
-            values.append(1.0 / (1.0 + value))
-        else:
-            values.append(value)
-    return [min(max(v, 0.0), 1.0) for v in values]
+def history_choices(found: list) -> list[tuple[str, str]]:
+    """The skill history's picker: (label, row key)."""
+    return (
+        [("Average share", "share")]
+        + [(f"{s.label} share", SHARE + s.name) for s in found]
+        + list(HISTORY)
+    )
+
+
+def with_shares(rows: list[dict], heuristic: dict, found: list) -> list[dict]:
+    """`rows` with each skill's share added, as "share:<skill>"."""
+    return [
+        {
+            **row,
+            **{
+                SHARE + name: share
+                for name, share in suite_skills.shares(
+                    row, heuristic, found
+                ).items()
+            },
+        }
+        for row in rows
+    ]
 
 
 def history(agent: AgentInfo, suite: str = "") -> list[dict]:

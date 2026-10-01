@@ -16,9 +16,18 @@ from datetime import datetime
 from pathlib import Path
 
 from src.control import charts
-from src.control.charts import DOTS, LEVEL, LINE, RING, Chart, Series
+from src.control.charts import (
+    DASHED,
+    DOTS,
+    LEVEL,
+    LINE,
+    RING,
+    Chart,
+    Series,
+)
 from src.control.jobs import Job
 from src.render import theme
+from src.utils import skills
 
 REPO = Path(__file__).resolve().parents[2]
 RUNS_DIR = REPO / "runs"
@@ -43,8 +52,12 @@ STATUS_COLORS = {
 }
 LIVE = (RUNNING, PAUSED, ELSEWHERE)
 
-# Training's second chart: (option, learning.csv column).
+# Training's second chart: (option, learning.csv column). The training
+# score is the game score on the map it trains on (7d4: the main chart is
+# the skills).
+TRAINING_SCORE = "Training score"
 TRAINING_CHARTS = (
+    (TRAINING_SCORE, "score_mean"),
     ("Agent reward", "reward_mean"),
     ("Entropy", "entropy"),
     ("Policy loss", "policy_loss"),
@@ -55,6 +68,16 @@ TRAINING_CHARTS = (
     ("Driving style", None),
 )
 STYLE_CHART = "Driving style"
+# One color per skill, in the suite's order (7d4).
+SKILL_COLORS = (
+    (230, 170, 70),
+    (120, 200, 220),
+    (70, 200, 120),
+    (90, 150, 230),
+    (220, 110, 110),
+    (180, 130, 230),
+    (230, 220, 120),
+)
 STYLE_LINES = (  # (label, column, color)
     ("forward", "style_forward", theme.GOOD),
     ("brake", "style_brake", theme.WARN),
@@ -346,14 +369,21 @@ class RunData:
         # Each scored checkpoint's driving style: (decisions, its shares).
         self.style_points: list[tuple[float, dict]] = []
         self.best: tuple[str, float, float] | None = None
-        self.baseline: float | None = None
+        self.baseline: float | None = None  # the heuristic's share: 1.0
+        # Each skill's share over the checkpoints (7d4): name -> points.
+        self.skill_points: dict[str, list[tuple[float, float]]] = {}
+        self.stage = (self.config.get("stage") or {}).get("name", "")
         suite = self.config.get("suite")
         self.suite = f"{suite['name']}-v{suite['version']}" if suite else None
+        self.skills = skills.load(suite["name"]) if suite else []
+        self.heuristic: dict = {}
         if self.suite:
             scores = read_json(
                 self.agents_dir / "baselines" / f"{self.suite}.json"
             ).get("scores", {})
-            self.baseline = (scores.get("heuristic") or {}).get("score_mean")
+            self.heuristic = scores.get("heuristic") or {}
+            if self.heuristic:
+                self.baseline = 1.0
         self.refresh()
 
     @property
@@ -387,7 +417,7 @@ class RunData:
         if seen == self._history_seen:
             return False
         self._history_seen = seen
-        saved, scores, styles = {}, {}, {}
+        saved, scores, styles, skill_values = {}, {}, {}, {}
         for line in path.read_text().splitlines():
             try:
                 event = json.loads(line)
@@ -397,8 +427,12 @@ class RunData:
                 if event.get("run") == self.folder.name:
                     saved[event["checkpoint"]] = event["decisions"]
             elif event.get("event") == "scored":
-                if event.get("suite") == self.suite:
-                    scores[event["checkpoint"]] = event["score_mean"]
+                if event.get("suite") == self.suite and "share" in event:
+                    scores[event["checkpoint"]] = event["share"]
+                    skill_values[event["checkpoint"]] = {
+                        skills.COLUMN + name: value
+                        for name, value in (event.get("skills") or {}).items()
+                    }
                     styles[event["checkpoint"]] = {
                         k: v
                         for k, v in event.items()
@@ -412,6 +446,15 @@ class RunData:
             ),
             key=lambda p: p[1],
         )
+        self.skill_points = {}
+        for name, decisions in sorted(saved.items(), key=lambda kv: kv[1]):
+            found = skills.shares(
+                skill_values.get(name, {}), self.heuristic, self.skills
+            )
+            for skill, share in found.items():
+                self.skill_points.setdefault(skill, []).append(
+                    (float(decisions), share)
+                )
         self.style_points = sorted(
             (float(decisions), styles[name])
             for name, decisions in saved.items()
@@ -479,8 +522,8 @@ class RunData:
         """The key result, for the header's right side."""
         s = self.summary
         if self.kind == TRAINING and self.best:
-            name, _, score = self.best
-            return f"suite best {name} {score:,.0f}"
+            name, _, share = self.best
+            return f"best {name}: share {share:.2f}"
         if self.kind == IMITATION and s.get("evaluation"):
             return f"clone on the suite {s['evaluation']['score_mean']:,.0f}"
         if s.get("best_score") is not None:
@@ -499,38 +542,7 @@ class RunData:
 
     def main_chart(self) -> Chart:
         if self.kind == TRAINING:
-            start = self.start_decisions
-            training = [
-                (x + start, y)
-                for x, y in self.learning.column("score_mean", "decisions")
-            ]
-            series = [
-                Series("training", training, theme.ACCENT, LINE),
-                Series(
-                    f"suite {self.suite}",
-                    [(d, s) for _, d, s in self.suite_points],
-                    theme.GOOD,
-                    DOTS,
-                ),
-            ]
-            if self.best:
-                name, d, s = self.best
-                series.append(
-                    Series(
-                        f"best {name}", [(d, s)], theme.WARN, RING, priority=2
-                    )
-                )
-            if self.baseline is not None:
-                series.append(
-                    Series(
-                        "heuristic",
-                        [(0, self.baseline)],
-                        theme.TEXT_DIM,
-                        LEVEL,
-                        priority=1,
-                    )
-                )
-            return Chart("SCORE (game points)", series, "{} decisions")
+            return self._skills_chart()
         if self.kind == IMITATION:
             return Chart(
                 "ACCURACY (picks your action)",
@@ -560,6 +572,53 @@ class RunData:
             "episode {}",
         )
 
+    def _skills_chart(self) -> Chart:
+        """SKILLS (7d4): each skill's share of the heuristic's over the
+        run's scored checkpoints (dashed: a skill on the map it trains on),
+        the average share's dots (click one: watch it, branch from it), the
+        best ringed, and the heuristic at 1.0.
+        """
+        series = []
+        for i, skill in enumerate(self.skills):
+            here = skill.stage == self.stage
+            series.append(
+                Series(
+                    skill.label + (" (trained here)" if here else ""),
+                    self.skill_points.get(skill.name, []),
+                    SKILL_COLORS[i % len(SKILL_COLORS)],
+                    DASHED if here else LINE,
+                    priority=3,
+                )
+            )
+        series.append(
+            Series(
+                "average share",
+                [(d, s) for _, d, s in self.suite_points],
+                theme.TEXT,
+                DOTS,
+            )
+        )
+        if self.best:
+            name, d, s = self.best
+            series.append(
+                Series(f"best {name}", [(d, s)], theme.WARN, RING, priority=2)
+            )
+        if self.baseline is not None:
+            series.append(
+                Series(
+                    "heuristic",
+                    [(0, self.baseline)],
+                    theme.TEXT_DIM,
+                    LEVEL,
+                    priority=1,
+                )
+            )
+        trained = f" · trained on {self.stage}" if self.stage else ""
+        chart = Chart(f"SKILLS{trained}", series, "{} decisions")
+        chart.y_format = chart.value_format = "{:.2f}".format
+        chart.legend_rows = 3  # seven skills and the rest
+        return chart
+
     def second_chart(self, option: str) -> Chart:
         if self.kind == TRAINING and option == STYLE_CHART:
             chart = Chart(
@@ -584,8 +643,11 @@ class RunData:
                 (x + start, y)
                 for x, y in self.learning.column(column, "decisions")
             ]
+            title = option.upper()
+            if option == TRAINING_SCORE and self.stage:
+                title += f" · {self.stage}"  # the map it trains on
             return Chart(
-                option.upper(),
+                title,
                 [Series(option.lower(), points, theme.ACCENT)],
                 "{} decisions",
             )

@@ -7,21 +7,17 @@ ones every agent trains on anyway.
 No torch here: the control center reads it too.
 """
 
-import json
 from pathlib import Path
 
 from src.utils import named_files
+from src.utils import skills as suite_skills
 
 SUITE = "skills"  # the default suite (src/experiments/evaluation.py)
 TRAINING_MAP = "box"  # the default map to train on: never a warning
 
 
 def _scenarios(root: Path) -> list[dict]:
-    try:
-        data = json.loads(named_files.find("suites", SUITE, root).read_text())
-    except (FileNotFoundError, ValueError):
-        return []
-    return data.get("scenarios", [])
+    return suite_skills.scenarios(SUITE, root)
 
 
 def skills(root: Path = named_files.REPO) -> list[tuple[str, str]]:

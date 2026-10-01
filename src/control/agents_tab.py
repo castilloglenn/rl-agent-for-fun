@@ -30,7 +30,7 @@ from pygame_gui.elements import (
 
 from src.agents.history import NICKNAME_LENGTH, set_nickname
 from src.control import agents_data, help, runs
-from src.control.agents_data import HISTORY, SKILLS, AgentInfo
+from src.control.agents_data import RADAR_RIM, AgentInfo
 from src.control.charts import (
     LEVEL,
     Chart,
@@ -46,6 +46,7 @@ from src.control.radar import draw_radar
 from src.control.text import PAD, fit, header, wrap, wrap_name
 from src.control.tooltips import Tooltips
 from src.utils import driving_style
+from src.utils import skills as suite_skills
 from src.control.training_plan import busy_agents
 from src.render import theme
 from src.utils.ui import draw_text, get_font
@@ -177,9 +178,11 @@ class AgentsTab:
             area.right - self.skills_rect.right - 12,
             area.h,
         )
+        self.skill_list = suite_skills.load()  # the radar's axes (7d4)
+        self.history_choices = agents_data.history_choices(self.skill_list)
         self.history_menu = UIDropDownMenu(
-            [label for label, _ in HISTORY],
-            HISTORY[0][0],
+            [label for label, _ in self.history_choices],
+            self.history_choices[0][0],
             Rect(
                 self.history_rect.x + 6,
                 self.history_rect.y + 4,
@@ -188,7 +191,7 @@ class AgentsTab:
             ),
             gui,
         )
-        self.history_choice = HISTORY[0][0]
+        self.history_choice = self.history_choices[0][0]
         self.phase_list = UISelectionList(area, [], gui)  # Lineage
         self.buttons: dict[str, UIButton] = {}
         for row_y, row in ((rows_a, BUTTONS_A), (rows_b, BUTTONS_B)):
@@ -217,7 +220,6 @@ class AgentsTab:
 
         self.agents: list[AgentInfo] = []
         self.base: dict = {}
-        self.refs: dict = {}
         self.ranks: list = []
         self.scores: dict = {}
         self._headers: dict = {}  # recording headers read once
@@ -301,7 +303,6 @@ class AgentsTab:
         busy = {**busy_agents(rows), **self.busy()}
         self.agents = agents_data.load_agents(self.agents_dir, busy)
         self.base = agents_data.baselines(self.agents_dir)
-        self.refs = agents_data.references(self.agents, self.base)
         self.ranks = agents_data.leaderboard(self.agents, self.base)
         self.scores = agents_data.high_scores(
             self.runs_dir, self.recordings_dir, self._headers
@@ -641,7 +642,7 @@ class AgentsTab:
                 surface,
                 (rect.right - 44, rect.bottom - 52),
                 30,
-                agents_data.skills(agent.best, self.refs),
+                self._skill_values(agent.best),
             )
 
     def _draw_leaderboard(self, surface) -> None:
@@ -985,35 +986,40 @@ class AgentsTab:
                 anchor="center",
             )
             return
-        heuristic = self.base.get("heuristic")
         drawn = draw_radar(
             surface,
             center,
             min(64, rect.h // 2 - 50),  # room for the labels
-            agents_data.skills(agent.best, self.refs),
-            reference=(
-                agents_data.skills(heuristic, self.refs) if heuristic else None
-            ),
-            labels=[label for label, _, _ in SKILLS],
+            self._skill_values(agent.best),
+            reference=[1 / RADAR_RIM] * len(self.skill_list),
+            labels=[s.label for s in self.skill_list],
         )
         for area, label in drawn:
             self.tips.add(area.inflate(8, 6), help.topic(f"skill:{label}"))
         draw_text(
             surface,
-            "outline: heuristic",
+            "outline: heuristic · rim: 1.5×",
             (rect.right - 10, rect.bottom - 8),
             theme.HEADER_SIZE,
             theme.TEXT_DIM,
             anchor="bottomright",
         )
 
+    def _skill_values(self, metrics: dict) -> list[float]:
+        heuristic = self.base.get("heuristic") or {}
+        return agents_data.skills(metrics, heuristic, self.skill_list)
+
     def _history_chart(self, agent: AgentInfo) -> Chart:
-        metric = dict(HISTORY)[self.history_choice]
-        rows = agents_data.history(agent)
+        metric = dict(self.history_choices)[self.history_choice]
+        base = self.base.get("heuristic") or {}
+        rows = agents_data.with_shares(
+            agents_data.history(agent), base, self.skill_list
+        )
         points = [(r["decisions"], r[metric]) for r in rows if metric in r]
         # The picker names the metric: the legend shows only its value.
         series = [Series("", points, theme.ACCENT)]
-        heuristic = (self.base.get("heuristic") or {}).get(metric)
+        share = metric == "share" or metric.startswith(agents_data.SHARE)
+        heuristic = 1.0 if share and base else base.get(metric)
         if heuristic is not None:
             series.append(
                 Series(
@@ -1025,10 +1031,10 @@ class AgentsTab:
                 )
             )
         chart = Chart("SKILL HISTORY", series, "{} decisions")
-        if metric in ("survival", "wreck_rate", "braking") or (
-            metric.startswith("style_")
-        ):
+        if metric in ("survival", "wreck_rate") or metric.startswith("style_"):
             chart.y_format = chart.value_format = percent
+        elif share:
+            chart.y_format = chart.value_format = "{:.2f}".format
         return chart
 
 

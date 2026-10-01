@@ -169,10 +169,10 @@ def test_a_training_run_has_its_curves(tmp_path):
     data = RunData(summary.folder, tmp_path / "agents")
     done, total, unit = data.counts()
     assert (done, total, unit) == (512, 512, "decisions")
-    chart = data.main_chart()
-    training = chart.series[0]
-    assert training.label == "training" and len(training.points) == 4
-    assert data.options()[0] == "Agent reward"
+    assert data.main_chart().title.startswith("SKILLS")  # 7d4
+    assert data.options()[0] == "Training score"
+    training = data.second_chart("Training score").series[0]
+    assert len(training.points) == 4
     for option in data.options():
         if option == "Driving style":  # from scored checkpoints: below
             continue
@@ -188,7 +188,8 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
         learning_csv="decisions,score_mean,seconds\n100,5,1\n200,9,2\n",
     )
     config = json.loads((folder / "config.json").read_text())
-    config["suite"] = {"name": "box", "version": 1}
+    config["suite"] = {"name": "skills", "version": 1}
+    config["stage"] = {"name": "box"}
     (folder / "config.json").write_text(json.dumps(config))
     agent = tmp_path / "agents" / "pupil"
     (agent / "evaluations").mkdir(parents=True)
@@ -197,11 +198,12 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
          "decisions": 100},
         {"event": "checkpoint_saved", "run": "other", "checkpoint": "b",
          "decisions": 150},
-        {"event": "scored", "checkpoint": "a", "suite": "box-v1",
-         "score_mean": 40.0, "style_forward": 0.7, "style_brake": 0.1,
-         "style_coast": 0.15, "style_reverse": 0.05},
-        {"event": "scored", "checkpoint": "b", "suite": "box-v1",
-         "score_mean": 50.0},
+        {"event": "scored", "checkpoint": "a", "suite": "skills-v1",
+         "score_mean": 40.0, "share": 1.25, "style_forward": 0.7,
+         "style_brake": 0.1, "style_coast": 0.15, "style_reverse": 0.05,
+         "skills": {"open_field": 150.0, "braking": 0.4}},
+        {"event": "scored", "checkpoint": "b", "suite": "skills-v1",
+         "score_mean": 50.0, "share": 2.0},
     ]
     (agent / "history.jsonl").write_text(
         "\n".join(json.dumps(e) for e in events) + "\n"
@@ -209,21 +211,28 @@ def test_suite_scores_come_from_the_agents_history(tmp_path):
     (agent / "evaluations" / "best.json").write_text('{"checkpoint": "a"}')
     baselines = tmp_path / "agents" / "baselines"
     baselines.mkdir()
-    (baselines / "box-v1.json").write_text(
-        '{"scores": {"heuristic": {"score_mean": 30.0}}}'
-    )
+    (baselines / "skills-v1.json").write_text(json.dumps({"scores": {
+        "heuristic": {"skill:open_field": 100.0, "skill:braking": 0.8},
+    }}))
     data = RunData(folder, tmp_path / "agents")
-    assert data.suite_points == [("a", 100.0, 40.0)]  # only this run's
-    assert data.best == ("a", 100.0, 40.0)
-    assert data.notes() == "suite best a 40"
+    assert data.suite_points == [("a", 100.0, 1.25)]  # only this run's
+    assert data.best == ("a", 100.0, 1.25)
+    assert data.notes() == "best a: share 1.25"
+    # 7d4: each skill's share of the heuristic's.
+    assert data.skill_points == {
+        "open_field": [(100.0, 1.5)], "braking": [(100.0, 0.5)],
+    }
     # 7c9: its driving style over the checkpoints, a line per pedal.
     style = data.second_chart("Driving style")
     assert [s.label for s in style.series] == [
         "forward", "brake", "coast", "reverse",
     ]
     assert style.series[0].points == [(100.0, 0.7)]
-    labels = [s.label for s in data.main_chart().series]
-    assert labels == ["training", "suite box-v1", "best a", "heuristic"]
+    chart = data.main_chart()
+    assert chart.title == "SKILLS · trained on box"
+    labels = [s.label for s in chart.series]
+    assert "Open field (trained here)" in labels  # the box: dashed
+    assert labels[-3:] == ["average share", "best a", "heuristic"]
     assert data.seconds_left() == pytest.approx(8.0)  # 800 more at 100/s
 
 
@@ -303,6 +312,23 @@ def test_charts_draw_with_and_without_data():
     charts.draw_chart(surface, rect, chart, mouse=(300, 150))
     charts.draw_chart(surface, rect, Chart("T", [], "x {}"))
     assert Chart("T", [level], "x").empty  # a level alone isn't data
+
+
+def test_a_full_legend_wraps_onto_rows_under_the_header():
+    pygame.init()
+    surface = pygame.Surface((600, 300))
+    rect = pygame.Rect(0, 0, 600, 300)
+    many = [
+        Series(f"skill number {i}", [(0, 1.0), (1, 2.0)], (9, 9, 9), priority=3)
+        for i in range(8)
+    ]
+    one_row = charts.draw_chart(surface, rect, Chart("T", many, "{}"))
+    assert len(one_row.legend) < len(many)  # one row: some dropped
+    chart = Chart("T", many, "{}", legend_rows=3)
+    rows = charts.draw_chart(surface, rect, chart)
+    assert len(rows.legend) == len(many)  # every item, on more rows
+    assert len({r.y for r, _ in rows.legend}) > 1
+    assert rows.area.y > one_row.area.y  # the plot makes room
 
 
 # The tab in the window

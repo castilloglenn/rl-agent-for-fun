@@ -34,7 +34,7 @@ from src.sim.resources import Field, SimConfig
 from src.sim.rules import load_rules
 from src.sim.stage import load_stage
 from src.sim.systems.sensors import cast_rays
-from src.utils import driving_style, named_files, test_maps
+from src.utils import driving_style, named_files, skills, test_maps
 from src.utils.version import code_version
 
 SUITE_FORMAT = 2
@@ -46,9 +46,9 @@ GAME_POINTS = RewardProfile.from_dict(
     {"format": 1, "name": "game points", "terms": {"points": 1.0}}
 )
 # A skill's share is the agent's value over the heuristic's, counted as at
-# least this: a skill the heuristic can't do can't divide by ~0 (7d3b).
-FLOORS = {"round": 100.0, "braking": 0.1}
-SKILL = "skill:"  # a skill's column: "skill:open_field"
+# least its floor: one definition, in src/utils/skills.py (7d3b, 7d4).
+FLOORS = skills.FLOORS
+SKILL = skills.COLUMN  # a skill's column: "skill:open_field"
 COLUMNS = (
     "checkpoint",
     "decisions",
@@ -204,10 +204,7 @@ def shares(values: dict, heuristic: dict, suite: Suite) -> dict[str, float]:
     """Each skill's value as a share of the heuristic's (1.0: as good as
     the heuristic), the heuristic's counted as at least the skill's floor.
     """
-    return {
-        s.name: values[s.column] / max(heuristic[s.column], s.minimum)
-        for s in suite.scenarios
-    }
+    return skills.shares(values, heuristic, suite.scenarios)
 
 
 def average_share(values: dict, heuristic: dict, suite: Suite) -> float:

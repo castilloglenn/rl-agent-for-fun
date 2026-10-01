@@ -11,7 +11,7 @@ import pygame  # noqa: E402
 
 from src.control import files, help  # noqa: E402
 from src.control.actions import ACTIONS  # noqa: E402
-from src.control.agents_data import SKILLS  # noqa: E402
+from src.utils import skills  # noqa: E402
 from src.control.runs import (  # noqa: E402
     EPISODE_CHARTS,
     IMITATION_CHARTS,
@@ -86,14 +86,14 @@ def test_every_topic_the_tabs_ask_for_exists():
     keys = [f"chart:{o}" for o in options]
     keys += ["chart:score", "chart:accuracy", "chart:episodes"]
     keys += [f"status:{s}" for s in STATUS_COLORS]
-    keys += [f"skill:{label}" for label, _, _ in SKILLS]
+    keys += [f"skill:{s.label}" for s in skills.load()]
     keys += [f"column:{c}" for c in ("#", "score", "survive", "wrecks")]
     keys += [f"column:{c}" for c in ("cp/min", "brake", "best")]
     keys += [f"badge:{b}" for b in ("TRAINING", "MILESTONE", "BRANCHED")]
     keys += ["badge:FROM YOUR DRIVING", "skills", "history", "estimate"]
     keys += [f"stat:{s}" for s in ("CPU", "MEMORY", "BATTERY", "DISK")]
     keys += ["stat:JOBS", "compare", "high scores", "heuristic ratio"]
-    keys += ["legend:suite", "legend:best", "legend:heuristic"]
+    keys += ["legend:average", "legend:best", "legend:heuristic"]
     from src.control.recordings_view import COLUMNS
 
     keys += [f"recording:{name}" for name, _, _, _ in COLUMNS]
