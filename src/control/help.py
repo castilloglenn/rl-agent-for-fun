@@ -389,6 +389,8 @@ FORM_FIELDS: dict[str, tuple[str, str]] = {
     "Driver": ("", "Who drives: the keyboard, a baseline (heuristic, "
                "random), or an agent (its best scored checkpoint)."),
     "Episodes": ("rounds", "How many rounds to play."),
+    "Rounds": ("rounds", "How many rounds to record. Each is saved, like "
+               "your own, for an imitation dataset."),
     "Record": ("", "Save your rounds (recordings/), for replays and "
                "imitation."),
     "Player": ("", "Your recordings go under this name "

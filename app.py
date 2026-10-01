@@ -216,6 +216,8 @@ def _dispatch(cl_args) -> None:
         ReplayViewer.open(cl_args.replay, config).run()
     elif cl_args.run:
         _experiment_run(cl_args, config)
+    elif cl_args.record_rounds:
+        _record_rounds(cl_args, config)
     elif game := cl_args.demo:
         match game:
             case "maze_car":
@@ -484,6 +486,47 @@ def _training_done(summary) -> None:
     if summary.interrupted:
         print("Resume it exactly: make resume_last")
     print(f"Watch it: make maze_car_agent AGENT={summary.agent}")
+
+
+def _record_rounds(cl_args, config) -> None:
+    from src.drivers.registry import DriverError
+    from src.experiments.driver_rounds import player_of, record_rounds
+    from src.sim.rules import load_rules
+    from src.utils.test_maps import warning
+
+    test_map = warning(config.stage)
+    if test_map:  # a dataset from a test map teaches the test
+        print(f"Warning: {test_map}.", flush=True)
+    rules = load_rules(config.rules)
+    if cl_args.round_seconds > 0:
+        rules = rules.with_round_seconds(cl_args.round_seconds)
+    driver, rounds = cl_args.record_rounds, cl_args.rounds
+    print(
+        f"Recording {rounds} rounds of {driver} on {config.stage} into "
+        f"recordings/{player_of(driver)}/",
+        flush=True,
+    )
+
+    def progress(i, stage, result):
+        if (i + 1) % 10 == 0 or i + 1 == rounds:
+            print(
+                f"  round {i + 1}/{rounds} on {stage}  "
+                f"score {result.score:,.0f}  ended by {result.ended_by}",
+                flush=True,
+            )
+
+    try:
+        saved = record_rounds(
+            driver,
+            config,
+            rounds,
+            first_seed=cl_args.seed,
+            rules=rules,
+            on_round=progress,
+        )
+    except DriverError as error:
+        raise SystemExit(str(error))
+    print(f"Saved {len(saved)} rounds.")
 
 
 def _experiment_run(cl_args, config) -> None:

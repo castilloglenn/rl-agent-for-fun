@@ -35,6 +35,10 @@ flags.DEFINE_string(
     "imitation_trainer", "imitate", "Imitation trainer: trainers/<name>."
 )
 flags.DEFINE_boolean("preview_dataset", False, "Show what a dataset uses.")
+flags.DEFINE_string(
+    "record_rounds", "", "Record a driver's rounds (recordings/<Driver>/)."
+)
+flags.DEFINE_integer("rounds", 50, "Rounds to record (-record_rounds).")
 flags.DEFINE_string("showcase", "", "Show an agent's progression (window).")
 flags.DEFINE_boolean("showcase_all", False, "Showcase every checkpoint.")
 flags.DEFINE_string(

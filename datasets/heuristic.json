@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "heuristic",
+  "description": "The heuristic's recorded rounds (player \"Heuristic\", from make record_heuristic): all of them, any score.",
+  "player": "Heuristic",
+  "include": "all",
+  "min_score": 0
+}

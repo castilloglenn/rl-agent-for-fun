@@ -446,6 +446,31 @@ ACTIONS = (
         ],
     ),
     Action(
+        "Record a driver's rounds",
+        "Agents",
+        "Plays a driver headless and saves every round to its recordings "
+        "(the heuristic: recordings/Heuristic/), for an imitation dataset "
+        "(datasets/heuristic.json). A mix plays its maps in turn.",
+        (
+            Field("Driver", _drivers(False), "heuristic"),
+            TRAIN_STAGE,
+            Field("Rounds", None, "50"),
+            Field("Seed", None, "0", "the first round's seed"),
+            RULES,
+            SECONDS,
+        ),
+        lambda v: [
+            "-record_rounds", v["Driver"], "--rounds", v["Rounds"].strip(),
+            "--seed", v["Seed"].strip() or "0",
+            "--stage", v["Stage"], "--rules", v["Rules"],
+            *(
+                ["--round_seconds", v["Round seconds"].strip()]
+                if v["Round seconds"].strip()
+                else []
+            ),
+        ],
+    ),
+    Action(
         "Preview a dataset",
         "Agents",
         "Which recordings a dataset uses, and which are skipped (and why).",
@@ -633,6 +658,8 @@ MAKE_TARGETS = {
     "resume": "Resume training",
     "resume_last": "Resume training",
     "imitate": "Clone your driving",
+    "record_heuristic": "Record a driver's rounds",
+    "imitate_heuristic": "Clone your driving",
     "dataset": "Preview a dataset",
     "eval": "Evaluate",
     "eval_baselines": "Evaluate",
