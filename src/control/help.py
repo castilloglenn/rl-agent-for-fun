@@ -225,6 +225,11 @@ TOPICS: dict[str, str] = {
     "between them means it memorizes more than it learns.",
     "chart:episodes": "Game points of each episode, and the mean of the "
     "last 20.",
+    "chart:Reward by term": "What the agent reward is made of: each term's "
+    "sum per episode (mean of the last 20), gains above 0 and costs below. "
+    "A shrinking contact cost means it learns to avoid walls; a cost that "
+    "grows while the total rises can be a loophole. Rest on a term for "
+    "what it counts.",
     "chart:Agent reward": "The agent's reward per episode (mean of the last "
     "20): what it actually optimizes, from its reward profile. It should "
     "rise and level off.",

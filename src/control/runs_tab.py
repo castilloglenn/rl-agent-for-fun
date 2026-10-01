@@ -534,11 +534,13 @@ class RunsTab:
         self._plot = draw_chart(surface, self.main_rect, main, mouse)
         self._chart_help(surface, self._plot, CHART_TOPICS[data.kind])
         option = self.choice.get(data.kind, data.options()[0])
-        # Skills compares the average share, not seven more lines (7d4).
+        # Skills compares the average share, not seven more lines (7d4);
+        # six more term lines would be unreadable: no compare there (6e).
+        styles = {runs.SKILLS_CHART: (DOTS,), runs.TERMS_CHART: ()}
         second = self._with_compare(
             data.second_chart(option),
             lambda c: c.second_chart(option),
-            (DOTS,) if option == runs.SKILLS_CHART else (LINE, DOTS),
+            styles.get(option, (LINE, DOTS)),
         )
         plot = draw_chart(
             surface,
@@ -574,7 +576,11 @@ class RunsTab:
         for rect, label in plot.legend:
             key = label.split(" ")[0]  # "average share", "best d1700k"
             skill = label.replace(" (trained here)", "")
-            text = help.topic(f"legend:{key}") or help.topic(f"skill:{skill}")
+            text = (
+                help.topic(f"legend:{key}")
+                or help.topic(f"skill:{skill}")
+                or help.TERMS.get(label, ("", ""))[1]  # a reward term (6e)
+            )
             if label.endswith("(trained here)"):
                 text += (
                     " Trained here: this run's map is this skill's test map, "

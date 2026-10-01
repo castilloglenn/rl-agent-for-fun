@@ -8,7 +8,8 @@ import pytest
 from src.config import get_maze_car_config
 from src.drivers.heuristic import CompassDriver
 from src.drivers.random_driver import RandomDriver
-from src.experiments.runner import METRICS_COLUMNS, run_experiment
+from src.envs.maze_car.rewards import load_reward_profile
+from src.experiments.runner import metrics_columns, run_experiment
 from src.experiments.runs import best_replay, format_runs, list_runs
 from src.replay.format import read_replay
 from src.replay.replayer import Replayer
@@ -65,9 +66,14 @@ def test_metrics_one_row_per_episode(tmp_path):
     folder = _run(tmp_path, episodes=5, first_seed=3).folder
     rows = _metrics(folder)
     assert len(rows) == 5
-    assert tuple(rows[0]) == METRICS_COLUMNS
+    terms = tuple(load_reward_profile("default").terms)
+    assert tuple(rows[0]) == metrics_columns(terms)
     assert [int(row["seed"]) for row in rows] == [3, 4, 5, 6, 7]
     assert all(row["ended_by"] in ("time", "wall") for row in rows)
+    # 6e: each reward term's sum adds up to the episode's agent reward.
+    for row in rows:
+        parts = sum(float(row[f"reward:{t}"]) for t in terms)
+        assert parts == pytest.approx(float(row["reward"]), abs=1e-3)
 
 
 def test_summary_matches_the_metrics(tmp_path):

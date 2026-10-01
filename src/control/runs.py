@@ -62,9 +62,23 @@ STEP_KINDS = {"Train": TRAINING, "Clone your driving": IMITATION}
 # Training's second chart: (option, learning.csv column). Skills is each
 # skill's share over the checkpoints (7d4), the first and the default.
 SKILLS_CHART = "Skills"
+# Each reward term's sum per episode, from metrics.csv (6e): which habits
+# the agent learns (a shrinking contact cost) or a loophole (a growing
+# stopped cost), where the total alone can't say.
+TERMS_CHART = "Reward by term"
+TERM = "reward:"  # a term's column in metrics.csv
+TERM_COLORS = {
+    "progress": theme.GOOD,
+    "checkpoints": theme.ACCENT,
+    "contact": theme.WARN,
+    "damage": (230, 130, 70),
+    "wrecked": theme.BAD,
+    "stopped": theme.TEXT_DIM,
+}
 TRAINING_CHARTS = (
     (SKILLS_CHART, None),
     ("Agent reward", "reward_mean"),
+    (TERMS_CHART, None),
     ("Entropy", "entropy"),
     ("Policy loss", "policy_loss"),
     ("Value loss", "value_loss"),
@@ -96,6 +110,7 @@ IMITATION_CHARTS = (
 )
 EPISODE_CHARTS = (
     ("Agent reward", "reward"),
+    (TERMS_CHART, None),
     ("Checkpoints", "checkpoints"),
     ("Distance points", "distance_points"),
     ("Steps", "steps"),
@@ -763,6 +778,8 @@ class RunData:
         return chart
 
     def second_chart(self, option: str) -> Chart:
+        if option == TERMS_CHART:
+            return self._terms_chart()
         if self.kind == TRAINING and option == SKILLS_CHART:
             return self._skills_chart()
         if self.kind == TRAINING and option == STYLE_CHART:
@@ -822,6 +839,54 @@ class RunData:
             ],
             "episode {}",
         )
+
+
+    def _terms_chart(self) -> Chart:
+        """REWARD BY TERM (6e): a line per term of the reward profile, the
+        mean of its last 20 episodes. Gains above 0, costs below.
+        """
+        columns = [
+            c for c in (self.metrics.columns or []) if c.startswith(TERM)
+        ]
+        xs = self._episode_xs()
+        series = []
+        for i, column in enumerate(columns):
+            term = column[len(TERM) :]
+            points = [
+                (x, row[column])
+                for x, row in zip(xs, self.metrics.rows)
+                if isinstance(row.get(column), (int, float))
+            ]
+            color = TERM_COLORS.get(term, SKILL_COLORS[i % len(SKILL_COLORS)])
+            series.append(Series(term, _rolling(points), color))
+        unit = "{} decisions" if self.kind == TRAINING else "episode {}"
+        chart = Chart("REWARD BY TERM (mean of 20)", series, unit)
+        chart.value_format = _term_value
+        chart.legend_rows = 2  # six terms, beside the option's dropdown
+        return chart
+
+    def _episode_xs(self) -> list[float]:
+        """Each metrics row's x: the episode, or for training the agent's
+        decisions when it ended (each episode's steps over the action
+        repeat, added up).
+        """
+        rows = self.metrics.rows
+        if self.kind != TRAINING:
+            return [float(row.get("episode", i)) for i, row in enumerate(rows)]
+        model = (self.config.get("agent") or {}).get("model") or {}
+        repeat = max(int(model.get("action_repeat", 1)), 1)
+        total, xs = float(self.start_decisions), []
+        for row in rows:
+            total += -(-int(row.get("steps", 0)) // repeat)  # rounded up
+            xs.append(total)
+        return xs
+
+
+def _term_value(value: float) -> str:
+    """A term's sum, short: 0 for float dust, no decimals past 100."""
+    if abs(value) < 0.05:
+        return "0"
+    return f"{value:,.0f}" if abs(value) >= 100 else f"{value:.1f}"
 
 
 def _name(config: dict, key: str) -> str:

@@ -495,3 +495,38 @@ def runs_tab_doing(job):
     from src.control.runs_tab import _doing
 
     return _doing(job)
+
+
+# Reward by term (6e)
+
+
+def test_a_training_run_charts_each_reward_term(tmp_path):
+    summary = _train(tmp_path)
+    data = RunData(summary.folder, tmp_path / "agents")
+    assert runs.TERMS_CHART in data.options()
+    chart = data.second_chart(runs.TERMS_CHART)
+    labels = [s.label for s in chart.series]
+    assert labels == [
+        "progress", "checkpoints", "contact", "damage", "wrecked", "stopped",
+    ]  # the default profile's terms, in its order
+    xs = [x for x, _ in chart.series[0].points]
+    assert xs == sorted(xs) and len(xs) == summary.episodes
+    assert xs[-1] <= summary.decisions + 4  # by decisions, not episodes
+    assert chart.x_label == "{} decisions"
+
+
+def test_an_episode_run_charts_them_by_episode(tmp_path):
+    summary = _run(tmp_path, episodes=3)
+    data = RunData(summary.folder, tmp_path)
+    chart = data.second_chart(runs.TERMS_CHART)
+    assert [x for x, _ in chart.series[0].points] == [0.0, 1.0, 2.0]
+    assert chart.x_label == "episode {}"
+
+
+def test_a_run_from_before_has_no_terms_to_chart(tmp_path):
+    folder = _folder(
+        tmp_path, "old", kind="episodes",
+        metrics_csv="episode,seed,steps,score,reward\n0,0,10,5,1\n",
+    )
+    chart = RunData(folder, tmp_path).second_chart(runs.TERMS_CHART)
+    assert chart.series == [] and chart.empty  # "No data yet"

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.drivers.base import Driver
 
@@ -12,6 +12,9 @@ class EpisodeResult:
     checkpoints: int
     reward: float  # agent reward total, from the env's reward profile
     ended_by: str | None  # "wrecked", "time", or None if cut short
+    # Each reward term's weighted sum this game (6e): what the total is
+    # made of, so a run shows which habits it learns.
+    terms: dict = field(default_factory=dict)
 
 
 def run_episode(
@@ -51,4 +54,5 @@ def episode_result(
         checkpoints=score.checkpoints,
         reward=env.round_reward,
         ended_by=ended_by,
+        terms=dict(getattr(env, "round_terms", {})),
     )

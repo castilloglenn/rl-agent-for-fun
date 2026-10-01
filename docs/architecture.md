@@ -131,7 +131,8 @@ runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
                  profile, game-defining config, observation version, code
   metrics.csv    one row per episode, flushed as it goes: episode, seed,
                  steps, seconds, score, distance points, checkpoints,
-                 agent reward, how it ended, stage
+                 agent reward, how it ended, stage, and each reward
+                 term's sum (reward:<term>, 6e)
   replays/       each new best episode by game score, gzipped and
                  self-verifying (ep0012_score2456.jsonl.gz)
   summary.json   episodes, mean and best score, checkpoints, survival rate

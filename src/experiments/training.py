@@ -49,11 +49,11 @@ from src.experiments.evaluation import (
     load_suite,
 )
 from src.experiments.runner import (
-    METRICS_COLUMNS,
     RUN_FORMAT,
     RUNS_DIR,
     _metrics_row,
     _new_folder,
+    metrics_columns,
 )
 from src.replay.recorder import ReplayRecorder
 from src.sim.rules import Rules
@@ -388,7 +388,9 @@ class _Training:
                 self.metrics = csv.writer(metrics_file)
                 learning = csv.writer(learn_file)
                 if not self.resumed:
-                    self.metrics.writerow(METRICS_COLUMNS)
+                    self.metrics.writerow(
+                        metrics_columns(self.env.reward_profile.terms)
+                    )
                     learning.writerow(LEARNING_COLUMNS)
                 try:
                     self._train(learning, learn_file, started, on_update)
@@ -550,6 +552,7 @@ class _Training:
                 result,
                 self.env.config,
                 self.env.world.resource(Stage).name,
+                tuple(self.env.reward_profile.terms),
             )
         )
         if result.score > self.best_score:

@@ -43,6 +43,12 @@ METRICS_COLUMNS = (
     "ended_by",
     "stage",  # the map it played (7d5a: a mix plays several)
 )
+TERM = "reward:"  # a reward term's column (6e): "reward:contact"
+
+
+def metrics_columns(terms) -> tuple[str, ...]:
+    """The columns, with one per reward term of the run's profile."""
+    return METRICS_COLUMNS + tuple(TERM + term for term in terms)
 
 
 @dataclass(frozen=True)
@@ -93,7 +99,8 @@ def run_experiment(
     interrupted = False
     with open(folder / "metrics.csv", "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(METRICS_COLUMNS)
+        terms = tuple(env.reward_profile.terms)
+        writer.writerow(metrics_columns(terms))
         try:
             for episode in range(episodes):
                 seed = first_seed + episode
@@ -101,7 +108,11 @@ def run_experiment(
                 results.append(result)
                 writer.writerow(
                     _metrics_row(
-                        episode, result, config, env.world.resource(Stage).name
+                        episode,
+                        result,
+                        config,
+                        env.world.resource(Stage).name,
+                        terms,
                     )
                 )
                 file.flush()
@@ -160,7 +171,7 @@ def _write_config(folder, name, env, driver, episodes, first_seed) -> None:
 
 
 def _metrics_row(
-    episode: int, result: EpisodeResult, config, stage: str
+    episode: int, result: EpisodeResult, config, stage: str, terms=()
 ) -> list:
     seconds = result.steps / config.sim.steps_per_second
     return [
@@ -174,6 +185,7 @@ def _metrics_row(
         round(result.reward, 6),
         result.ended_by or "",
         stage,
+        *(round(result.terms.get(term, 0.0), 4) for term in terms),
     ]
 
 
