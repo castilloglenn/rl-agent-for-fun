@@ -78,6 +78,25 @@ def best_replay(run: str | Path, runs_dir: Path | None = None) -> Path:
     return max(replays, key=_replay_score)
 
 
+def best_replays(run: str | Path, runs_dir: Path | None = None) -> list:
+    """The best replay on each map the run played (a mix: several, 7d5),
+    by map name.
+    """
+    from src.replay.format import read_replay
+
+    folder = Path(run)
+    if not folder.exists():
+        folder = (runs_dir or RUNS_DIR) / run
+    best: dict[str, Path] = {}
+    for path in (folder / "replays").glob("*.jsonl*"):
+        stage = read_replay(path).header["stage"]["name"]
+        if stage not in best or _replay_score(path) > _replay_score(
+            best[stage]
+        ):
+            best[stage] = path
+    return [best[name] for name in sorted(best)]
+
+
 def _replay_score(path: Path) -> float:
     # Names look like ep0012_score2456.jsonl.gz
-    return float(path.name.split("_score")[1].split(".")[0])
+    return float(path.name.rsplit("_score", 1)[1].split(".")[0])

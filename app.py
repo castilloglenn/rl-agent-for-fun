@@ -202,12 +202,14 @@ def _dispatch(cl_args) -> None:
 
         print(format_runs(list_runs()))
     elif cl_args.best_replay:
-        from src.experiments.runs import best_replay
+        from src.experiments.runs import best_replay, best_replays
         from src.replay.viewer import ReplayViewer
 
         path = best_replay(cl_args.best_replay)
         print(f"Playing {path}")
-        ReplayViewer.open(path, config).run()
+        viewer = ReplayViewer.open(path, config)
+        viewer.offer_bests(best_replays(cl_args.best_replay))  # a mix: M
+        viewer.run()
     elif cl_args.replay:
         from src.replay.viewer import ReplayViewer
 

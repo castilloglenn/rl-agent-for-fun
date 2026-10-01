@@ -139,7 +139,7 @@ runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
 ```
 
 - Ctrl+C stops cleanly: the metrics so far and a summary marked `interrupted` are kept.
-- `runs.py`: `list_runs()` / `format_runs()` for `make runs`, and `best_replay(folder)` for `make run_best`.
+- `runs.py`: `list_runs()` / `format_runs()` for `make runs`, `best_replay(folder)` for `make run_best`, and `best_replays(folder)`: the best on each map (a mixed run's, 7c14).
 - Speed: about 0.17 s per 60 s heuristic episode (5 episodes in 0.85 s), replay recording included.
 - The keyboard driver is refused: runs are headless.
 
@@ -155,7 +155,7 @@ runs/<date>_<time>_train-<id>_seed<N>/
   metrics.csv    one row per training episode (same columns as runs)
   learning.csv   one row per update: decisions, episodes, mean score and
                  reward of the last 20 episodes, losses, entropy, KL, clip
-  replays/       each new best training episode
+  replays/       each new best training episode on its map (7c14)
   resume.pt      everything to continue exactly (after every update)
   summary.json   decisions, updates, last 100 episodes, checkpoints written
 agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
@@ -247,7 +247,8 @@ Details: [decision 003](decisions/003-replay-over-multi-window.md).
 | `format.py` | `Replay` (header, action changes, end), `write_replay` / `read_replay` (`.jsonl`, or `.jsonl.gz` gzipped), and `to_current_actions` (reads actions by name) |
 | `recorder.py` | `ReplayRecorder(drivers)`: plug into `MazeCarEnv(..., recorder=...)`. The env calls `on_reset` (header), `on_step` (stores only action changes), and `on_finish` (end line). Driver records: `human_driver(player)`, `agent_driver(id, checkpoint)` |
 | `recordings.py` | Your demo rounds, per player: `RecordingLibrary` (`recordings/<player>/`, the latest 50, and `kept/`, never removed), and `LibraryRecorder`, which saves every round when it ends, and as "stopped" when it's restarted or quit (rounds under 1 s aren't saved). `keep_last()` is K in the demo. `keep_file` and `unkeep_file` move a recording into or out of `kept/` by its path (unkeeping doesn't prune) |
-| `viewer.py` | `ReplayViewer`: replay mode in a window (`app.py -replay <file>`). Verifies the replay headless first, then plays it with `PlaybackControl` (SPACE pause, 1-4 for 0.5×/1×/2×/4×, N one step while paused, R restart). Shows its state through a `ModeInfo` |
+| `viewer.py` | `ReplayViewer`: replay mode in a window (`app.py -replay <file>`). Verifies the replay headless first, then plays it with `PlaybackControl` (SPACE pause, 1-4 for 0.5×/1×/2×/4×, N one step while paused, R restart). Shows its state through a `ModeInfo`, with the SOURCE rows. `offer_bests` lets M pick a mixed run's best replay on another map (7c14) |
+| `source.py` | `source_rows(header, path)`: where a replay comes from, for the SOURCE card (a training run's episode and moment, a run's episode, your recording) ([decision 053](decisions/053-replay-source-and-best-per-map.md)) |
 | `replayer.py` | `Replayer(replay)`: rebuilds the game from the file alone (embedded stage, seed, game-defining config via `config_with_game`, reward profile), re-simulates, and `verify()`s the end line (step, reason, score, reward). Code and observation version differences are reported as notes |
 
 - **Window modes:** `Renderer.draw(..., mode=ModeInfo(...))` shows a mode's label in the left panel's DRIVER section (for example "REPLAY 2× · verified"), its shortcuts in the `?` box, and its messages in the field. The renderer prints each new game event once, with its round time (the control center's console, or the terminal, shows them; headless runs print nothing). `Renderer.poll_events(game_over)` handles Esc (close a box, ask before quitting, or quit when the game is over), Enter, and `?`; `modal_open` tells modes to freeze while a box is open. The renderer doesn't know what the mode is. `Renderer.keys_pressed` lists this frame's key presses for modes with their own controls.

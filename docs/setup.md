@@ -53,7 +53,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make run_rules RULES=name` | Heuristic, with other game rules |
 | `make run_stage STAGE=name` | Heuristic, on another stage |
 | `make run_seconds SECONDS=n` | Heuristic, with another round length |
-| `make run_best RUN=folder` | Watch a run's best replay |
+| `make run_best RUN=folder` | Watch a run's best replay. The SOURCE card says which run, episode, and moment it's from; for a run on a mix, M picks the best on another map |
 | `make new_agent AGENT=id` | Create an untrained agent in `agents/<id>/` from `models/small.json` |
 | `make maze_car_agent AGENT=id` | Watch an agent drive (its best scored checkpoint, else its newest) |
 | `make run_agent AGENT=id` | Run an agent for 100 episodes, headless, into `runs/` |

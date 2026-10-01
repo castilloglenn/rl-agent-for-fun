@@ -457,11 +457,15 @@ class Showcase:
 
     def mode(self) -> ModeInfo:
         if not self.ready:
+            stuck = self.error or (
+                self._planned is not None and not self._planned[1]
+            )
             return ModeInfo(
                 "SHOWCASE · getting ready",
                 theme.ACCENT,
                 SHORTCUTS,
                 self._getting_ready(),
+                busy=not stuck,  # a spinner while it works
             )
         label = f"SHOWCASE {self.index + 1}/{len(self.stops)}"
         if self.finished:
@@ -499,7 +503,7 @@ class Showcase:
             (self.status, theme.TEXT),
             (
                 f"Then: {self._skill_name()} on {self.skill.stage} "
-                "(M: another skill)",
+                "(M: pick another skill)",
                 theme.TEXT_DIM,
             ),
             ("Esc, then Enter, cancels", theme.TEXT_DIM),

@@ -61,6 +61,10 @@ class ModeInfo:
     playback: "PlaybackInfo | None" = None  # replays: the control bar
     # Replays: where the car has been, oldest first (T shows it).
     trail: tuple[tuple[float, float], ...] | list | None = None
+    # Replays: where it comes from, (label, value) rows for the SOURCE
+    # card (a training run's episode, your recording, ...).
+    source: tuple[tuple[str, str], ...] = ()
+    busy: bool = False  # getting ready: a spinner over the messages
 
 
 @dataclass(frozen=True)
@@ -422,10 +426,15 @@ def draw_game_panel(
         column.row("Distance", f"+{car.score.distance_points:,.0f}")
         column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
 
-    column.header("LEADERBOARD")
-    ranked = sorted(cars, key=lambda info: -info.score.total)
-    for rank, info in enumerate(ranked, start=1):
-        column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
+    if mode and mode.source:  # a replay: where it comes from, instead
+        column.header("SOURCE")  # of a one-car leaderboard
+        for label, value in mode.source:
+            column.row(label, value)
+    else:
+        column.header("LEADERBOARD")
+        ranked = sorted(cars, key=lambda info: -info.score.total)
+        for rank, info in enumerate(ranked, start=1):
+            column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
 
     # What an agent learns from, and the simulation it steps through.
     # Its reward this game (decision 032), and the simulation it runs in.

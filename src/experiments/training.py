@@ -361,6 +361,9 @@ class _Training:
         self.episode = 0
         self.results: list[EpisodeResult] = []
         self.best_score, self.best_episode = float("-inf"), None
+        # The best score on each map so far: a replay is saved for a new
+        # best on its map (a mix's maps each keep theirs, 7d5).
+        self.best_by_map: dict[str, float] = {}
         self.saved: list[str] = []
         self.saved_at = 0  # `learned` at the last checkpoint
         self.seconds_before = 0.0  # training time before a resume
@@ -551,6 +554,9 @@ class _Training:
         )
         if result.score > self.best_score:
             self.best_score, self.best_episode = result.score, self.episode
+        stage = self.env.world.resource(Stage).name
+        if result.score > self.best_by_map.get(stage, float("-inf")):
+            self.best_by_map[stage] = result.score
             self.recorder.save(
                 self.folder
                 / "replays"
@@ -635,6 +641,7 @@ class _Training:
             "results": [asdict(result) for result in self.results],
             "best_score": self.best_score,
             "best_episode": self.best_episode,
+            "best_by_map": dict(self.best_by_map),
             "saved": list(self.saved),
             "saved_at": self.saved_at,
             "seconds": self._seconds(started),
@@ -674,6 +681,7 @@ class _Training:
         self.results = [EpisodeResult(**row) for row in state["results"]]
         self.best_score = state["best_score"]
         self.best_episode = state["best_episode"]
+        self.best_by_map = dict(state.get("best_by_map", {}))
         self.saved = list(state["saved"])
         self.saved_at = state["saved_at"]
 

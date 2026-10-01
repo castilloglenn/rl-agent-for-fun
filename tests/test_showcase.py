@@ -219,6 +219,11 @@ def test_getting_ready_says_what_it_does(trained, monkeypatch):
     texts = [text for text, _ in show.mode().messages]
     assert texts[0] == "Getting ready" and texts[1].startswith("Scoring")
     assert any("Esc" in t and "cancels" in t for t in texts)
+    # A spinner while it works, drawn over the messages.
+    assert show.mode().busy
+    show.renderer.draw(show.env.world, 1.0, None, show.mode())
+    show._planned = (None, [])  # nothing to show: no spinner
+    assert not show.mode().busy
 
 
 def test_an_error_shows_in_the_window(trained):

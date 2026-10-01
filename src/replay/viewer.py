@@ -5,7 +5,8 @@
 SPACE pause, 1-4 speed (0.5x, 1x, 2x, 4x), N one step while paused,
 R restart, H lines, Esc quit. The replay is verified up front (a quick
 headless re-simulation), so an out-of-date replay is flagged from the
-start.
+start. The SOURCE card says where it comes from, and a run's best replay
+of a mix offers each map's best (M).
 """
 
 from dataclasses import dataclass
@@ -15,9 +16,11 @@ import pygame
 from ml_collections import ConfigDict
 
 from src.render import theme
+from src.render.map_picker import MapChoice
 from src.render.panels import ModeInfo, PlaybackInfo
 from src.render.renderer import Command
 from src.replay.format import Replay, read_replay
+from src.replay.source import source_rows
 from src.replay.replayer import Replayer, Verification
 from src.sim.components import Transform
 from src.utils.timing import FixedStepClock
@@ -63,26 +66,67 @@ class PlaybackControl:
 
 
 class ReplayViewer:
-    def __init__(self, replay: Replay, config: ConfigDict) -> None:
+    def __init__(
+        self,
+        replay: Replay,
+        config: ConfigDict,
+        path: str | Path | None = None,
+    ) -> None:
         """config: presentation settings (HUD, display) to use. The game
-        itself always comes from the replay.
+        itself always comes from the replay. path: its file, for the
+        SOURCE card (an episode's number is in its name).
         """
-        self.verification = Replayer(replay, base_config=config).run()
-        config = config.copy_and_resolve_references()
+        self.base_config = config
+        self.control = PlaybackControl()
+        self.running = True
+        self.bests: list[Path] = []  # a mixed run's best replay per map
+        self._load(replay, path)
+
+    @staticmethod
+    def open(path: str | Path, config: ConfigDict) -> "ReplayViewer":
+        return ReplayViewer(read_replay(path), config, path)
+
+    def _load(self, replay: Replay, path: str | Path | None) -> None:
+        self.path = Path(path) if path else None
+        self.source = source_rows(replay.header, self.path)
+        base = self.base_config
+        self.verification = Replayer(replay, base_config=base).run()
+        config = self.base_config.copy_and_resolve_references()
         config.window.playback_bar = True  # the bar under the field
         self.replayer = Replayer(replay, show_gui=True, base_config=config)
         self.renderer = self.replayer.env.renderer
         steps_per_second = self.replayer.env.config.sim.steps_per_second
         # 4x speed needs up to 8 steps per frame at 60 Hz.
         self.clock = FixedStepClock(steps_per_second, max_steps_per_frame=32)
-        self.control = PlaybackControl()
-        self.running = True
         self.trail: list[tuple[float, float]] = []  # where the car has been
         self._start_trail()
+        self._offer_bests()
 
-    @staticmethod
-    def open(path: str | Path, config: ConfigDict) -> "ReplayViewer":
-        return ReplayViewer(read_replay(path), config)
+    def offer_bests(self, paths: list[Path]) -> None:
+        """A run's best replay on each of its maps: M picks one (with two
+        maps or more: a mix).
+        """
+        self.bests = [Path(p) for p in paths]
+        self._offer_bests()
+
+    def _offer_bests(self) -> None:
+        if len(self.bests) < 2:
+            return
+        choices = []
+        for path in self.bests:
+            stage = read_replay(path).header["stage"]
+            score = path.name.rsplit("_score", 1)[-1].split(".")[0]
+            choices.append(
+                MapChoice(f"{stage['name']} · best {score}", stage)
+            )
+        playing = self.path in self.bests
+        current = self.bests.index(self.path) if playing else -1
+        self.renderer.offer_maps(choices, current)
+
+    def play_best(self, index: int) -> None:
+        """Another map's best replay, in this window's playback state."""
+        path = self.bests[index]
+        self._load(read_replay(path), path)
 
     def tick(self, elapsed: float) -> None:
         """Advances playback by `elapsed` real seconds."""
@@ -134,7 +178,13 @@ class ReplayViewer:
             length=self.replayer.total_steps / sps,
         )
         return ModeInfo(
-            label, color, SHORTCUTS, messages, playback, self.trail
+            label,
+            color,
+            SHORTCUTS,
+            messages,
+            playback,
+            self.trail,
+            source=self.source,
         )
 
     def run(self) -> None:
@@ -151,6 +201,9 @@ class ReplayViewer:
                 break
             for key in self.renderer.keys_pressed:
                 self.control.handle_key(key)
+            picked = self.renderer.take_map_pick()
+            if picked is not None:  # M: another map's best
+                self.play_best(picked)
             self.tick(0.0 if self.renderer.modal_open else elapsed)
             env = self.replayer.env
             alpha = 1.0 if self.control.paused else self.clock.alpha
