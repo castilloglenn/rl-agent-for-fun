@@ -46,3 +46,31 @@ def header(surface, rect: Rect, text: str) -> None:
         theme.ACCENT,
         bold=True,
     )
+
+
+def wrap_name(text: str, width: float, size: int, lines: int) -> list[str]:
+    """A bold name on up to `lines` lines, broken at spaces (a word longer
+    than a line is broken where it must). Only what still doesn't fit gets
+    "…": names stay whole whenever they can (7c11).
+    """
+    font = get_font(size, True)
+    words, found, line = text.split(), [], ""
+    for word in words:
+        candidate = f"{line} {word}".strip()
+        if line and font.size(candidate)[0] > width:
+            found.append(line)
+            line = word
+        else:
+            line = candidate
+        while font.size(line)[0] > width and len(line) > 1:  # a long word
+            cut = len(line)
+            while cut > 1 and font.size(line[:cut])[0] > width:
+                cut -= 1
+            found.append(line[:cut])
+            line = line[cut:]
+    if line:
+        found.append(line)
+    if len(found) > lines:
+        rest = " ".join(found[lines - 1 :])
+        found = found[: lines - 1] + [fit(rest, width, True, size)]
+    return found

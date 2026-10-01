@@ -332,3 +332,42 @@ def test_a_nickname_from_the_profile(window, tmp_path):
     tab.nickname_entry.set_text("")
     tab.rename()
     assert tab.agent.nickname is None
+
+
+# The details in sections (7c11)
+
+
+def test_sections_switch_and_show_their_own_widgets(window):
+    tab = window.agents_tab
+    tab.select("pupil")
+    assert tab.section == "Overview"
+    assert not tab.history_menu.visible and not tab.phase_list.visible
+    rects = tab.section_rects()
+    tab.click(rects["Skills"].center)
+    assert tab.section == "Skills" and tab.history_menu.visible
+    tab.click(rects["Lineage"].center)
+    assert tab.phase_list.visible and not tab.history_menu.visible
+    for name in ("Overview", "Skills", "Driving", "Lineage"):
+        tab.open_section(name)
+        window.draw()  # each draws, scored or not
+    window.open_tab("Training")
+    assert not tab.phase_list.visible  # hidden with the tab
+
+
+def test_long_names_wrap_instead_of_being_cut():
+    import pygame as pg
+
+    from src.control.text import wrap_name
+    from src.render import theme
+    from src.utils.ui import get_font
+
+    pg.init()
+    name = "Reverse Guy, the Backward Wonder of Box"
+    width = 224  # a card's name, beside its place
+    lines = wrap_name(name, width, theme.TEXT_SIZE, 2)
+    assert len(lines) == 2 and " ".join(lines) == name  # all of it
+    font = get_font(theme.TEXT_SIZE, True)
+    assert all(font.size(line)[0] <= width for line in lines)
+    assert wrap_name("short", width, theme.TEXT_SIZE, 2) == ["short"]
+    cut = wrap_name(name * 3, 120, theme.TEXT_SIZE, 2)
+    assert len(cut) == 2 and cut[-1].endswith("…")  # only if it must

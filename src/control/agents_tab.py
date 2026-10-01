@@ -41,23 +41,30 @@ from src.control.charts import (
 )
 from src.control.jobs import JobManager
 from src.control.maps_data import watch_stage
+from src.control import style_view
 from src.control.radar import draw_radar
-from src.control.text import PAD, fit, header, wrap
+from src.control.text import PAD, fit, header, wrap, wrap_name
 from src.control.tooltips import Tooltips
 from src.utils import driving_style
 from src.control.training_plan import busy_agents
 from src.render import theme
-from src.utils.ui import draw_text
+from src.utils.ui import draw_text, get_font
 
 LIST_WIDTH = 600
 MARGIN = 16
 ROW = 30
 GAP = 8
 REFRESH = 2.0  # seconds between reads of the agents' files
-CARD = (278, 130)
+CARD = (278, 156)  # room for a two-line name (7c11)
 CARD_GAP = (16, 12)
 SCROLL_STEP = 40
 HISTORY_MENU = 170  # the skill history's picker
+# The detail panel (7c11): its sections, under a fixed header.
+SECTIONS = ("Overview", "Skills", "Driving", "Lineage")
+NAME_LINES = 2  # a long nickname wraps, never cut short
+NICKNAME_Y = 112  # the nickname field, under the name and the info
+HEADER_HEIGHT = 152
+SECTION_BAR = 28
 VIEWS = ("Cards", "Leaderboard")
 SORTS = ("score", "newest", "name", "decisions")
 LIT = (20, 60, 95)
@@ -71,7 +78,7 @@ BADGE_COLORS = {
 # The leaderboard's columns: (title, width, value).
 COLUMNS = (
     ("#", 26, lambda r: "" if r.place is None else str(r.place)),
-    ("agent", 130, lambda r: r.label or r.name),
+    ("agent", 130, lambda r: r.label or r.name),  # whole on hover
     ("share", 50, lambda r: _num(r.metrics.get("share"), 2)),  # the rank
     ("score", 64, lambda r: _num(r.metrics.get("score_mean"))),
     ("survive", 62, lambda r: _pct(r.metrics.get("survival"))),
@@ -151,14 +158,24 @@ class AgentsTab:
         self.hit: list[tuple[Rect, str]] = []  # cards or rows: agent id
 
         d = self.detail
-        # Under the name, the info, the milestone, and the driving style
-        # (7c9) lines: the skills and their history.
-        self.skills_rect = Rect(d.x + PAD, d.y + 138, 250, 214)
+        # The detail panel (7c11): a fixed header (the name, up to two
+        # lines; the info; the nickname field), the sections' bar, and the
+        # chosen section's content above the buttons.
+        rows_b = d.bottom - PAD - ROW
+        rows_a = rows_b - GAP - ROW
+        self.section = SECTIONS[0]
+        self.section_y = d.y + HEADER_HEIGHT
+        top = self.section_y + SECTION_BAR + 10
+        self.section_area = Rect(
+            d.x + PAD, top, d.w - 2 * PAD, rows_a - 12 - top
+        )
+        area = self.section_area
+        self.skills_rect = Rect(area.x, area.y, 250, area.h)
         self.history_rect = Rect(
             self.skills_rect.right + 12,
-            d.y + 138,
-            d.right - PAD - self.skills_rect.right - 12,
-            214,
+            area.y,
+            area.right - self.skills_rect.right - 12,
+            area.h,
         )
         self.history_menu = UIDropDownMenu(
             [label for label, _ in HISTORY],
@@ -172,14 +189,7 @@ class AgentsTab:
             gui,
         )
         self.history_choice = HISTORY[0][0]
-        rows_b = d.bottom - PAD - ROW
-        rows_a = rows_b - GAP - ROW
-        top = self.skills_rect.bottom + 40
-        self.phase_list = UISelectionList(
-            Rect(d.x + PAD, top, d.w - 2 * PAD, rows_a - 12 - top),
-            [],
-            gui,
-        )
+        self.phase_list = UISelectionList(area, [], gui)  # Lineage
         self.buttons: dict[str, UIButton] = {}
         for row_y, row in ((rows_a, BUTTONS_A), (rows_b, BUTTONS_B)):
             x = d.x + PAD
@@ -193,14 +203,15 @@ class AgentsTab:
         )
         self.message_x = x + GAP
         self.message_y = rows_b + ROW // 2
-        # Your nickname for the selected agent (7c10), top right.
-        self.nickname_button = UIButton(
-            Rect(d.right - PAD - 96, d.y + 32, 96, 28), "Nickname", gui
-        )
+        # Your nickname for the selected agent (7c10), under its name.
+        nickname_y = d.y + NICKNAME_Y
         self.nickname_entry = UITextEntryLine(
-            Rect(self.nickname_button.rect.x - GAP - 200, d.y + 32, 200, 28),
+            Rect(d.x + PAD, nickname_y, 300, 28),
             gui,
             placeholder_text="a nickname of yours",
+        )
+        self.nickname_button = UIButton(
+            Rect(d.x + PAD + 300 + GAP, nickname_y, 96, 28), "Nickname", gui
         )
         self.nickname_entry.set_text_length_limit(NICKNAME_LENGTH)
 
@@ -239,7 +250,35 @@ class AgentsTab:
             widget.show()
         if self.view != "Cards":
             self.sort_menu.hide()
+        self._show_section()
         self.refresh(force=True)
+
+    # The detail panel's sections (7c11)
+
+    def open_section(self, name: str) -> None:
+        self.section = name
+        self._show_section()
+
+    def _show_section(self) -> None:
+        """Each section's own widgets: the history's picker in Skills, the
+        phases' list in Lineage.
+        """
+        on = self.visible
+        for widget, section in (
+            (self.history_menu, "Skills"),
+            (self.phase_list, "Lineage"),
+        ):
+            widget.show() if on and self.section == section else widget.hide()
+
+    def section_rects(self) -> dict[str, Rect]:
+        """Each section's tab on the bar."""
+        font = get_font(theme.TEXT_SIZE, True)
+        x, rects = self.detail.x + PAD, {}
+        for name in SECTIONS:
+            width = font.size(name.upper())[0] + 28
+            rects[name] = Rect(x, self.section_y, width, SECTION_BAR)
+            x += width + 6
+        return rects
 
     def hide(self) -> None:
         self.visible = False
@@ -364,7 +403,13 @@ class AgentsTab:
         return lines.index(text) if text in lines else None
 
     def click(self, pos) -> None:
-        if self.dropdown_open() or not self.content.collidepoint(pos):
+        if self.dropdown_open():
+            return
+        for name, rect in self.section_rects().items():
+            if rect.collidepoint(pos):
+                self.open_section(name)
+                return
+        if not self.content.collidepoint(pos):
             return
         for rect, agent_id in self.hit:
             if rect.collidepoint(pos):
@@ -518,15 +563,24 @@ class AgentsTab:
                 bold=True,
                 anchor="topright",
             ).x - 8
-        draw_text(
-            surface,
-            fit(agent.title, right - x, True),
-            (x, y),
-            theme.TEXT_SIZE,
-            theme.TEXT,
-            bold=True,
-        )
-        y += 24
+        # Its name on up to two lines, and its id under a nickname (7c11).
+        for line in wrap_name(
+            agent.nickname or agent.id, right - x, theme.TEXT_SIZE, NAME_LINES
+        ):
+            draw_text(
+                surface, line, (x, y), theme.TEXT_SIZE, theme.TEXT, bold=True
+            )
+            y += 18
+        if agent.nickname:
+            draw_text(
+                surface,
+                fit(agent.id, right - x),
+                (x, y),
+                theme.HEADER_SIZE,
+                theme.TEXT_DIM,
+            )
+            y += 16
+        y += 6
         if agent.score is not None:
             # Its game score big; its share of the heuristic's (the
             # ranking, 7d3b) beside it.
@@ -611,13 +665,12 @@ class AgentsTab:
             x = x0
             color = theme.TEXT_DIM if baseline else theme.TEXT
             for _, width, value in COLUMNS:
-                draw_text(
-                    surface,
-                    fit(value(rank), width - 8),
-                    (x, y),
-                    theme.TEXT_SIZE,
-                    color,
-                )
+                text = value(rank)
+                shown = fit(text, width - 8)
+                size = theme.TEXT_SIZE
+                cell = draw_text(surface, shown, (x, y), size, color)
+                if shown != text:  # cut: the whole of it on hover
+                    self.tips.add(cell, text)
                 x += width
             y += 26
         y += 18
@@ -662,38 +715,65 @@ class AgentsTab:
         self.content_height = y + self.scroll - self.content.y + 8
 
     def _draw_profile(self, surface, agent: AgentInfo) -> None:
+        """The header (always), the sections' bar, and the open section."""
         d = self.detail
         x, width = d.x + PAD, d.w - 2 * PAD
         header(surface, d, "AGENT")
-        room = self.nickname_entry.rect.x - GAP - x  # the field is beside
-        name = draw_text(
-            surface,
-            fit(agent.nickname or agent.id, room, True, theme.BIG_SIZE),
-            (x, d.y + 34),
-            theme.BIG_SIZE,
-            theme.TEXT,
-            bold=True,
+        y = d.y + 34
+        lines = wrap_name(
+            agent.nickname or agent.id, width, theme.BIG_SIZE, NAME_LINES
         )
-        if agent.nickname:  # its id beside its nickname
+        for line in lines:
             draw_text(
-                surface,
-                fit(agent.id, max(room - name.w - 10, 0)),
-                (name.right + 10, d.y + 40),
-                theme.TEXT_SIZE,
-                theme.TEXT_DIM,
+                surface, line, (x, y), theme.BIG_SIZE, theme.TEXT, bold=True
             )
-        created = agent.created[:10]
+            y += 26
+        info = [
+            agent.id if agent.nickname else "",
+            agent.model,
+            f"{agent.decisions:,.0f} decisions",
+            f"{agent.seconds / 60:,.0f} min training",
+            f"created {agent.created[:10]}",
+        ]
         draw_text(
             surface,
-            fit(
-                f"{agent.model} · {agent.decisions:,.0f} decisions · "
-                f"{agent.seconds / 60:,.0f} min training · created {created}",
-                width,
-            ),
-            (x, d.y + 62),
+            fit(" · ".join(i for i in info if i), width),
+            (x, d.y + NICKNAME_Y - 22),
             theme.TEXT_SIZE,
             theme.TEXT_DIM,
         )
+        self._draw_section_bar(surface)
+        draw = {
+            "Overview": self._draw_overview,
+            "Skills": self._draw_skills_section,
+            "Driving": self._draw_driving,
+            "Lineage": self._draw_lineage,
+        }[self.section]
+        draw(surface, agent)
+
+    def _draw_section_bar(self, surface) -> None:
+        for name, rect in self.section_rects().items():
+            chosen = name == self.section
+            if chosen:
+                pygame.draw.rect(surface, LIT, rect)
+                pygame.draw.rect(surface, theme.ACCENT, rect, 1)
+            else:
+                pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
+            draw_text(
+                surface,
+                name.upper(),
+                rect.center,
+                theme.TEXT_SIZE,
+                theme.TEXT,
+                bold=chosen,
+                anchor="center",
+            )
+
+    # Overview
+
+    def _draw_overview(self, surface, agent: AgentInfo) -> None:
+        area = self.section_area
+        x, y, width = area.x, area.y, area.w
         milestone = agent.milestone
         if milestone:
             text = (
@@ -707,10 +787,82 @@ class AgentsTab:
             text, color = f"TRAINING now: run {agent.live}", theme.GOOD
         else:
             text, color = "No milestone yet", theme.TEXT_DIM
-        draw_text(
-            surface, fit(text, width), (x, d.y + 84), theme.TEXT_SIZE, color
+        for line in wrap(text, width):
+            draw_text(surface, line, (x, y), theme.TEXT_SIZE, color)
+            y += 20
+        best = agent.best
+        if not best:
+            self._not_scored_at(surface, x, y + 10)
+            return
+        y += 14
+        cells = (
+            ("share of the heuristic's", f"{best['share']:.2f}"),
+            ("game score", f"{best['score_mean']:,.0f}"),
+            ("survival", f"{best['survival']:.0%}"),
+            ("wrecks", f"{best['wreck_rate']:.0%}"),
+            ("checkpoints / min", f"{best['checkpoints_per_min']:.1f}"),
+            ("best checkpoint", agent.best_checkpoint or ""),
         )
-        self._draw_style(surface, agent, x, d.y + 106, width)
+        column = width // 3
+        for k, (label, value) in enumerate(cells):
+            cx = x + (k % 3) * column
+            cy = y + (k // 3) * 54
+            draw_text(
+                surface, label, (cx, cy), theme.HEADER_SIZE, theme.TEXT_DIM
+            )
+            draw_text(
+                surface,
+                fit(value, column - 12, True, theme.BIG_SIZE),
+                (cx, cy + 16),
+                theme.BIG_SIZE,
+                theme.TEXT,
+                bold=True,
+            )
+        y += 2 * 54 + 12
+        y = self._draw_style_summary(surface, best, x, y, width)
+
+    def _not_scored_at(self, surface, x: int, y: int) -> None:
+        draw_text(
+            surface,
+            "Not scored yet: Evaluate scores its checkpoints.",
+            (x, y),
+            theme.TEXT_SIZE,
+            theme.TEXT_DIM,
+        )
+
+    def _draw_style_summary(self, surface, best, x, y, width) -> int:
+        """DRIVING: the pedals' bar, its legend, and any warning."""
+        label = draw_text(
+            surface,
+            "DRIVING",
+            (x, y),
+            theme.HEADER_SIZE,
+            theme.ACCENT,
+            bold=True,
+        )
+        self.tips.add(label, help.topic("driving style"))
+        y += 22
+        if best.get("style_forward") is None:
+            draw_text(
+                surface,
+                "Not measured yet: Evaluate measures it.",
+                (x, y),
+                theme.TEXT_SIZE,
+                theme.TEXT_DIM,
+            )
+            return y + 22
+        style_view.draw_pedals(surface, Rect(x, y, width, 14), best)
+        y = style_view.draw_legend(surface, x, y + 22, best, width)
+        for warning in driving_style.warnings(best):
+            draw_text(
+                surface, f"! it {warning}", (x, y), theme.TEXT_SIZE, theme.WARN
+            )
+            y += 20
+        return y
+
+    # Skills
+
+    def _draw_skills_section(self, surface, agent: AgentInfo) -> None:
         self._draw_skills(surface, agent)
         draw_chart(
             surface,
@@ -723,29 +875,89 @@ class AgentsTab:
         menu = self.history_menu.rect
         mark = self.tips.marker(surface, menu.right + 8, menu.centery)
         self.tips.add(menu.union(mark), help.topic("history"))
+
+    # Driving
+
+    def _draw_driving(self, surface, agent: AgentInfo) -> None:
+        area = self.section_area
+        best = agent.best
+        if not best or best.get("style_forward") is None:
+            draw_text(
+                surface,
+                "Not measured yet: Evaluate scores its checkpoints and "
+                "measures how they drive.",
+                area.topleft,
+                theme.TEXT_SIZE,
+                theme.TEXT_DIM,
+            )
+            return
+        x, y, width = area.x, area.y, area.w
+        label_w = 90
+        bar_w = width - label_w - 60
+        heuristic = self.base.get("heuristic") or {}
+        rows = [("agent", best)]
+        if heuristic.get("style_forward") is not None:
+            rows.append(("heuristic", heuristic))
+        self._heading(surface, "PEDALS", x, y)
+        y += 22
+        for name, scores in rows:
+            draw_text(surface, name, (x, y), theme.TEXT_SIZE, theme.TEXT_DIM)
+            style_view.draw_pedals(
+                surface, Rect(x + label_w, y + 2, bar_w, 16), scores
+            )
+            y += 26
+        y = style_view.draw_legend(surface, x + label_w, y, best, bar_w)
+        y += 8
+        self._heading(surface, "TURNING", x, y)
+        y += 22
+        style_view.draw_turning(surface, Rect(x + label_w, y, bar_w, 18), best)
+        y += 32
+        self._heading(surface, "MOVING BACKWARD", x, y)
+        y += 22
+        gauge = Rect(x + label_w, y + 2, bar_w, 14)
+        style_view.draw_backward(surface, gauge, best["style_backward"])
+        y += 24
+        for warning in driving_style.warnings(best):
+            draw_text(
+                surface, f"! it {warning}", (x, y), theme.TEXT_SIZE, theme.WARN
+            )
+            y += 20
+        chart_rect = Rect(x, y + 8, width, area.bottom - y - 8)
+        if chart_rect.h > 90:
+            draw_chart(
+                surface,
+                chart_rect,
+                self._style_chart(agent),
+                None if self.dropdown_open() else pygame.mouse.get_pos(),
+            )
+
+    def _heading(self, surface, text: str, x: int, y: int) -> None:
         draw_text(
-            surface,
-            "LINEAGE",
-            (x, self.skills_rect.bottom + 16),
-            theme.HEADER_SIZE,
-            theme.ACCENT,
-            bold=True,
+            surface, text, (x, y), theme.HEADER_SIZE, theme.ACCENT, bold=True
         )
 
-    def _draw_style(self, surface, agent, x: int, y: int, width: int) -> None:
-        """DRIVING: the best checkpoint's style, and what stands out."""
-        style = driving_style.summary(agent.best)
-        warned = driving_style.warnings(agent.best)
-        if not style:
-            text = "DRIVING: not measured yet (Evaluate)"
-            color = theme.TEXT_DIM
-        elif warned:
-            text, color = f"DRIVING  {', '.join(warned)}: {style}", theme.WARN
-        else:
-            text, color = f"DRIVING  {style}", theme.TEXT
-        size = theme.TEXT_SIZE
-        label = draw_text(surface, fit(text, width), (x, y), size, color)
-        self.tips.add(label, help.topic("driving style"))
+    def _style_chart(self, agent: AgentInfo) -> Chart:
+        """Its pedals over the scored checkpoints, a line each."""
+        rows = agents_data.history(agent)
+        chart = Chart(
+            "OVER TRAINING",
+            [
+                Series(
+                    label,
+                    [(r["decisions"], r[column]) for r in rows if column in r],
+                    color,
+                )
+                for label, column, color in runs.STYLE_LINES
+            ],
+            "{} decisions",
+        )
+        chart.y_format = chart.value_format = percent
+        return chart
+
+    # Lineage
+
+    def _draw_lineage(self, surface, agent: AgentInfo) -> None:
+        pass  # the phases' list is a widget, shown for this section
 
     def _draw_skills(self, surface, agent: AgentInfo) -> None:
         rect = self.skills_rect
@@ -762,7 +974,7 @@ class AgentsTab:
             theme.ACCENT,
             bold=True,
         )
-        center = (rect.centerx, rect.y + 110)
+        center = (rect.centerx, rect.centery + 6)
         if not agent.best:
             draw_text(
                 surface,
@@ -777,7 +989,7 @@ class AgentsTab:
         drawn = draw_radar(
             surface,
             center,
-            48,  # room for the labels in the shorter panel (7c9)
+            min(64, rect.h // 2 - 50),  # room for the labels
             agents_data.skills(agent.best, self.refs),
             reference=(
                 agents_data.skills(heuristic, self.refs) if heuristic else None
