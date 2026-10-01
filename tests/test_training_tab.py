@@ -310,3 +310,20 @@ def test_runs_written_here_are_json(tmp_path):
     (folder / "summary.json").write_text("{not json")
     assert _plan(_values(), runs_dir=tmp_path).estimate == "no estimate"
     assert json.loads((folder / "config.json").read_text())["kind"]
+
+
+def test_a_mode_picked_just_before_a_refresh_rebuilds_the_form(window):
+    """A pick changes the dropdown at once; its change event comes a
+    frame later. A refresh in between read "Imitation, then RL" with no
+    Dataset field yet (KeyError, the control center closed). Now the
+    form is rebuilt for the pick first.
+    """
+    from src.control.training_plan import BOTH
+
+    window.open_tab("Training")
+    tab = window.training_tab
+    tab.form.widgets["Mode"].selected_option = (BOTH, BOTH)  # just picked
+    tab.refresh(force=True)  # before its change event: no crash
+    values = tab.values()
+    assert values["Mode"] == BOTH and "Dataset" in values
+    assert tab.plan.steps[-1].action == "Train"

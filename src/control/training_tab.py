@@ -260,6 +260,9 @@ class TrainingTab:
             return
         self._refreshed = now
         values = self.values()
+        if self._stale(values):
+            self.rebuild()  # its fields for the new pick, then refreshes
+            return
         rows = runs.scan(self.runs_dir, self.jobs.jobs)
         busy = {**busy_agents(rows), **self.busy()}
         self.plan = make_plan(
@@ -275,6 +278,20 @@ class TrainingTab:
             button.disable()
         elif not self.plan.blockers and not button.is_enabled:
             button.enable()
+
+    def _stale(self, values: dict) -> bool:
+        """The fields don't fit the Mode, Agent, or Start picked: a pick
+        changes the dropdown at once, but its change event (which rebuilds
+        the form) comes a frame later, and a refresh in between read a
+        mode needing a Dataset field the form didn't have yet (a crash).
+        """
+        wanted = form_fields(
+            values.get("Mode", RL),
+            values.get("Agent", NEW_AGENT),
+            values.get("Start", FRESH),
+            self.agents_dir,
+        )
+        return {f.name for f in wanted if not f.readonly} != set(values)
 
     def _recordings(self, values: dict) -> int | None:
         """How many recordings the dataset would read (a cheap listing;
