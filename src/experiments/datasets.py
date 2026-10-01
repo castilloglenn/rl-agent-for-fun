@@ -14,6 +14,7 @@ import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 
@@ -115,13 +116,20 @@ def recording_paths(spec: DatasetSpec, root: Path | None = None) -> list[Path]:
 
 
 def build_dataset(
-    spec: DatasetSpec, action_repeat: int, root: Path | None = None
+    spec: DatasetSpec,
+    action_repeat: int,
+    root: Path | None = None,
+    on_round: Callable[[int, int], None] | None = None,
 ) -> Dataset:
     """Re-simulates every matching recording into samples. Recordings that
     don't verify (for example from older physics) are skipped, with why.
+    on_round(i, n): before each recording (it can take a while: 7c16).
     """
     dataset = Dataset(spec)
-    for path in recording_paths(spec, root):
+    paths = recording_paths(spec, root)
+    for i, path in enumerate(paths):
+        if on_round:
+            on_round(i, len(paths))
         replay = read_replay(path)
         end = replay.end or {}
         score = end.get("scores", {}).get("1", 0)

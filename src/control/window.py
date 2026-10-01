@@ -252,6 +252,7 @@ class ControlCenter:
         )
         self.runs_tab.hide()
         self.chains: list[Chain] = []  # the Training tab's plans
+        self.runs_tab.chains = self.chains  # their runs, while starting
         self.training_tab = TrainingTab(
             self.gui,
             Rect(MARGIN, top, width, bottom - top),
@@ -547,6 +548,7 @@ class ControlCenter:
         self.chains.append(chain)
         self.runs_tab.follow = chain
         self.open_tab("Runs")
+        self.runs_tab.refresh(force=True)  # its starting row, at once
         return chain
 
     def branch_from(self, start: str) -> None:

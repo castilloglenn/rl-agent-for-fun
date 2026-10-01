@@ -411,3 +411,87 @@ def test_a_mixed_run_names_its_mix_and_marks_its_maps(tmp_path):
     assert "Threading (trained here)" in labels  # on skill_gaps
     title = data.second_chart("Skills").title
     assert title == "SKILLS · trained on mix basics"
+
+
+# Runs still starting (7c16)
+
+
+def _starting_job(argv, number=7):
+    job = _job()
+    job.number, job.argv, job.label = number, argv, "Train: rookie"
+    return job
+
+
+def test_a_job_without_its_run_yet_gets_a_starting_row(tmp_path):
+    train = _starting_job(["python", "app.py", "-train", "rookie"])
+    episodes = _starting_job(
+        ["python", "app.py", "-run", "h", "--driver", "heuristic"], 8
+    )
+    other = _starting_job(["python", "app.py", "-eval", "rookie"], 9)
+    rows = runs.scan(tmp_path, [train, episodes, other])
+    assert sorted((r.name, r.kind, r.who) for r in rows) == [
+        ("starting #7", runs.TRAINING, "rookie"),
+        ("starting #8", runs.EPISODES, "heuristic"),
+    ]  # not the evaluation: it writes no run
+    assert all(r.status == runs.STARTING for r in rows)
+    assert all("starting" in r.line for r in rows)
+    train.run = "2026-10-01_135222_train-rookie_seed0"  # it said its folder
+    assert [r.name for r in runs.scan(tmp_path, [train])] == []
+
+
+def test_a_plan_shows_its_run_starting_from_its_first_step(tmp_path):
+    from src.control.chains import Chain
+    from src.control.training_plan import Step
+
+    create = _starting_job(["python", "app.py", "-new_agent", "rookie"], 3)
+    steps = [
+        Step("Create rookie.", "Create an agent", {}),
+        Step("Clone the heuristic.", "Clone your driving", {}),
+        Step("Train rookie.", "Train", {}),
+    ]
+    chain = Chain(steps, lambda step, i, n: create, agent="rookie")
+    chain.tick()
+    (row,) = runs.scan(tmp_path, [create], chains=[chain])
+    assert (row.name, row.kind, row.who) == (
+        "starting #3",
+        runs.IMITATION,  # the first step that makes a run
+        "rookie",
+    )
+
+
+def test_the_runs_tab_follows_a_starting_run(window, tmp_path):
+    from src.control.chains import Chain
+    from src.control.training_plan import Step
+
+    job = _starting_job(["python", "app.py", "-imitate", "rookie"], 5)
+    job.log.append("Building the dataset: round 11 of 50")
+    chain = Chain(
+        [Step("Clone the heuristic.", "Clone your driving", {}),
+         Step("Train rookie.", "Train", {})],
+        lambda step, i, n: job,
+        agent="rookie",
+    )
+    chain.tick()
+    window.chains.append(chain)
+    window.open_tab("Runs")
+    tab = window.runs_tab
+    tab.follow = chain
+    tab.refresh(force=True)
+    assert tab.selected == "starting #5" and tab.data is None
+    assert tab.compare_menu is None  # nothing to compare it with yet
+    assert tab.buttons["Stop"].is_enabled  # it can be stopped already
+    assert not tab.buttons["Delete run"].is_enabled
+    window.draw()  # the spinner, what it's doing, and what's next
+    assert runs_tab_doing(job) == "Building the dataset: round 11 of 50"
+    # Its run folder appears: the tab moves on to it.
+    name = "2026-10-01_135137_imitate-rookie_seed0"
+    _folder(tab.runs_dir, name, kind="imitation")
+    job.run = name
+    tab.refresh(force=True)
+    assert tab.selected == name and tab.data is not None
+
+
+def runs_tab_doing(job):
+    from src.control.runs_tab import _doing
+
+    return _doing(job)

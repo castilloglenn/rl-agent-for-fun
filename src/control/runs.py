@@ -39,10 +39,14 @@ TRAINING, IMITATION, EPISODES = "training", "imitation", "episodes"
 KIND_LABELS = {TRAINING: "train", IMITATION: "imitate", EPISODES: "episodes"}
 
 # Statuses: running or paused as one of our jobs, running elsewhere (a
-# terminal), stopped (Ctrl+C), done, or ended without a summary.
+# terminal), stopped (Ctrl+C), done, or ended without a summary. Starting:
+# our job hasn't written its run folder yet (7c16: an imitation builds its
+# dataset first), shown as a row of its own until it does.
 RUNNING, PAUSED, ELSEWHERE = "running", "paused", "running elsewhere"
 STOPPED, DONE, ENDED = "stopped", "done", "ended unexpectedly"
+STARTING = "starting"
 STATUS_COLORS = {
+    STARTING: theme.ACCENT,
     RUNNING: theme.GOOD,
     PAUSED: theme.WARN,
     ELSEWHERE: theme.GOOD,
@@ -50,7 +54,10 @@ STATUS_COLORS = {
     DONE: theme.TEXT,
     ENDED: theme.BAD,
 }
-LIVE = (RUNNING, PAUSED, ELSEWHERE)
+LIVE = (RUNNING, PAUSED, ELSEWHERE, STARTING)
+# What makes a run: a job's flag, or a chain's step (the Training tab's).
+RUN_FLAGS = {"-train": TRAINING, "-imitate": IMITATION, "-run": EPISODES}
+STEP_KINDS = {"Train": TRAINING, "Clone your driving": IMITATION}
 
 # Training's second chart: (option, learning.csv column). Skills is each
 # skill's share over the checkpoints (7d4), the first and the default.
@@ -194,12 +201,15 @@ class RunRow:
     job: Job | None  # ours, if we started it
     resumable: bool
     has_replays: bool
+    clock: str = ""  # a starting row's start time: "10-01 13:50:43"
 
     @property
     def when(self) -> str:
         """09-27 00:33:02, from the folder's name (or the name itself, for
         a folder not named by a run).
         """
+        if self.clock:
+            return self.clock
         parts = self.name.split("_")
         if len(parts) < 2 or len(parts[0]) != 10:
             return self.name[:14]
@@ -278,20 +288,85 @@ def status_of(
     return ENDED
 
 
+def starting_name(job: Job) -> str:
+    """A starting row's name (it has no folder yet)."""
+    return f"starting #{job.number}"
+
+
+def starting_rows(jobs: list[Job] = (), chains: list = ()) -> list[RunRow]:
+    """A row for each of our jobs that will write a run but hasn't yet:
+    a training, imitation, or episode run still getting ready (an
+    imitation builds its dataset first), or a chain's step before its
+    run (creating the agent). Newest first.
+    """
+    rows, in_chain = [], set()
+    for chain in chains:
+        in_chain.update(id(job) for job in chain.jobs)
+        job = chain.job
+        if not (chain.active and job and job.running and not job.run):
+            continue
+        ahead = chain.steps[len(chain.jobs) - 1 :]
+        kind = next(
+            (
+                STEP_KINDS[step.action]
+                for step in ahead
+                if getattr(step, "action", None) in STEP_KINDS
+            ),
+            None,
+        )
+        if kind:
+            rows.append(_starting(job, kind, chain.agent or "?"))
+    for job in jobs:
+        if id(job) in in_chain or not job.running or job.run:
+            continue
+        found = _run_flag(job.argv)
+        if found:
+            rows.append(_starting(job, *found))
+    return sorted(rows, key=lambda row: row.clock, reverse=True)
+
+
+def _run_flag(argv: list[str]) -> tuple[str, str] | None:
+    """(kind, who) for a job that writes a run, from its command."""
+    for flag, kind in RUN_FLAGS.items():
+        if flag in argv[:-1]:
+            who = argv[argv.index(flag) + 1]
+            if kind == EPISODES and "--driver" in argv[:-1]:
+                who = argv[argv.index("--driver") + 1]
+            return kind, who
+    return None
+
+
+def _starting(job: Job, kind: str, who: str) -> RunRow:
+    began = time.time() - (time.monotonic() - job.started)
+    return RunRow(
+        name=starting_name(job),
+        kind=kind,
+        who=who,
+        status=STARTING,
+        progress=None,
+        job=job,
+        resumable=False,
+        has_replays=False,
+        clock=datetime.fromtimestamp(began).strftime("%m-%d %H:%M:%S"),
+    )
+
+
 def scan(
     runs_dir: Path | None = None,
     jobs: list[Job] = (),
     now: float | None = None,
     configs: dict | None = None,
+    chains: list = (),
 ) -> list[RunRow]:
-    """Every run folder, newest first. `configs` keeps the configs read
-    before (they never change), so rescanning every second stays cheap.
+    """Every run folder, newest first, after the runs still starting.
+    `configs` keeps the configs read before (they never change), so
+    rescanning every second stays cheap.
     """
     runs_dir = runs_dir or RUNS_DIR
     configs = {} if configs is None else configs
     linked = job_runs(list(jobs))
     by_pid = {job.process.pid: job for job in jobs if job.running}
-    rows = []
+    rows = starting_rows(list(jobs), chains)
     for folder in sorted(runs_dir.glob("*/"), reverse=True):
         config = configs.get(folder.name)
         if config is None:

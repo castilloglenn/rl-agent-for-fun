@@ -261,6 +261,9 @@ TOPICS: dict[str, str] = {
     "1.0 (its own share) on Skills. Above the line is better than it.",
     "compare": "Draws another run of the same kind on both charts, muted.",
     # Run statuses
+    "status:starting": "Started, but its run isn't written yet (an "
+    "imitation builds its dataset first, a plan creates the agent first). "
+    "It turns into the run when it is.",
     "status:running": "Running as a job of this control center.",
     "status:paused": "Frozen in place (Pause): it continues exactly where "
     "it was on Resume.",

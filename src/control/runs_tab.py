@@ -29,10 +29,11 @@ from src.control import help, runs
 from src.control.charts import DOTS, LINE, Plot, Series, compact, draw_chart
 from src.control.jobs import JobManager
 from src.control.maps_data import watch_stage
-from src.control.runs import LIVE, STATUS_COLORS, RunData, RunRow
-from src.control.text import fit, header
+from src.control.runs import LIVE, STARTING, STATUS_COLORS, RunData, RunRow
+from src.control.text import fit, header, wrap
 from src.control.tooltips import Tooltips
 from src.render import theme
+from src.render.spinner import draw_spinner
 from src.utils.ui import draw_text, get_font
 
 LIST_WIDTH = 400
@@ -114,6 +115,7 @@ class RunsTab:
         # A chain the tab follows: it selects each run the chain starts,
         # until you pick another run yourself.
         self.follow = None
+        self.chains: list = []  # the window's chains (their runs starting)
         self.data: RunData | None = None
         self.choice: dict[str, str] = {}  # the second chart, per kind
         self.menu: UIDropDownMenu | None = None
@@ -191,13 +193,16 @@ class RunsTab:
             return
         self._refreshed = now
         self.rows = runs.scan(
-            self.runs_dir, self.jobs.jobs, configs=self._configs
+            self.runs_dir,
+            self.jobs.jobs,
+            configs=self._configs,
+            chains=self.chains,
         )
         lines = [row.line for row in self.rows]
         if lines != self._lines:
             self._set_lines(lines)
         names = [row.name for row in self.rows]
-        followed = self.follow.run if self.follow else None
+        followed = self._followed()
         if followed in names and followed != self.selected:
             self.select(followed)
         elif self.selected not in names:
@@ -211,6 +216,18 @@ class RunsTab:
                 self.compare = None
         self._build_compare_menu()
         self._update_buttons()
+
+    def _followed(self) -> str | None:
+        """The row of the chain the tab follows: its newest run, or the
+        step still starting (no run folder yet).
+        """
+        chain = self.follow
+        if not chain:
+            return None
+        job = chain.job
+        if job and job.running and not job.run:
+            return runs.starting_name(job)
+        return chain.run
 
     def _set_lines(self, lines: list[str]) -> None:
         """New list text, keeping the selection and the scroll place."""
@@ -241,8 +258,12 @@ class RunsTab:
         self.message = None
         self.picked = None
         previous = self.data.kind if self.data else None
+        row = next((r for r in self.rows if r.name == name), None)
+        starting = row is not None and row.status == STARTING
         self.data = (
-            RunData(self.runs_dir / name, self.agents_dir) if name else None
+            RunData(self.runs_dir / name, self.agents_dir)
+            if name and not starting  # a starting run has no folder yet
+            else None
         )
         kind = self.data.kind if self.data else None
         if kind != previous or self.menu is None:
@@ -283,8 +304,13 @@ class RunsTab:
             options = [NO_COMPARE] + [
                 (fit(r.line, COMPARE_WIDTH - 40), r.name)
                 for r in self.rows
-                if r.kind == self.data.kind and r.name != self.selected
+                if r.kind == self.data.kind
+                and r.name != self.selected
+                and r.status != STARTING
             ]
+        if options is None and self.compare_menu:  # nothing to compare
+            self.compare_menu.kill()
+            self.compare_menu = None
         if options == self._compare_options or _expanded(self.compare_menu):
             return
         self._compare_options = options
@@ -463,6 +489,9 @@ class RunsTab:
                 theme.TEXT_DIM,
             )
         data, row = self.data, self.row
+        if row and row.status == STARTING:
+            self._draw_starting(surface, row)
+            return
         if not data or not row:
             return
         d = self.detail
@@ -655,6 +684,49 @@ class RunsTab:
                 self.tips.add(rect, f"Watch it drive on {self._stage()}.")
             bx += width + GAP
 
+    def _draw_starting(self, surface, row: RunRow) -> None:
+        """A run still getting ready (no folder yet): what it's doing, for
+        how long, and what the plan does next, with a spinner.
+        """
+        d = self.detail
+        header(surface, d, "STARTING")
+        x, width = d.x + PAD, d.w - 2 * PAD
+        job = row.job
+        draw_text(
+            surface,
+            fit(job.label, width, True, theme.BIG_SIZE),
+            (x, d.y + 34),
+            theme.BIG_SIZE,
+            theme.TEXT,
+            bold=True,
+        )
+        center = (d.centerx, d.y + 170)
+        draw_spinner(surface, center, shade=False)
+        lines = [
+            (_doing(job), theme.TEXT),
+            (f"{_duration(job.seconds)} so far", theme.TEXT_DIM),
+        ]
+        chain = next((c for c in self.chains if job in c.jobs), None)
+        if chain:
+            for step in chain.steps[len(chain.jobs) :]:
+                lines.append((f"Then: {step.text}", theme.TEXT_DIM))
+        lines.append(
+            ("Its charts appear once the run starts.", theme.TEXT_DIM)
+        )
+        y = center[1] + 52
+        for text, color in lines:
+            for part in wrap(text, width):
+                draw_text(
+                    surface,
+                    part,
+                    (d.centerx, y),
+                    theme.TEXT_SIZE,
+                    color,
+                    anchor="midtop",
+                )
+                y += 22
+            y += 4
+
     def _draw_status(self, surface, data, row, x, y, width) -> None:
         """RUNNING ▰▰▰▱▱ 1,340,000 / 2,000,000 decisions · 3 min left."""
         color = STATUS_COLORS[row.status]
@@ -699,6 +771,15 @@ class RunsTab:
                 theme.WARN if data.best else theme.TEXT_DIM,
                 anchor="topright",
             )
+
+
+def _doing(job) -> str:
+    """The job's latest output line: what it's doing right now."""
+    for line in reversed(job.log):
+        line = line.strip()
+        if line and not line.startswith("(exited"):
+            return line
+    return "Starting Python…"
 
 
 def _expanded(menu) -> bool:

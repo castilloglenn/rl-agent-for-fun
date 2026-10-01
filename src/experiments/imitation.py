@@ -83,6 +83,14 @@ class ImitationSummary:
     seconds: float
 
 
+def _dataset_progress(i: int, n: int) -> None:
+    """Says how building the dataset goes (the Runs tab shows the line
+    while the run is starting, 7c16).
+    """
+    if i % 5 == 0 or i + 1 == n:
+        print(f"Building the dataset: round {i + 1} of {n}", flush=True)
+
+
 def imitate(
     agent: str,
     trainer: ImitationSpec,
@@ -104,7 +112,12 @@ def imitate(
     except AgentError:
         create_agent(agent, load_model_spec("small"), root=root)
         loaded = load_agent(agent, root=root)
-    data = build_dataset(dataset, loaded.spec.action_repeat, recordings_root)
+    data = build_dataset(
+        dataset,
+        loaded.spec.action_repeat,
+        recordings_root,
+        on_round=_dataset_progress,
+    )
     if not data.rounds:
         raise DatasetError(
             f"dataset {dataset.name!r} has no usable rounds for player "

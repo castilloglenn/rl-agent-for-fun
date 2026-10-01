@@ -9,6 +9,7 @@ from src.render import camera, panels, theme, warnings
 from src.render.camera import FIT, FOLLOW, MAP_CARD_EXTRA, MAP_TOP
 from src.render.layout import MARGIN, Layout
 from src.render.map_picker import MapChoice, draw_map_picker
+from src.render.spinner import draw_spinner
 from src.sim.components import (
     Checkpoint,
     Eliminated,
@@ -624,7 +625,9 @@ class Renderer:
             if messages:
                 backdrop = self._draw_centered_lines(messages)
                 if mode and mode.busy:  # getting ready: a spinner over it
-                    self._draw_spinner((backdrop.centerx, backdrop.y - 44))
+                    draw_spinner(
+                        self.display, (backdrop.centerx, backdrop.y - 44)
+                    )
             return
         reason = {
             "time": "Time up",
@@ -922,32 +925,6 @@ class Renderer:
         shade.fill((*theme.BACKGROUND, 225))
         self.display.blit(shade, rect)
         pygame.draw.rect(self.display, theme.PANEL_BORDER, rect, width=1)
-
-    SPINNER_DOTS = 10
-    SPINNER_STEP_MS = 90  # one dot further around per step
-
-    def _draw_spinner(self, center: tuple[int, int]) -> None:
-        """A ring of dots, the brightest going round: something is being
-        done, so the window isn't stuck.
-        """
-        shade = Surface((72, 72), pygame.SRCALPHA)
-        pygame.draw.circle(shade, (*theme.BACKGROUND, 225), (36, 36), 36)
-        self.display.blit(shade, (center[0] - 36, center[1] - 36))
-        count = self.SPINNER_DOTS
-        lead = pygame.time.get_ticks() // self.SPINNER_STEP_MS % count
-        for i in range(count):
-            angle = 2 * math.pi * i / count - math.pi / 2
-            age = (lead - i) % count  # 0: the leading dot
-            fade = 1.0 - age / count
-            color = tuple(
-                round(dim + (bright - dim) * fade)
-                for dim, bright in zip(theme.PANEL_BORDER, theme.ACCENT)
-            )
-            spot = (
-                center[0] + 24 * math.cos(angle),
-                center[1] + 24 * math.sin(angle),
-            )
-            pygame.draw.circle(self.display, color, spot, 5 if age else 7)
 
     def _draw_centered_lines(self, lines: list[tuple]) -> pygame.Rect:
         center_x, center_y = self.layout.field_view.center
