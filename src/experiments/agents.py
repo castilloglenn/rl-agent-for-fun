@@ -33,13 +33,13 @@ def format_agents(profiles: list[dict]) -> str:
     if not profiles:
         return "No agents yet. Create one with: make new_agent AGENT=rookie"
     lines = [
-        f"{'agent':16s} {'model':7s} {'decisions':>10s} {'best':>9s} "
+        f"{'agent':24s} {'model':7s} {'decisions':>10s} {'best':>9s} "
         f"{'score':>7s} {'surv':>5s} {'milestone':9s} {'updated':16s}"
     ]
     for p in profiles:
         best = p["best"]
         lines.append(
-            f"{p['id'][:16]:16s} {p['model']['name'][:7]:7s} "
+            f"{_title(p)[:24]:24s} {p['model']['name'][:7]:7s} "
             f"{p['decisions']:>10,} {p['checkpoints']['best'] or '':>9s} "
             f"{'' if not best else f'{best['score_mean']:,.0f}':>7s} "
             f"{'' if not best else f'{best['survival']:.0%}':>5s} "
@@ -65,7 +65,7 @@ def agent_summary(
     shape = "x".join(str(size) for size in model["hidden"])
     training = profile["training"]
     lines = [
-        f"{profile['id']}  (model {model['name']}: {shape} "
+        f"{_title(profile)}  (model {model['name']}: {shape} "
         f"{model['activation']})",
         f"  {profile['decisions']:,} decisions, "
         f"{_count(training['phases'], 'training phase')}, "
@@ -145,6 +145,12 @@ def agent_summary(
             "rounds)"
         )
     return "\n".join(lines)
+
+
+def _title(profile: dict) -> str:
+    """"Reverse Guy · agent-1" with a nickname (7c10), else its id."""
+    nickname = profile.get("nickname")
+    return f"{nickname} · {profile['id']}" if nickname else profile["id"]
 
 
 def _count(n: int, noun: str) -> str:

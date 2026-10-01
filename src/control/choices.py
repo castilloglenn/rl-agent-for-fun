@@ -4,6 +4,7 @@ typo can't happen. Parameters that name something new (a new agent, a
 player) are typed instead.
 """
 
+import json
 from pathlib import Path
 
 from src.utils import named_files
@@ -45,11 +46,26 @@ def _names(folder: str) -> list[str]:
     return named(folder)
 
 
-def agents() -> list[str]:
-    folder = REPO / "agents"
-    return sorted(
-        p.name for p in folder.glob("*/") if (p / "model.json").exists()
+def agent_label(folder: Path) -> str:
+    """An agent as shown: "Reverse Guy · agent-1" with a nickname of
+    yours (7c10), else its id.
+    """
+    try:
+        nickname = json.loads((folder / "profile.json").read_text()).get(
+            "nickname"
+        )
+    except (OSError, ValueError):
+        nickname = None
+    return f"{nickname} · {folder.name}" if nickname else folder.name
+
+
+def agents(folder: Path | None = None) -> list[str]:
+    """Every agent's id, shown with its nickname if it has one."""
+    folder = folder or REPO / "agents"
+    found = sorted(
+        p for p in folder.glob("*/") if (p / "model.json").exists()
     )
+    return [Choice(p.name, agent_label(p)) for p in found]
 
 
 def runs() -> list[str]:

@@ -15,6 +15,23 @@ from pathlib import Path
 HISTORY_FILE = "history.jsonl"
 PROFILE_FILE = "profile.json"
 BEST_FILE = "evaluations/best.json"  # the best checkpoint (5a5)
+NICKNAME_LENGTH = 40  # characters a nickname keeps (7c10)
+
+
+def set_nickname(folder: Path, name: str) -> str | None:
+    """Gives the agent a nickname of yours ("Reverse Guy"), or clears it
+    (an empty name). Only what's shown changes: its id, runs, and lineage
+    stay. A history event, so the profile keeps it through every rewrite
+    (even a training job's). Returns the nickname, or None. ValueError for
+    a name too long or with a line break.
+    """
+    if "\n" in name:
+        raise ValueError("a nickname is one line")
+    name = " ".join(name.split())  # no stray spaces
+    if len(name) > NICKNAME_LENGTH:
+        raise ValueError(f"a nickname is at most {NICKNAME_LENGTH} characters")
+    record(folder, "nickname", name=name or None)
+    return name or None
 
 
 def record(folder: Path, event: str, **data) -> dict:
@@ -63,6 +80,7 @@ def build_profile(folder: Path) -> dict:
 
     phases: dict[str, dict] = {}  # by run, in start order
     milestone = None
+    nickname = None  # the latest one counts (7c10)
     for event in history:
         kind, run = event["event"], event.get("run")
         if kind == "phase_started":
@@ -97,6 +115,8 @@ def build_profile(folder: Path) -> dict:
                 phases[run]["accuracy"] = event["accuracy"]
         elif kind == "milestone" and milestone is None:
             milestone = {k: v for k, v in event.items() if k != "event"}
+        elif kind == "nickname":
+            nickname = event.get("name") or None
 
     checkpoints = sorted(
         (folder / "checkpoints").glob("*.pt"),
@@ -105,6 +125,7 @@ def build_profile(folder: Path) -> dict:
     best, scores = _best_scores(folder)
     return {
         "id": folder.name,
+        "nickname": nickname,
         "model": {k: model[k] for k in ("name", "hidden", "activation")},
         "observation_version": model["observation_version"],
         "created": created["time"] if created else None,

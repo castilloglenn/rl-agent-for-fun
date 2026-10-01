@@ -177,3 +177,25 @@ def test_sparkline():
     assert sparkline([3, 3]) == "▁▁"
     with pytest.raises(ValueError):
         sparkline([])
+
+
+# Nicknames (7c10)
+
+
+def test_a_nickname_is_shown_and_its_id_stays(tmp_path, monkeypatch):
+    from src.agents.history import set_nickname
+
+    folder, _ = _scored(tmp_path, monkeypatch, share=0.2)
+    assert set_nickname(folder, "  Reverse   Guy ") == "Reverse Guy"
+    profile = read_profile(folder)
+    assert profile["nickname"] == "Reverse Guy" and profile["id"] == "pupil"
+    assert agent_summary(folder).startswith("Reverse Guy · pupil  (model")
+    assert "Reverse Guy · pupil" in format_agents([profile])
+    evaluation.evaluate_checkpoint(folder, "initial", _tiny_suite(tmp_path))
+    assert read_profile(folder)["nickname"] == "Reverse Guy"  # kept
+    assert set_nickname(folder, "") is None  # cleared: its id again
+    assert read_profile(folder)["nickname"] is None
+    with pytest.raises(ValueError, match="at most 40"):
+        set_nickname(folder, "x" * 41)
+    with pytest.raises(ValueError, match="one line"):
+        set_nickname(folder, "two\nlines")

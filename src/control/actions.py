@@ -81,7 +81,10 @@ def _trainers(kind: str) -> Callable[[], list[str]]:
 
 def _drivers(keyboard: bool) -> Callable[[], list[str]]:
     def names() -> list[str]:
-        agents = [f"agent:{a}" for a in choices.agents()]
+        agents = [
+            choices.Choice(f"agent:{a}", f"agent: {getattr(a, 'label', a)}")
+            for a in choices.agents()
+        ]
         return (["keyboard"] if keyboard else []) + [
             *choices.BASELINES,
             *agents,

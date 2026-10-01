@@ -489,6 +489,13 @@ class Showcase:
             ("Esc, then Enter, cancels", theme.TEXT_DIM),
         )
 
+    def _name(self) -> str:
+        """The agent as shown: with its nickname, if it has one (7c10)."""
+        nickname = read_profile(self.folder).get("nickname")
+        return f"{nickname} · {self.folder.name}" if nickname else (
+            self.folder.name
+        )
+
     def _skill_name(self) -> str:
         return self.skill.label or self.skill.name
 
@@ -527,7 +534,7 @@ class Showcase:
             minutes = f" · {stop.minutes:,.1f} min of training"
         lines = [
             (
-                f"{self.folder.name} · {stop.checkpoint} · "
+                f"{self._name()} · {stop.checkpoint} · "
                 f"{self.index + 1} of {len(self.stops)}",
                 theme.ACCENT,
             ),
@@ -565,7 +572,7 @@ class Showcase:
         best = max(self.stops, key=lambda s: s.scores["share"])
         lines = [
             (
-                f"{self.folder.name}: {len(self.stops)} checkpoints shown",
+                f"{self._name()}: {len(self.stops)} checkpoints shown",
                 theme.ACCENT,
             ),
             (

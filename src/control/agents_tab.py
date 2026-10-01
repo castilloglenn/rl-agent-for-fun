@@ -21,8 +21,14 @@ from typing import Callable
 import pygame
 import pygame_gui
 from pygame import Rect
-from pygame_gui.elements import UIButton, UIDropDownMenu, UISelectionList
+from pygame_gui.elements import (
+    UIButton,
+    UIDropDownMenu,
+    UISelectionList,
+    UITextEntryLine,
+)
 
+from src.agents.history import NICKNAME_LENGTH, set_nickname
 from src.control import agents_data, help, runs
 from src.control.agents_data import HISTORY, SKILLS, AgentInfo
 from src.control.charts import (
@@ -65,7 +71,7 @@ BADGE_COLORS = {
 # The leaderboard's columns: (title, width, value).
 COLUMNS = (
     ("#", 26, lambda r: "" if r.place is None else str(r.place)),
-    ("agent", 130, lambda r: r.name),
+    ("agent", 130, lambda r: r.label or r.name),
     ("share", 50, lambda r: _num(r.metrics.get("share"), 2)),  # the rank
     ("score", 64, lambda r: _num(r.metrics.get("score_mean"))),
     ("survive", 62, lambda r: _pct(r.metrics.get("survival"))),
@@ -187,6 +193,16 @@ class AgentsTab:
         )
         self.message_x = x + GAP
         self.message_y = rows_b + ROW // 2
+        # Your nickname for the selected agent (7c10), top right.
+        self.nickname_button = UIButton(
+            Rect(d.right - PAD - 96, d.y + 32, 96, 28), "Nickname", gui
+        )
+        self.nickname_entry = UITextEntryLine(
+            Rect(self.nickname_button.rect.x - GAP - 200, d.y + 32, 200, 28),
+            gui,
+            placeholder_text="a nickname of yours",
+        )
+        self.nickname_entry.set_text_length_limit(NICKNAME_LENGTH)
 
         self.agents: list[AgentInfo] = []
         self.base: dict = {}
@@ -213,6 +229,8 @@ class AgentsTab:
             self.history_menu,
             self.phase_list,
             *self.buttons.values(),
+            self.nickname_entry,
+            self.nickname_button,
         ]
 
     def show(self) -> None:
@@ -266,6 +284,8 @@ class AgentsTab:
     def select(self, agent_id: str | None) -> None:
         self.selected = agent_id
         self.message = None
+        agent = self.agent
+        self.nickname_entry.set_text((agent.nickname or "") if agent else "")
         self.phase = None
         self._phase_lines = None
         self._update_phases()
@@ -324,9 +344,14 @@ class AgentsTab:
                 self.phase = self.phases[i].run if i is not None else None
                 self._update_buttons()
         elif event.type == pygame_gui.UI_BUTTON_PRESSED:
+            if event.ui_element is self.nickname_button:
+                self.rename()
             for name, button in self.buttons.items():
                 if event.ui_element is button:
                     self.press(name)
+        elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
+            if event.ui_element is self.nickname_entry:
+                self.rename()  # Enter in the field
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.click(event.pos)
         elif event.type == pygame.MOUSEWHEEL:
@@ -349,6 +374,25 @@ class AgentsTab:
     def scroll_by(self, pixels: int) -> None:
         most = max(self.content_height - self.content.h, 0)
         self.scroll = min(max(self.scroll + pixels, 0), most)
+
+    def rename(self) -> None:
+        """Gives the selected agent the nickname in the field (empty: back
+        to its id). Its id, runs, and lineage stay as they are.
+        """
+        agent = self.agent
+        if not agent:
+            return
+        text = self.nickname_entry.get_text()
+        try:
+            nickname = set_nickname(agent.folder, text)
+        except ValueError as error:
+            self.message = (str(error), theme.BAD)
+            return
+        self.refresh(force=True)
+        if nickname:
+            self.message = (f"{agent.id} is now {nickname}.", theme.GOOD)
+        else:
+            self.message = (f"{agent.id} has no nickname.", theme.GOOD)
 
     def press(self, name: str) -> None:
         agent = self.agent
@@ -476,7 +520,7 @@ class AgentsTab:
             ).x - 8
         draw_text(
             surface,
-            fit(agent.id, right - x, True),
+            fit(agent.title, right - x, True),
             (x, y),
             theme.TEXT_SIZE,
             theme.TEXT,
@@ -621,14 +665,23 @@ class AgentsTab:
         d = self.detail
         x, width = d.x + PAD, d.w - 2 * PAD
         header(surface, d, "AGENT")
-        draw_text(
+        room = self.nickname_entry.rect.x - GAP - x  # the field is beside
+        name = draw_text(
             surface,
-            fit(agent.id, width, True, theme.BIG_SIZE),
+            fit(agent.nickname or agent.id, room, True, theme.BIG_SIZE),
             (x, d.y + 34),
             theme.BIG_SIZE,
             theme.TEXT,
             bold=True,
         )
+        if agent.nickname:  # its id beside its nickname
+            draw_text(
+                surface,
+                fit(agent.id, max(room - name.w - 10, 0)),
+                (name.right + 10, d.y + 40),
+                theme.TEXT_SIZE,
+                theme.TEXT_DIM,
+            )
         created = agent.created[:10]
         draw_text(
             surface,

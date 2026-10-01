@@ -56,6 +56,16 @@ class AgentInfo:
     live: str = ""  # the run training it right now, if any
 
     @property
+    def nickname(self) -> str | None:
+        """Your name for it ("Reverse Guy"), if you gave it one (7c10)."""
+        return self.profile.get("nickname") or None
+
+    @property
+    def title(self) -> str:
+        """How it's shown: "Reverse Guy · agent-1", or its id."""
+        return f"{self.nickname} · {self.id}" if self.nickname else self.id
+
+    @property
     def model(self) -> str:
         model = self.profile.get("model") or {}
         shape = "×".join(str(h) for h in model.get("hidden", []))
@@ -290,6 +300,7 @@ class Rank:
     decisions: float | None
     checkpoint: str
     metrics: dict = field(default_factory=dict)
+    label: str = ""  # how it's shown, if not its name: with a nickname
 
 
 def leaderboard(agents: list[AgentInfo], base: dict) -> list[Rank]:
@@ -297,7 +308,15 @@ def leaderboard(agents: list[AgentInfo], base: dict) -> list[Rank]:
     baselines as unranked rows in their place.
     """
     rows = [
-        Rank(None, a.id, a.model, a.decisions, a.best_checkpoint or "", a.best)
+        Rank(
+            None,
+            a.id,
+            a.model,
+            a.decisions,
+            a.best_checkpoint or "",
+            a.best,
+            a.title,
+        )
         for a in agents
         if a.best
     ]
@@ -313,7 +332,7 @@ def leaderboard(agents: list[AgentInfo], base: dict) -> list[Rank]:
             row.place = place
     unscored = [a for a in agents if not a.best]
     for a in unscored:  # never scored: at the end, unranked
-        rows.append(Rank(None, a.id, a.model, a.decisions, "", {}))
+        rows.append(Rank(None, a.id, a.model, a.decisions, "", {}, a.title))
     return rows
 
 

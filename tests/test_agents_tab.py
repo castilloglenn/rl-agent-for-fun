@@ -299,3 +299,36 @@ def test_delete_agent_asks_first(window):
         pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE)
     )
     assert window.box is None and window.started == []
+
+
+# Nicknames (7c10)
+
+
+def test_a_nickname_from_the_profile(window, tmp_path):
+    tab = window.agents_tab
+    tab.select("pupil")
+    folder = tab.agent.folder
+    (folder / "history.jsonl").write_text(
+        '{"time": "t", "event": "created", "decisions": 0}\n'
+    )
+    (folder / "model.json").write_text(
+        '{"name": "small", "hidden": [64, 64], "activation": "tanh", '
+        '"observation_version": 1}'
+    )
+    tab.nickname_entry.set_text("Reverse Guy")
+    tab.rename()
+    agent = tab.agent
+    assert agent.nickname == "Reverse Guy" and agent.id == "pupil"
+    assert agent.title == "Reverse Guy · pupil"
+    assert "is now Reverse Guy" in tab.message[0]
+    ranks = agents_data.leaderboard(tab.agents, tab.base)
+    assert any(r.label == "Reverse Guy · pupil" for r in ranks)
+    from src.control import choices
+
+    shown = choices.agents(tmp_path / "agents")
+    assert "pupil" in shown  # the id, as a value
+    assert ("Reverse Guy · pupil") in [getattr(a, "label", a) for a in shown]
+    window.draw()
+    tab.nickname_entry.set_text("")
+    tab.rename()
+    assert tab.agent.nickname is None

@@ -23,7 +23,7 @@ import pygame_gui
 from pygame import Rect
 from pygame_gui.elements import UIButton
 
-from src.control import actions, help, runs
+from src.control import actions, choices, help, runs
 from src.control.actions import REWARD, RULES, SECONDS, STAGE, Field
 from src.control.form import Form
 from src.control.jobs import JobManager
@@ -105,11 +105,10 @@ def form_fields(
 
 
 def _agents(agents_dir: Path | None = None) -> list[str]:
-    """The agents, from the folder the control center reads."""
-    folder = agents_dir or actions.REPO / "agents"
-    return sorted(
-        p.name for p in folder.glob("*/") if (p / "model.json").exists()
-    )
+    """The agents, from the folder the control center reads (shown with
+    their nicknames, 7c10).
+    """
+    return choices.agents(agents_dir or actions.REPO / "agents")
 
 
 class TrainingTab:
