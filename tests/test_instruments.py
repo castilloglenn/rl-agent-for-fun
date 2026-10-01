@@ -69,3 +69,29 @@ def test_the_checkpoint_angle_is_relative_and_left_positive():
     )  # heading 0: facing east, so "up" is to its left
     distance, relative = nearest_checkpoint(world, car)
     assert distance == 100.0 and round(relative) == 90
+
+
+def test_the_mind_card_draws_stopped_and_moving():
+    from src.config import get_maze_car_config
+    from src.render import theme
+    from src.render.panels import (
+        MindInfo,
+        ModeInfo,
+        car_infos,
+        draw_game_panel,
+    )
+    from src.sim.factories import create_game
+
+    pygame.init()
+    world, _ = create_game(get_maze_car_config(), seed=1)
+    surface = pygame.Surface((260, 600))
+    readouts = Readouts()
+    for stopped in (True, False):
+        odds = tuple([0.0, 0.5, 0.25, 0.0] * 3) if stopped else (1 / 12,) * 12
+        mode = ModeInfo(
+            "Live play", theme.TEXT, (), mind=MindInfo(odds, -0.3, stopped)
+        )
+        draw_game_panel(
+            surface, surface.get_rect(), world, car_infos(world),
+            mode=mode, readouts=readouts,
+        )

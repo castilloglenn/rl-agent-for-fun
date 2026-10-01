@@ -26,6 +26,11 @@ class AgentDriver(Driver):
         return AgentDriver(load_agent(agent, checkpoint, prefer_best=True))
 
     def reset(self, seed: int | None = None) -> None:
+        # What it thought at its latest decision, for the MIND card (7f7):
+        # each action's probability, its value, and its observation.
+        self.probabilities: list[float] | None = None
+        self.value = 0.0
+        self.observation: np.ndarray | None = None
         self._steps = 0
         self._action: Action = CANONICAL_ACTIONS[0]
         self._generator = torch.Generator().manual_seed(seed or 0)
@@ -33,13 +38,16 @@ class AgentDriver(Driver):
     def act(self, observation: np.ndarray) -> Action:
         if self._steps % self.agent.spec.action_repeat == 0:
             with torch.inference_mode():
-                logits, _ = self.agent.network(
+                logits, value = self.agent.network(
                     torch.as_tensor(observation).unsqueeze(0)
                 )
+            probabilities = torch.softmax(logits[0], dim=0)
+            self.probabilities = probabilities.tolist()
+            self.value = float(value[0])
+            self.observation = observation
             if self.deterministic:
                 index = int(logits.argmax())
             else:
-                probabilities = torch.softmax(logits[0], dim=0)
                 index = int(
                     torch.multinomial(
                         probabilities, 1, generator=self._generator

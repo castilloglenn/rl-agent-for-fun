@@ -44,6 +44,9 @@ OPTIONS = (
     # Rays, the hitbox, and the checkpoint guide, all together: the same
     # switch as H, so the key and the setting always agree.
     Option("lines", "Lines", "Lines (H)", ON_OFF),
+    # The whole route to the checkpoint, faint (7f7): the agent sees only
+    # its waypoint on it, so this shows whether that sense makes sense.
+    Option("route", "Lines", "Full route, faint", ON_OFF),
     Option(
         "trail",
         "Lines",

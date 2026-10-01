@@ -28,6 +28,13 @@ class Readouts:
     def __init__(self) -> None:
         self._sums: dict[str, list[float]] = {}
         self._shown: dict[str, tuple[str, int]] = {}
+        self._peaks: dict[str, float] = {}
+
+    def peak(self, key: str, value: float) -> float:
+        """The largest size `value` has had so far: a gauge's scale."""
+        found = max(self._peaks.get(key, 0.0), abs(value), 1e-6)
+        self._peaks[key] = found
+        return found
 
     def text(
         self,
@@ -81,6 +88,36 @@ def draw_speed_bar(
         )
     pygame.draw.line(
         surface, theme.TEXT, (zero, rect.y - 2), (zero, rect.bottom + 1)
+    )
+
+
+def draw_segments(surface, rect: Rect, parts) -> None:
+    """A bar split into (share, color) parts, left to right."""
+    pygame.draw.rect(surface, theme.BAR_EMPTY, rect)
+    x = rect.x
+    for share, color in parts:
+        width = round(rect.w * share)
+        if width > 0:
+            pygame.draw.rect(surface, color, Rect(x, rect.y, width, rect.h))
+        x += width
+
+
+def draw_center_gauge(surface, rect: Rect, share: float) -> None:
+    """A bar filled from its middle: right (green) for good, left (red)
+    for bad; `share` from -1 to 1.
+    """
+    pygame.draw.rect(surface, theme.BAR_EMPTY, rect)
+    middle = rect.centerx
+    width = round(rect.w / 2 * min(abs(share), 1.0))
+    if share > 0:
+        fill = Rect(middle, rect.y, width, rect.h)
+        pygame.draw.rect(surface, theme.GOOD, fill)
+    elif share < 0:
+        pygame.draw.rect(
+            surface, theme.BAD, Rect(middle - width, rect.y, width, rect.h)
+        )
+    pygame.draw.line(
+        surface, theme.TEXT, (middle, rect.y - 2), (middle, rect.bottom + 1)
     )
 
 

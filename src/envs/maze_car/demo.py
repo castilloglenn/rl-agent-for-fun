@@ -8,7 +8,7 @@ from src.drivers.registry import make_driver
 from src.envs.maze_car.env import MazeCarEnv
 from src.render import theme
 from src.render.map_picker import MapChoice
-from src.render.panels import LIVE_SHORTCUTS, ModeInfo
+from src.render.panels import LIVE_SHORTCUTS, ModeInfo, mind_of
 from src.replay.recordings import LibraryRecorder, RecordingLibrary
 from src.replay.viewer import TRAIL_EVERY
 from src.sim.components import Transform
@@ -211,6 +211,7 @@ class MazeCarDemo:
                 WATCH_SHORTCUTS,
                 messages,
                 trail=self.trail,
+                mind=mind_of(self.driver),  # an agent: what it thinks
             )
         if not self.recorder:
             return ModeInfo(

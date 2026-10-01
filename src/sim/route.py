@@ -173,6 +173,26 @@ def waypoint(
     return points[max(low, 0)]
 
 
+def route_points(world: World, start, goal) -> list[tuple[float, float]]:
+    """The whole route from `start` to `goal`, a point every STEP px:
+    for showing it (7f7). The agent never sees it, only its waypoint.
+    """
+    path = route_fields(world).field(world, goal)
+    if path.open_field:
+        return [start, goal]
+    points = [start]
+    here, left = start, path.distance(*start)
+    for _ in range(MAX_WALK * 3):
+        step = _downhill(path, here, left)
+        if step is None:
+            break
+        here, left = step
+        points.append(here)
+        if math.dist(here, goal) <= STEP:
+            break
+    return points + [goal]
+
+
 def _downhill(path: PathField, here, left: float):
     """One STEP along the route: the neighbor (16 directions) closest to
     the goal, if it's closer than here.

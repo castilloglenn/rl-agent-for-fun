@@ -86,8 +86,8 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - Pedal priority: brake beats gas, and gas beats reverse.
 - **Calibrated for human play:** at max speed, the car crosses the field in about 2.9 s. One reaction time (about 0.25 s) covers 75 px (3 car lengths), and so does the braking distance, so an obstacle 150 px ahead is always avoidable. Turning radius: 72 px at max speed, 29 px at 120 px/s.
 - All values are in config (`car.*`, see [config](config.md)). **Implemented in step 3b.**
-- The HUD shows the current pedal state (Idle, Gas, Coasting, Braking, Reverse) and the wheel position (for example "Left 60 %").
-- **O** opens your display settings in any game window (7c5, [decision 040](decisions/040-settings-of-yours.md)): the car's bars above or below it, which lines show, the trail, the camera on big stages, the map intro, and the FPS cap.
+- The side panel shows the speed, steering, and heading as instruments (7f3). With the lines (H), the field also shows the agent's remembered route waypoint and a stuck ring, and when an agent drives, a MIND card shows its next move's odds and its outlook (7f8, [decision 062](decisions/062-seeing-what-the-agent-senses.md)).
+- **O** opens your display settings in any game window (7c5, [decision 040](decisions/040-settings-of-yours.md)): the car's bars above or below it, which lines show, the faint full route (7f8), the trail, the camera on big stages, the map intro, and the FPS cap.
 
 The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`. **Stopped, an agent must press gas or reverse** (7f6, [decision 060](decisions/060-a-stopped-agent-moves.md)): at speed 0 the other pedals can't move the car and steering needs speed, so those choices are blocked; moving, every action is open. Keyboard driving is unchanged.
 

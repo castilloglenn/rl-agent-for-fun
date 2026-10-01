@@ -17,7 +17,7 @@ from ml_collections import ConfigDict
 
 from src.render import theme
 from src.render.map_picker import MapChoice
-from src.render.panels import ModeInfo, PlaybackInfo
+from src.render.panels import ModeInfo, PlaybackInfo, mind_of
 from src.render.renderer import Command
 from src.replay.format import Replay, read_replay
 from src.replay.source import source_rows
@@ -101,6 +101,7 @@ class ReplayViewer:
         self.trail: list[tuple[float, float]] = []  # where the car has been
         self._start_trail()
         self._offer_bests()
+        self.mind = _mind_driver(replay.header)  # an exact checkpoint only
 
     def offer_bests(self, paths: list[Path]) -> None:
         """A run's best replay on each of its maps: M picks one (with two
@@ -185,7 +186,18 @@ class ReplayViewer:
             playback,
             self.trail,
             source=self.source,
+            mind=self._mind(),
         )
+
+    def _mind(self):
+        """What the replay's agent thinks of this moment (7f7): its
+        network, run on the replayed observation.
+        """
+        if self.mind is None:
+            return None
+        self.mind.reset(0)  # decide now, on this observation
+        self.mind.act(self.replayer.env.last_observation)
+        return mind_of(self.mind)
 
     def run(self) -> None:
         try:
@@ -211,6 +223,23 @@ class ReplayViewer:
                 env.world, alpha, env.reward_status(), self.mode()
             )
             elapsed = self.renderer.present()
+
+
+def _mind_driver(header: dict):
+    """The replay's agent at its exact checkpoint, if the replay names
+    one and it still exists (training replays come from weights that kept
+    changing: none).
+    """
+    slot = (header.get("slots") or {}).get("1") or {}
+    if slot.get("type") != "agent" or not slot.get("checkpoint"):
+        return None
+    try:
+        from src.agents.driver import AgentDriver
+        from src.agents.store import load_agent
+
+        return AgentDriver(load_agent(slot["id"], slot["checkpoint"]))
+    except Exception:  # gone, or from another observation: no MIND
+        return None
 
 
 def _end_messages(verification: Verification) -> tuple:

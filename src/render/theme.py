@@ -17,6 +17,10 @@ BAD: ColorValue = (230, 80, 80)  # danger
 RAY: ColorValue = (70, 72, 82)  # muted; warning rays use WARN / BAD
 CHECKPOINT: ColorValue = (70, 200, 120)
 GUIDE: ColorValue = (40, 95, 65)  # faint line from car to checkpoint
+# The agent's sense of the route (7f7): its remembered waypoint, and the
+# whole route faint (the agent sees only the waypoint).
+ROUTE: ColorValue = (175, 125, 245)
+ROUTE_FAINT: ColorValue = (75, 65, 110)
 HITBOX: ColorValue = (255, 255, 255)
 HIT: ColorValue = (230, 80, 80)  # a car blinks this after a hit
 TRAIL_RECENT: ColorValue = (90, 190, 255)  # the car's last seconds

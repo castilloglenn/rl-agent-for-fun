@@ -87,3 +87,62 @@ def test_the_reward_and_the_sense_share_one_route_field():
     env.step((False, False, True, False, False))
     fields = route.route_fields(env.world).fields
     assert list(fields) == [(540, 240)]  # one field for this checkpoint
+
+
+# Seeing it (7f7): the waypoint, the remembered route, the stuck ring,
+# and an agent's MIND.
+
+
+def test_the_route_runs_from_a_point_to_the_checkpoint():
+    env = _env()
+    sense = route.sense(env.world, env.car)
+    points = route.route_points(env.world, sense.waypoint, sense.goal)
+    assert points[0] == sense.waypoint and points[-1] == sense.goal
+    field = route.route_fields(env.world).field(env.world, sense.goal)
+    left = [field.distance(*p) for p in points[:-1]]
+    assert left == sorted(left, reverse=True)  # always closer
+
+
+def test_the_window_draws_the_route_and_the_stuck_ring():
+    import os
+
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    from src.envs.maze_car.demo import MazeCarDemo
+
+    demo = MazeCarDemo(
+        get_maze_car_config(),
+        driver="heuristic",
+        autorun=False,
+        record=False,
+        stage=load_stage("skill_detour"),
+    )
+    renderer = demo.env.renderer
+    assert renderer.settings["route"]  # on by default
+    for _ in range(60):
+        demo.frame(1 / 60)
+    sense = route.sense(demo.env.world, demo.env.car)
+    assert renderer._route_points[0] == sense.waypoint
+    assert renderer._route_points[-1] == sense.goal
+
+
+def test_an_agents_mind_comes_from_its_latest_decision():
+    from src.render.panels import MindInfo, mind_of
+
+    class Agent:
+        probabilities = [1 / 12] * 12
+        value = 0.5
+        observation = [0.0] * len(OBSERVATION_NAMES)  # speed 0: stopped
+
+    mind = mind_of(Agent())
+    assert isinstance(mind, MindInfo)
+    assert mind.stopped and mind.value == 0.5
+    assert mind_of(object()) is None  # the heuristic, the keyboard
+
+
+def test_a_training_replay_has_no_mind():
+    from src.replay.viewer import _mind_driver
+
+    header = {"slots": {"1": {"type": "agent", "id": "a", "checkpoint": None,
+                              "training": {"run": "r", "decisions": 1}}}}
+    assert _mind_driver(header) is None
+    assert _mind_driver({"slots": {"1": {"type": "human"}}}) is None

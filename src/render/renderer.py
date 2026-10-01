@@ -11,6 +11,7 @@ from src.render.layout import MARGIN, Layout
 from src.render.map_picker import MapChoice, draw_map_picker
 from src.render.instruments import Readouts
 from src.render.spinner import draw_spinner
+from src.sim import route
 from src.sim.components import (
     Checkpoint,
     Eliminated,
@@ -330,7 +331,13 @@ class Renderer:
             self.config.hud,
         )
         panels.draw_game_panel(
-            self.display, self.layout.left_panel, world, cars, reward, mode
+            self.display,
+            self.layout.left_panel,
+            world,
+            cars,
+            reward,
+            mode,
+            self.readouts,
         )
         if self.layout.map_box:
             self._draw_map(world, alpha)
@@ -507,6 +514,8 @@ class Renderer:
                 sim.brake_deceleration,
                 self.config.hud,
             )
+            if self.show_lines:  # its sense of the route, under the car
+                self._draw_route(world, car, transform, previous, alpha)
             screen_center = self._draw_car(
                 transform,
                 hitbox,
@@ -516,6 +525,7 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
+            self._draw_stuck_ring(world, car, screen_center, hitbox)
             health = world.try_component(car, Health)
             if health is not None:
                 self._draw_health_bar(screen_center, hitbox, health.share)
@@ -1033,6 +1043,81 @@ class Renderer:
                 )
         return screen_center
 
+    # The agent's sense of the route (7f7): the remembered waypoint (a
+    # violet diamond, a dashed line to it, a pulse when it's refreshed),
+    # the rest of the remembered route faint (your setting), and a ring
+    # that fills while it's stuck.
+    PULSE_STEPS = 48  # how long a refresh pulses (0.4 s)
+
+    def _draw_route(self, world, car, transform, previous, alpha) -> None:
+        sense = world.try_component(car, route.RouteSense)
+        if sense is None or sense.goal is None or sense.waypoint is None:
+            return
+        cam = self.camera
+        center = cam.to_screen(
+            lerp(previous.center_x, transform.x, alpha),
+            lerp(previous.center_y, transform.y, alpha),
+        )
+        step = world.resource(SimClock).step
+        if self.settings["route"]:
+            # The route the agent remembers: on from its waypoint (a
+            # route drawn from where the car is now could go the other
+            # way around, and disagree with the waypoint it holds).
+            key = (world, car, sense.goal, sense.refreshed)
+            if getattr(self, "_route_key", None) != key:
+                self._route_key = key
+                self._route_points = route.route_points(
+                    world, sense.waypoint, sense.goal
+                )
+            for x, y in self._route_points[1::2]:
+                pygame.draw.circle(
+                    self.display, theme.ROUTE_FAINT, cam.to_screen(x, y), 1
+                )
+        spot = cam.to_screen(*sense.waypoint)
+        _dashed_line(self.display, theme.ROUTE, center, spot)
+        size = 6
+        diamond = [
+            (spot[0], spot[1] - size),
+            (spot[0] + size, spot[1]),
+            (spot[0], spot[1] + size),
+            (spot[0] - size, spot[1]),
+        ]
+        pygame.draw.polygon(self.display, theme.ROUTE, diamond)
+        since = step - sense.refreshed
+        if 0 <= since < self.PULSE_STEPS:
+            grown = since / self.PULSE_STEPS
+            pygame.draw.circle(
+                self.display,
+                theme.ROUTE,
+                spot,
+                round(size + 14 * grown),
+                width=max(round(3 * (1 - grown)), 1),
+            )
+
+    STUCK_SHOWN = 1.0  # s: a shorter pause shows no ring
+    STUCK_RED = 5.0  # s: the ring turns red
+
+    def _draw_stuck_ring(self, world, car, center, hitbox) -> None:
+        """A ring around the car that fills (clockwise from the top) as
+        the stuck timer grows to its cap, amber, then red.
+        """
+        sense = world.try_component(car, route.RouteSense)
+        if sense is None:
+            return
+        seconds = route.stuck_seconds(world, sense)
+        if seconds < self.STUCK_SHOWN:
+            return
+        share = min(seconds / route.STUCK_CAP, 1.0)
+        radius = math.hypot(hitbox.width, hitbox.height) / 2
+        radius = radius * self.camera.scale + 6
+        box = pygame.Rect(0, 0, 2 * radius, 2 * radius)
+        box.center = (round(center[0]), round(center[1]))
+        color = theme.BAD if seconds >= self.STUCK_RED else theme.WARN
+        top = math.pi / 2
+        pygame.draw.arc(
+            self.display, color, box, top - 2 * math.pi * share, top, 2
+        )
+
     # The car's health (7c4): a thin bar above it, level on screen, so it
     # never turns with the car or covers it. Fuel joins under it (step 9).
     HEALTH_BAR_HEIGHT = 3  # px
@@ -1096,3 +1181,20 @@ def offscreen_marker(start, point, view, inset: float):
 def _clock(seconds: float) -> str:
     minutes, seconds = divmod(int(seconds), 60)
     return f"{minutes}:{seconds:02d}"
+
+
+def _dashed_line(surface, color, start, end, dash=6, gap=5) -> None:
+    length = math.dist(start, end)
+    if length < 1:
+        return
+    dx, dy = (end[0] - start[0]) / length, (end[1] - start[1]) / length
+    at = 0.0
+    while at < length:
+        stop = min(at + dash, length)
+        pygame.draw.line(
+            surface,
+            color,
+            (start[0] + dx * at, start[1] + dy * at),
+            (start[0] + dx * stop, start[1] + dy * stop),
+        )
+        at += dash + gap

@@ -46,7 +46,7 @@ from src.experiments.evaluation import (
 from src.experiments.runner import RUNS_DIR
 from src.render import theme
 from src.render.map_picker import MapChoice
-from src.render.panels import ModeInfo, PlaybackInfo
+from src.render.panels import ModeInfo, PlaybackInfo, mind_of
 from src.render.renderer import Command
 from src.replay.viewer import SPEEDS, TRAIL_EVERY, PlaybackControl
 from src.sim.components import Transform
@@ -485,6 +485,7 @@ class Showcase:
             messages,
             self._playback(),
             self.trail,
+            mind=None if self.card else mind_of(getattr(self, "driver", None)),
         )
 
     def _getting_ready(self) -> tuple:

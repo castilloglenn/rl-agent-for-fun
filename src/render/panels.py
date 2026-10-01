@@ -17,6 +17,9 @@ from pygame import Rect, Surface
 
 from src.ecs import World
 from src.render import instruments, theme, warnings
+from src.drivers.actions import CANONICAL_NAMES
+from src.sim import route
+from src.sim.observation import OBSERVATION_NAMES
 from src.render.layout import MARGIN
 from src.sim.components import (
     ActionInput,
@@ -65,6 +68,20 @@ class ModeInfo:
     # card (a training run's episode, your recording, ...).
     source: tuple[tuple[str, str], ...] = ()
     busy: bool = False  # getting ready: a spinner over the messages
+    mind: "MindInfo | None" = None  # an agent drives: what it's thinking
+
+
+@dataclass(frozen=True)
+class MindInfo:
+    """What an agent's network thinks at its latest decision (7f7): the
+    probability of each of the 12 canonical actions, its value (how good
+    it thinks the situation is), and whether the car was stopped (then
+    only gas or reverse can be picked, 7f6).
+    """
+
+    probabilities: tuple[float, ...]
+    value: float
+    stopped: bool
 
 
 @dataclass(frozen=True)
@@ -117,6 +134,12 @@ class CarInfo:
     eliminated: bool
     score: Score
     health: float  # 0 (wrecked) .. 1 (full)
+    stuck: float | None = None  # s since it last got closer (7f7)
+
+
+def _stuck(world: World, car: int) -> float | None:
+    sense = world.try_component(car, route.RouteSense)
+    return None if sense is None else route.stuck_seconds(world, sense)
 
 
 def car_infos(world: World) -> list[CarInfo]:
@@ -134,6 +157,7 @@ def car_infos(world: World) -> list[CarInfo]:
             eliminated=world.try_component(car, Eliminated) is not None,
             score=score,
             health=health.share,
+            stuck=_stuck(world, car),
         )
         for car, (
             renderable,
@@ -392,8 +416,12 @@ def draw_game_panel(
     cars: list[CarInfo],
     reward: RewardStatus | None = None,
     mode: ModeInfo | None = None,
+    readouts: instruments.Readouts | None = None,
 ) -> None:
-    """Left: who's playing, which game, and how it's going."""
+    """Left: who's playing, which game, and how it's going, and, when an
+    agent drives, what it's thinking (MIND, 7f7).
+    """
+    readouts = readouts or instruments.Readouts()
     column = _Column(surface, rect)
     car = cars[0] if cars else None
 
@@ -418,7 +446,9 @@ def draw_game_panel(
         column.header("SOURCE")  # of a one-car leaderboard
         for label, value in mode.source:
             column.row(label, value)
-    else:
+    if mode and mode.mind:  # an agent drives: what it's thinking
+        _draw_mind(column, mode.mind, readouts)
+    elif not (mode and mode.source):
         column.header("LEADERBOARD")
         ranked = sorted(cars, key=lambda info: -info.score.total)
         for rank, info in enumerate(ranked, start=1):
@@ -454,6 +484,83 @@ def draw_game_panel(
     sim_rate = world.resource(SimConfig).steps_per_second
     column.row("Sim", f"step {step:,} at {sim_rate}/s")
     column.finish()
+
+
+# The MIND card's colors: steering as in the Agents tab's turning bar,
+# pedals as in the driving style charts.
+STEER_PARTS = (
+    ("left", "left", (90, 150, 230)),
+    ("none", "straight", (95, 100, 112)),
+    ("right", "right", (150, 110, 220)),
+)
+PEDAL_PARTS = (
+    ("gas", "gas", theme.GOOD),
+    ("none", "coast", (95, 100, 112)),
+    ("brake", "brake", theme.WARN),
+    ("reverse", "reverse", theme.BAD),
+)
+
+
+SPEED_INPUT = OBSERVATION_NAMES.index("speed")
+
+
+def mind_of(driver) -> MindInfo | None:
+    """An agent driver's latest decision as a MindInfo (None for any
+    other driver, or before its first decision).
+    """
+    probabilities = getattr(driver, "probabilities", None)
+    if not probabilities:
+        return None
+    observation = getattr(driver, "observation", None)
+    stopped = observation is not None and float(observation[SPEED_INPUT]) == 0
+    return MindInfo(tuple(probabilities), driver.value, stopped)
+
+
+def _draw_mind(column: "_Column", mind: MindInfo, readouts) -> None:
+    """Its next move's odds (steering, pedal) and its outlook (the value
+    head: how good it thinks things look), at its latest decision.
+    """
+    surface = column.surface
+    title = "MIND · stopped: gas or reverse" if mind.stopped else "MIND"
+    column.header(title)
+    steer, pedal = {}, {}
+    for name, p in zip(CANONICAL_NAMES, mind.probabilities):
+        s, d = name.split("+")
+        steer[s] = steer.get(s, 0.0) + p
+        pedal[d] = pedal.get(d, 0.0) + p
+    for label, odds, parts in (
+        ("Steer", steer, STEER_PARTS),
+        ("Pedal", pedal, PEDAL_PARTS),
+    ):
+        key, shown, _ = max(parts, key=lambda part: odds.get(part[0], 0))
+        _instrument_row(
+            column,
+            label,
+            readouts.text(
+                f"mind_{label}",
+                0.0,
+                lambda _, k=key, n=shown: f"{n} {odds.get(k, 0):.0%}",
+                mean=False,
+            ),
+            theme.TEXT,
+            lambda area, o=odds, ps=parts: instruments.draw_segments(
+                surface,
+                Rect(area.x, area.centery - 4, area.w, 8),
+                [(o.get(k, 0.0), color) for k, _, color in ps],
+            ),
+        )
+    peak = readouts.peak("outlook", mind.value)
+    _instrument_row(
+        column,
+        "Outlook",
+        readouts.text("outlook", mind.value, lambda v: f"{v:+.2f}"),
+        theme.GOOD if mind.value >= 0 else theme.BAD,
+        lambda area: instruments.draw_center_gauge(
+            surface,
+            Rect(area.x, area.centery - 4, area.w, 8),
+            mind.value / peak,
+        ),
+    )
 
 
 def reward_groups(reward: RewardStatus) -> tuple[list, list]:
@@ -604,6 +711,25 @@ def draw_car_panel(
         )
     else:
         column.row("Checkpoint", DASH)
+    if car and car.stuck is not None:
+        stuck = car.stuck
+
+        def timer(area: Rect) -> None:
+            share = min(stuck / route.STUCK_CAP, 1.0)
+            bar = Rect(area.x, area.centery - 3, area.w, 6)
+            pygame.draw.rect(surface, theme.BAR_EMPTY, bar)
+            color = theme.BAD if stuck >= 5 else theme.WARN
+            if share:
+                fill = Rect(bar.x, bar.y, round(bar.w * share), bar.h)
+                pygame.draw.rect(surface, color, fill)
+
+        _instrument_row(
+            column,
+            "Stuck",
+            readouts.text("stuck", stuck, lambda v: f"{v:.0f} s"),
+            theme.TEXT_DIM if stuck < 1 else theme.WARN,
+            timer,
+        )
     column.row("Collected", str(car.score.checkpoints) if car else DASH)
 
     fps, frame_rate, vsync = display
@@ -613,8 +739,7 @@ def draw_car_panel(
         f"{readouts.text('fps', fps, lambda v: f'{v:.0f}')}/{frame_rate}",
         warnings.fps_level(fps, frame_rate, hud),
     )
-    column.row("Vsync", "on" if vsync else "off")
-    column.row("Camera", camera)
+    column.row("Camera", f"{camera} · vsync {'on' if vsync else 'off'}")
     column.note("?  shortcuts  ·  O  settings")
     column.finish()
 
