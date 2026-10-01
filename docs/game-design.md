@@ -89,7 +89,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 - The HUD shows the current pedal state (Idle, Gas, Coasting, Braking, Reverse) and the wheel position (for example "Left 60 %").
 - **O** opens your display settings in any game window (7c5, [decision 040](decisions/040-settings-of-yours.md)): the car's bars above or below it, which lines show, the trail, the camera on big stages, the map intro, and the FPS cap.
 
-The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`.
+The agent's action is 5 bools: `(turn_left, turn_right, gas, reverse, brake)`. **Stopped, an agent must press gas or reverse** (7f6, [decision 060](decisions/060-a-stopped-agent-moves.md)): at speed 0 the other pedals can't move the car and steering needs speed, so those choices are blocked; moving, every action is open. Keyboard driving is unchanged.
 
 ### Sensors
 

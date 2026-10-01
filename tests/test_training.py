@@ -153,6 +153,8 @@ def test_an_update_favors_rewarded_actions(tmp_path):
     optimizer = torch.optim.Adam(network.parameters(), lr=0.003)
     generator = torch.Generator().manual_seed(0)
     observations = torch.zeros(256, len(OBSERVATION_NAMES))
+    # Moving: every action is allowed (stopped, brake isn't: 7f6).
+    observations[:, OBSERVATION_NAMES.index("speed")] = 0.5
 
     def probability_of_3():
         with torch.no_grad():

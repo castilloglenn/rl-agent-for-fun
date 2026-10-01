@@ -18,16 +18,24 @@ from typing import Callable
 
 import numpy as np
 
-from src.drivers.actions import canonical_index
+from src.drivers.actions import CANONICAL_NAMES, canonical_index
 from src.replay.format import read_replay
 from src.replay.recordings import RECORDINGS_DIR, RecordingLibrary
 from src.replay.replayer import Replayer
-from src.sim.observation import OBSERVATION_VERSION
+from src.sim.observation import OBSERVATION_NAMES, OBSERVATION_VERSION
 from src.utils import named_files
 
 DATASET_FORMAT = 1
 DATASETS_DIR = Path(__file__).resolve().parents[2] / "datasets"
 INCLUDE = ("all", "kept")
+
+
+_SPEED = OBSERVATION_NAMES.index("speed")
+_MOVES = {
+    i
+    for i, name in enumerate(CANONICAL_NAMES)
+    if name.split("+")[1] in ("gas", "reverse")
+}
 
 
 class DatasetError(ValueError):
@@ -178,6 +186,16 @@ def _samples(path: Path, replay, repeat: int) -> "Round | str":
         actions[first:],
         rewards[first:],
     )
+    # Sitting still (stopped, pressing neither gas nor reverse) is left
+    # out too: an agent can't pick it (7f6), and it's the stuck habit.
+    keep = [
+        i
+        for i, action in enumerate(actions)
+        if observations[i][_SPEED] != 0 or action in _MOVES
+    ]
+    observations = [observations[i] for i in keep]
+    actions = [actions[i] for i in keep]
+    rewards = [rewards[i] for i in keep]
     return Round(
         path=path,
         score=replay.end["scores"]["1"],

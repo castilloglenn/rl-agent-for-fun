@@ -261,3 +261,23 @@ def test_trainer_kinds_dont_mix():
 def test_invalid_imitation_trainers(change, message):
     with pytest.raises(TrainerError, match=message):
         ImitationSpec.from_dict({**QUICK.to_dict(), **change})
+
+
+def test_sitting_still_mid_round_is_left_out(tmp_path):
+    """7f6: stopped with neither gas nor reverse is the stuck habit, and
+    an agent can't pick it, so the dataset leaves it out. Braking while
+    still moving stays.
+    """
+    brake = (False, False, False, False, True)
+    script = [(GAS, 120), (brake, 120), (IDLE, 120), (GAS, 120)]
+    _record_script(tmp_path, script)
+    (round_,) = build_dataset(_spec(), 4, tmp_path / "recordings").rounds
+    speed = OBSERVATION_NAMES.index("speed")
+    names = [CANONICAL_NAMES[a] for a in round_.actions]
+    stopped = round_.observations[:, speed] == 0
+    assert not any(
+        s and n.split("+")[1] not in ("gas", "reverse")
+        for s, n in zip(stopped, names)
+    )
+    assert "none+brake" in names  # braking while it still rolled
+    assert len(round_.actions) < 120  # the still part is gone

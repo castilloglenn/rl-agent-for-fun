@@ -110,7 +110,7 @@ agents/<id>/                (gitignored: local data)
 | File | Contents |
 |---|---|
 | `model.py` | `ModelSpec` (from/to dict, validated) and `load_model_spec(name or path)` |
-| `network.py` | `PolicyNetwork(spec, obs_size, actions)`: separate policy and value MLPs (multilayer perceptrons). `forward(obs)` returns (action logits, values) |
+| `network.py` | `PolicyNetwork(spec, obs_size, actions)`: separate policy and value MLPs (multilayer perceptrons). `forward(obs)` returns (action logits, values); for a stopped car (speed input 0) the actions with no pedal or the brake get -1e9, so it must press gas or reverse (`mask_stopped`, 7f6) |
 | `store.py` | `create_agent(id, spec, seed)`: seeded weights, without touching global torch randomness. `load_agent(id or path, checkpoint)`: the newest checkpoint by default (`prefer_best` or `"best"`: the best scored one). `save_checkpoint` |
 | `history.py` | `record(folder, event, ...)` appends to `history.jsonl` and rebuilds `profile.json` (`build_profile`: model, lineage, totals, best scores, milestone). Events come from the store (created, branched), training, and scoring ([decision 018](decisions/018-agent-history-and-profile.md)). `set_nickname(folder, name)` (7c10) records a `nickname` event; the profile takes the latest, so it survives every rewrite, and the id never changes ([decision 047](decisions/047-agent-nicknames.md)) |
 | `trainer.py` | `TrainerSpec` (unknown or missing keys refused) and `load_trainer_spec(name or path)` |
