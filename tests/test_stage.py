@@ -79,3 +79,34 @@ def test_a_seeded_start_round_trips_and_the_default_stays_out():
     assert stage.checkpoints.start == "seeded"
     assert stage.to_dict()["checkpoints"]["start"] == "seeded"
     assert Stage.from_dict(stage.to_dict()) == stage
+
+
+def test_every_scripted_checkpoint_can_be_reached():
+    """Each built-in scripted stage (the courses of 7d5b too): every
+    checkpoint has a drivable path from the spawn and from the one
+    before it (a seeded start can begin anywhere in the loop).
+    """
+    import math
+
+    from src.sim.paths import PathField
+
+    for path in sorted(STAGES_DIR.glob("*.json")):
+        stage = load_stage(path.stem)
+        if stage.checkpoints.mode != "scripted":
+            continue
+        rect = (0, 0, stage.width, stage.height)
+        boxes = [(x, y, x + w, y + h) for x, y, w, h in stage.walls]
+        points = stage.checkpoints.points
+        spawn = (stage.spawns[0].x, stage.spawns[0].y)
+        for i, goal in enumerate(points):
+            field = PathField(rect, boxes, goal)
+            for start in (spawn, points[i - 1]):
+                assert not math.isinf(field.distance(*start)), (
+                    path.stem,
+                    goal,
+                )
+
+
+def test_the_courses_start_anywhere():
+    for name in ("course_small", "course_large"):
+        assert load_stage(name).checkpoints.start == "seeded"

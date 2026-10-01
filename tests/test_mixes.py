@@ -74,3 +74,11 @@ def test_a_mix_with_a_test_map_warns(tmp_path, monkeypatch):
     )
     text = test_maps.warning("practice", root)
     assert text.startswith("mix practice: skill_gaps is a test map")
+
+
+def test_the_skill_training_mix_has_no_test_map():
+    """7d5b: every skill practiced, none on its skill_ test map."""
+    mix = mixes.load_mix("skill_training")
+    assert mix.stages == ("box", "arena", "course_small", "course_large")
+    assert not any(s.startswith("skill_") for s in mix.stages)
+    assert test_maps.warning("skill_training") is None

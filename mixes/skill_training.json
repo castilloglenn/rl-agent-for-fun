@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "name": "skill_training",
+  "description": "Every skill without its test map: the box (Open field, Braking), the arena (Long range), and the two courses (Threading, Detour, Corridor, Obstacles).",
+  "stages": ["box", "arena", "course_small", "course_large"]
+}
