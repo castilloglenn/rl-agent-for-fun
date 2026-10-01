@@ -134,26 +134,30 @@ def _replays() -> list[str]:
 STAGE = Field("Stage", _files("stages"), "box")
 
 
-def _stages_and_mixes() -> list[str]:
+def _stages_and_mixes(curricula: bool = True) -> list[str]:
     """Stages, then map mixes ("mix: basics", 7d5a), then curricula
-    ("curriculum: skills", 7f5): training only.
+    ("curriculum: skills", 7f5, training only).
     """
-    return (
-        choices.named("stages")
-        + [
-            choices.Choice(name, f"mix: {getattr(name, 'label', name)}")
-            for name in choices.named("mixes")
-        ]
-        + [
+    found = choices.named("stages") + [
+        choices.Choice(name, f"mix: {getattr(name, 'label', name)}")
+        for name in choices.named("mixes")
+    ]
+    if curricula:
+        found += [
             choices.Choice(
                 name, f"curriculum: {getattr(name, 'label', name)}"
             )
             for name in choices.named("curricula")
         ]
-    )
+    return found
 
 
 TRAIN_STAGE = Field("Stage", _stages_and_mixes, "box")
+# Recording a driver: a stage or a mix, not a curriculum (its hard levels
+# would teach a clone to get stuck).
+RECORD_STAGE = Field(
+    "Stage", lambda: _stages_and_mixes(curricula=False), "box"
+)
 RULES = Field("Rules", _files("rules"), "standard")
 SECONDS = Field("Round seconds", None, "", "blank: the rules' own")
 REWARD = Field("Reward profile", _files("rewards"), "default")
@@ -464,7 +468,7 @@ ACTIONS = (
         "(datasets/heuristic.json). A mix plays its maps in turn.",
         (
             Field("Driver", _drivers(False), "heuristic"),
-            TRAIN_STAGE,
+            RECORD_STAGE,
             Field("Rounds", None, "50"),
             Field("Seed", None, "0", "the first round's seed"),
             RULES,

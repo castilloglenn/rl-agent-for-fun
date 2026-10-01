@@ -19,4 +19,5 @@ An agent learning from scratch spends its first million decisions finding out th
 - 50 rounds take about 26 s to record and give about 89,000 samples; building the dataset (re-simulating them) takes about as long again when imitation starts.
 - A clone starts near the heuristic (an average share near 1.0, usually a bit under); RL has to take it past.
 - The heuristic is weak on mazes (1 checkpoint a round on `course_small`), so record it on open maps and let RL learn the courses.
+- Recording takes a stage or a mix, not a curriculum (7f5): a curriculum's hard levels would teach a clone the heuristic's stuck habits, so it's refused with the first level's mix to use instead, and the Record action's Stage list leaves curricula out.
 - Its recordings show up wherever recordings do (the Files tab's browser, high scores per stage), as player "Heuristic".

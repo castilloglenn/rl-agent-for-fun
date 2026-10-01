@@ -28,6 +28,10 @@ from src.utils.mixes import stages_of
 ROUNDS = 50
 
 
+class RecordError(ValueError):
+    pass
+
+
 def player_of(driver: str) -> str:
     """The recordings' player for a driver: "heuristic" -> "Heuristic"."""
     name = driver.removeprefix("agent:").replace("@", "_")
@@ -50,6 +54,23 @@ def record_rounds(
     """
     if driver == "keyboard":
         raise DriverError("the keyboard needs the window: drive instead")
+    from src.utils import curricula, named_files
+
+    if curricula.is_curriculum(config.stage):
+        first = curricula.load_curriculum(config.stage).levels[0].mix
+        raise RecordError(
+            f"{config.stage} is a curriculum: record on a stage or a mix "
+            f"(its first level: {first}); its hard levels would teach a "
+            "clone to get stuck"
+        )
+    missing = [
+        name
+        for name in stages_of(config.stage)
+        if not name.endswith(".json")  # a path loads as it is
+        and name not in named_files.names("stages")
+    ]
+    if missing:
+        raise RecordError(f"no stage or mix named {missing[0]!r}")
     player = make_driver(driver)
     config = config.copy_and_resolve_references()
     config.show_gui = False

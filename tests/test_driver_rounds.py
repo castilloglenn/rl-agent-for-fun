@@ -45,3 +45,28 @@ def test_the_keyboard_cant_be_recorded_headless(tmp_path):
 def test_player_names():
     assert player_of("heuristic") == "Heuristic"
     assert player_of("agent:rookie@d0100k") == "Rookie_d0100k"
+
+
+def test_a_curriculum_or_an_unknown_stage_is_refused(tmp_path):
+    """A curriculum's hard levels would teach a clone to get stuck: it
+    says so, and names the first level's mix to use instead.
+    """
+    from src.experiments.driver_rounds import RecordError
+
+    config = get_maze_car_config()
+    config.stage = "skills"
+    with pytest.raises(RecordError, match="skill_training_easy"):
+        record_rounds("heuristic", config, 1, root=tmp_path)
+    config.stage = "lava"
+    with pytest.raises(RecordError, match="no stage or mix named 'lava'"):
+        record_rounds("heuristic", config, 1, root=tmp_path)
+
+
+def test_the_record_action_offers_stages_and_mixes_only():
+    from src.control.actions import ACTIONS
+
+    action = next(a for a in ACTIONS if a.name == "Record a driver's rounds")
+    stage = next(f for f in action.fields if f.name == "Stage")
+    labels = [getattr(o, "label", o) for o in stage.options()]
+    assert "mix: skill_training_easy" in labels
+    assert not any(str(label).startswith("curriculum:") for label in labels)

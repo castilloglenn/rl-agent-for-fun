@@ -490,7 +490,11 @@ def _training_done(summary) -> None:
 
 def _record_rounds(cl_args, config) -> None:
     from src.drivers.registry import DriverError
-    from src.experiments.driver_rounds import player_of, record_rounds
+    from src.experiments.driver_rounds import (
+        RecordError,
+        player_of,
+        record_rounds,
+    )
     from src.sim.rules import load_rules
     from src.utils.test_maps import warning
 
@@ -524,7 +528,7 @@ def _record_rounds(cl_args, config) -> None:
             rules=rules,
             on_round=progress,
         )
-    except DriverError as error:
+    except (DriverError, RecordError) as error:
         raise SystemExit(str(error))
     print(f"Saved {len(saved)} rounds.")
 
