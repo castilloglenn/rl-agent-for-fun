@@ -11,10 +11,10 @@ agent-1, trained on the box with the new default reward (7e), drove backward 91 
 - **Counted while scoring, no extra games:** every step of the suite's rounds (not the braking starts, which are all braking by design) counts its pedal (forward, brake, coast, or reverse, in the game's order: brake beats gas, gas beats reverse), its turning (left, right, or straight), and whether the car actually moved backward. Each checkpoint's row and its `scored` event get `style_forward`, `style_brake`, `style_coast`, `style_reverse` (they add up to 1), `style_left`, `style_right`, and `style_backward`; the heuristic's baseline gets them too, as a reference.
 - **Warnings when one habit dominates:** moving backward over 40 % of the time, braking over 50 %, coasting over 70 %, turning one way over 80 % ("circles").
 - **Where it shows:** the Agents tab profile's DRIVING line (amber with a warning), its history chart (forward, reversing, backward over the checkpoints), the leaderboard's new share column (the ranking since 7d3b), the Runs tab's "Driving style" chart (a line per pedal over the run's scored checkpoints), and `make agent`.
-- **The suite moves to skills-v2,** so every checkpoint is scored again with its style: no fallback for rows without it.
+- **The suite stays skills-v1:** this is still the first version of everything, and the agents scored before 7c9 were deleted, so there are no style-less rows to keep apart (it went to v2 briefly, then back). A checkpoint scored before 7c9 would have no style: rescore it.
 
 ## Consequences
 
-- Every agent needs `make eval AGENT=<id>` once (about 5 s a checkpoint).
+- An agent scored before 7c9 needs `make eval AGENT=<id>` again (about 5 s a checkpoint).
 - Fixed on the way: the Agents tab's milestone line read `heuristic_score`, which skills milestones don't have (it would have crashed on the first one); the agent cards showed the share as the big number, rounded to 0 (now the game score, with the share beside it).
 - The tests turn off sound (`tests/conftest.py`, `SDL_AUDIODRIVER=dummy`): on 2026-10-01 macOS's audio failed (CoreAudio error -66681) and `pygame.init()` stalled about 23 s each time, so the test run hung.

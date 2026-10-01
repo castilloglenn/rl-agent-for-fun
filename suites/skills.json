@@ -1,7 +1,7 @@
 {
   "format": 2,
   "name": "skills",
-  "version": 2,
+  "version": 1,
   "description": "7 skills in 3 groups (7d3): each a short test on its own map, the same seeds at every checkpoint. Each skill's score is a share of the heuristic's (at least `floor`), and the best checkpoint has the best average share.",
   "scenarios": [
     {

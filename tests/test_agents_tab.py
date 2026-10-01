@@ -17,7 +17,7 @@ from src.control.trash import Trash, TrashError  # noqa: E402
 from tests.test_runs_tab import _folder, _job  # noqa: E402
 
 BEST = {
-    "suite": "skills-v2",
+    "suite": agents_data.current_suite(),
     "share": 2.0,
     "score_mean": 5000.0,
     "score_min": 4000.0,
@@ -55,7 +55,7 @@ def _agent(root, name, best=None, branched=None, phases=(), created="1"):
 def _baselines(root):
     folder = root / "agents" / "baselines"
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "skills-v2.json").write_text(
+    (folder / f"{agents_data.current_suite()}.json").write_text(
         json.dumps({"scores": {"heuristic": HEURISTIC}})
     )
 
@@ -133,7 +133,7 @@ def test_lineage_marks_what_was_deleted(tmp_path):
 
 def test_history_reads_the_suite_results(tmp_path):
     folder = _agent(tmp_path, "a", BEST)
-    (folder / "evaluations" / "skills-v2.csv").write_text(
+    (folder / "evaluations" / f"{agents_data.current_suite()}.csv").write_text(
         "checkpoint,decisions,score_mean\nd2,200,9\nd1,100,5\n"
     )
     (agent,) = agents_data.load_agents(tmp_path / "agents")
