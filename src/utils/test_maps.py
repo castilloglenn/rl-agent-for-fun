@@ -38,17 +38,24 @@ def warning(stage: str, root: Path = named_files.REPO) -> str | None:
     """What to say before training on `stage`, a stage or a mix (7d5a:
     every map in it). None: nothing.
     """
+    from src.utils import curricula
+
+    kind = "mix"
     try:
-        names = mixes.stages_of(stage, root)
-    except mixes.MixError:
-        return None  # a broken mix: training reports it
+        if curricula.is_curriculum(stage, root):  # 7f5: every level's
+            names = curricula.load_curriculum(stage, root).all_maps(root)
+            kind = "curriculum"
+        else:
+            names = mixes.stages_of(stage, root)
+    except (mixes.MixError, curricula.CurriculumError):
+        return None  # a broken mix or curriculum: training reports it
     found = [_warning(name, root) for name in names]
     found = [text for text in found if text]
     if not found:
         return None
     if names == [stage]:
         return found[0]
-    return f"mix {stage}: " + "; ".join(found)
+    return f"{kind} {stage}: " + "; ".join(found)
 
 
 def _warning(stage: str, root: Path) -> str | None:

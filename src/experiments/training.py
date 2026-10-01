@@ -58,6 +58,13 @@ from src.experiments.runner import (
 from src.replay.recorder import ReplayRecorder
 from src.sim.rules import Rules
 from src.sim.stage import Stage, load_stage
+from src.utils.curricula import (
+    Curriculum,
+    CurriculumState,
+    Teacher,
+    is_curriculum,
+    load_curriculum,
+)
 from src.utils.mixes import Mix, is_mix, load_mix
 from src.utils.version import code_version
 
@@ -73,6 +80,7 @@ LEARNING_COLUMNS = (
     "entropy",
     "approx_kl",
     "clip_fraction",
+    "level",  # the curriculum's level (7f5), 1 up; blank without one
 )
 RECENT = 20  # episodes averaged in learning.csv and progress lines
 EPISODE_SUMMARY = 100  # a history summary line per this many episodes
@@ -146,11 +154,35 @@ def train_agent(
     loaded = load_agent(agent, root=agents_root)
     config = config.copy_and_resolve_references()
     config.show_gui = False
-    # A mix plays its maps in turn (7d5a); a stage plays as before.
-    mix = load_mix(config.stage) if is_mix(config.stage) else None
+    # A mix plays its maps in turn (7d5a); a curriculum plays its levels'
+    # maps by share and moves up by itself (7f5); a stage plays as before.
+    curriculum = (
+        load_curriculum(config.stage) if is_curriculum(config.stage) else None
+    )
+    if curriculum:
+        mix = Mix(curriculum.name, tuple(curriculum.all_maps()))
+    else:
+        mix = load_mix(config.stage) if is_mix(config.stage) else None
     stages = [load_stage(name) for name in mix.stages] if mix else []
     first = stages[0] if stages else None
     env = _env(loaded, config, reward, rules=rules, stage=first)
+    teacher = None
+    if curriculum:
+        from src.experiments.map_baselines import heuristic_rates
+
+        rates = heuristic_rates(
+            list(mix.stages),
+            env.world.resource(Rules),
+            agents_root or loaded.folder.parent,
+            config,
+        )
+        start = _curriculum_level(loaded.folder, curriculum)
+        teacher = Teacher(
+            curriculum,
+            curriculum.level_maps(),
+            rates,
+            CurriculumState(level=start),
+        )
     folder = _new_folder(
         runs_dir or RUNS_DIR, f"train-{loaded.agent_id}", first_seed
     )
@@ -166,6 +198,7 @@ def train_agent(
         suite=suite,
         mix=mix,
         stages=stages,
+        teacher=teacher,
     )
     training.write_config()
     if on_start:
@@ -182,6 +215,7 @@ def train_agent(
         start_checkpoint=loaded.checkpoint,
         start_decisions=loaded.decisions,
         **({"mix": mix.name, "stages": list(mix.stages)} if mix else {}),
+        **({"curriculum": curriculum.name} if curriculum else {}),
     )
     (folder / "notes.md").write_text(
         f"# {folder.name}\n\nYour observations.\n"
@@ -236,6 +270,14 @@ def resume_training(
     mixed = run_config.get("mix")  # the maps as they were (7d5a)
     stages = [Stage.from_dict(s) for s in mixed["stages"]] if mixed else []
     mix = Mix(mixed["name"], tuple(s.name for s in stages)) if mixed else None
+    taught = run_config.get("curriculum")  # as it was (7f5)
+    teacher = None
+    if taught:
+        teacher = Teacher(
+            Curriculum.from_dict(taught["spec"]),
+            taught["level_maps"],
+            taught["heuristic"],
+        )
     env = _env(
         loaded,
         config,
@@ -255,6 +297,7 @@ def resume_training(
         suite=(run_config.get("suite") or {}).get("name", suite),
         mix=mix,
         stages=stages,
+        teacher=teacher,
     )
     training.restore(state)
     if on_start:
@@ -280,6 +323,22 @@ def last_stopped_run(runs_dir: Path | None = None) -> Path:
         ):
             return folder
     raise TrainingError("no stopped training run to resume")
+
+
+def _curriculum_level(folder: Path, curriculum: Curriculum) -> int:
+    """Where this agent left the curriculum (0-based): a new phase picks
+    up at its last level, not at the start.
+    """
+    from src.agents.history import read_history
+
+    level = 0
+    for event in read_history(folder):
+        if (
+            event.get("event") == "level_up"
+            and event.get("curriculum") == curriculum.name
+        ):
+            level = event["level"] - 1
+    return min(level, len(curriculum.levels) - 1)
 
 
 def _env(agent, config, reward, rules=None, stage=None) -> MazeCarEnv:
@@ -333,11 +392,15 @@ class _Training:
         suite: str = DEFAULT_SUITE,
         mix: Mix | None = None,
         stages: list[Stage] | None = None,
+        teacher: Teacher | None = None,
     ) -> None:
         self.agent = agent
-        # A mix's maps, played in turn: episode i on map i mod n (7d5a).
+        # A mix's maps, played in turn: episode i on map i mod n (7d5a);
+        # with a curriculum, its teacher picks each episode's map (7f5).
         self.mix = mix
         self.stages = stages or []
+        self.teacher = teacher
+        self.episode_stage: str | None = None  # this episode's map
         # Scoring checkpoints plays separate games with its own driver, so
         # it never changes the training (exact resume still holds).
         self.suite = load_suite(suite) if trainer.evaluate else None
@@ -479,7 +542,18 @@ class _Training:
             }
         }
         if self.stages:
-            self.env.stage = self.stages[self.episode % len(self.stages)]
+            if self.teacher and self.episode_stage is None:
+                name = self.teacher.next_map()
+                self.env.stage = next(
+                    s for s in self.stages if s.name == name
+                )
+            elif self.episode_stage is not None:  # resuming this episode
+                self.env.stage = next(
+                    s for s in self.stages if s.name == self.episode_stage
+                )
+            else:
+                self.env.stage = self.stages[self.episode % len(self.stages)]
+            self.episode_stage = self.env.stage.name
         self.observation, _ = self.env.reset(
             seed=self.first_seed + self.episode
         )
@@ -558,6 +632,12 @@ class _Training:
         if result.score > self.best_score:
             self.best_score, self.best_episode = result.score, self.episode
         stage = self.env.world.resource(Stage).name
+        if self.teacher:
+            sps = self.env.config.sim.steps_per_second
+            self.teacher.played(
+                stage, result.checkpoints, self.steps / sps / 60
+            )
+            self._check_level()
         if result.score > self.best_by_map.get(stage, float("-inf")):
             self.best_by_map[stage] = result.score
             self.recorder.save(
@@ -580,7 +660,29 @@ class _Training:
                 / len(last),
             )
         self.episode += 1
+        self.episode_stage = None  # the next one picks its map
         self._start_episode()
+
+    def _check_level(self) -> None:
+        """Moves up the curriculum when it's time (7f5), and says so."""
+        why = self.teacher.check(self.learned)
+        if why is None:
+            return
+        level = self.teacher.state.level + 1
+        record(
+            self.agent.folder,
+            "level_up",
+            run=self.folder.name,
+            curriculum=self.teacher.curriculum.name,
+            level=level,
+            why=why,
+            decisions=self.start_decisions + self.learned,
+        )
+        print(
+            f"Curriculum {self.teacher.curriculum.name}: level {level} "
+            f"({'goal reached' if why == 'goal' else 'its time ran out'})",
+            flush=True,
+        )
 
     # Checkpoints and resume state
 
@@ -651,6 +753,10 @@ class _Training:
             "resumes": self.resumes,
             "episode_start": self.episode_start,
             "episode_actions": list(self.episode_actions),
+            "episode_stage": self.episode_stage,
+            "curriculum": (
+                self.teacher.state.to_dict() if self.teacher else None
+            ),
         }
         _write_atomic(state, self.folder / "resume.pt")
 
@@ -687,6 +793,9 @@ class _Training:
         self.best_by_map = dict(state.get("best_by_map", {}))
         self.saved = list(state["saved"])
         self.saved_at = state["saved_at"]
+        self.episode_stage = state.get("episode_stage")
+        if self.teacher and state.get("curriculum"):
+            self.teacher.state = CurriculumState.from_dict(state["curriculum"])
 
     # Files
 
@@ -707,6 +816,7 @@ class _Training:
             "" if score_mean is None else round(score_mean, 3),
             "" if reward_mean is None else round(reward_mean, 3),
             *(round(value, 6) for value in asdict(stats).values()),
+            self.teacher.state.level + 1 if self.teacher else "",
         ]
 
     def write_config(self) -> None:
@@ -741,6 +851,16 @@ class _Training:
                     "stages": [stage.to_dict() for stage in self.stages],
                 }
                 if self.mix
+                else None
+            ),
+            "curriculum": (
+                {
+                    "spec": self.teacher.curriculum.to_dict(),
+                    "level_maps": self.teacher.level_maps,
+                    "heuristic": self.teacher.heuristic,
+                    "start_level": self.teacher.state.level + 1,
+                }
+                if self.teacher
                 else None
             ),
             "rules": world.resource(Rules).to_dict(),

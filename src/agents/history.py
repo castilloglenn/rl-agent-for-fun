@@ -91,6 +91,7 @@ def build_profile(folder: Path) -> dict:
                 "reward": event["reward"],
                 "stage": event["stage"],
                 "mix": event.get("mix"),  # 7d5a: its maps in turn
+                "curriculum": event.get("curriculum"),  # 7f5
                 "rules": event["rules"],
                 "start_decisions": event["start_decisions"],
                 "end_decisions": event["start_decisions"],

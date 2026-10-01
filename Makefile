@@ -9,7 +9,7 @@
 	resume_last eval eval_baselines agents agent dataset imitate \
 	showcase showcase_all control vitals stop_all delete_run trash restore \
 	empty_trash delete_agent keep unkeep delete_recording edit_map \
-	record_heuristic imitate_heuristic
+	record_heuristic imitate_heuristic train_curriculum
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -50,6 +50,7 @@ help:
 	@echo "  make maze_car_agent AGENT=id         watch an agent drive"
 	@echo "  make run_agent AGENT=id              run an agent for 100 episodes"
 	@echo "  make train AGENT=id                  train an agent (trainers/default.json)"
+	@echo "  make train_curriculum AGENT=id       train it up the skills curriculum (easy, then hard, by itself)"
 	@echo "  make resume RUN=folder               resume a stopped training run exactly"
 	@echo "  make resume_last                     resume the newest stopped training run"
 	@echo "  make eval AGENT=id                   score an agent's checkpoints (suites/skills.json)"
@@ -211,6 +212,10 @@ run_agent:
 train:
 	$(call require,AGENT,my_agent)
 	python app.py -train $(AGENT)
+
+train_curriculum:
+	$(call require,AGENT,my_agent)
+	python app.py -train $(AGENT) --stage skills
 
 resume:
 	$(call require,RUN,2026-09-26_120000_train-rookie_seed0)

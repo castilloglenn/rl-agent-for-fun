@@ -84,6 +84,12 @@ def _mixes(data: dict) -> None:
     Mix.from_dict(data).check()
 
 
+def _curricula(data: dict) -> None:
+    from src.utils.curricula import Curriculum
+
+    Curriculum.from_dict(data).check()
+
+
 VALIDATORS: dict[str, Callable[[dict], None]] = {
     "rewards": _rewards,
     "rules": _rules,
@@ -92,6 +98,7 @@ VALIDATORS: dict[str, Callable[[dict], None]] = {
     "datasets": _datasets,
     "suites": _suites,
     "mixes": _mixes,
+    "curricula": _curricula,
 }
 KINDS = (
     Kind("Reward profiles", "rewards", ("default",)),
@@ -101,6 +108,7 @@ KINDS = (
     Kind("Datasets", "datasets", ("mine",)),
     Kind("Suites", "suites", ("skills",)),
     Kind("Map mixes", "mixes", ("basics",)),  # 7d5a
+    Kind("Curricula", "curricula", ("skills",)),  # 7f5
 )
 # Values tied to code or to the file's shape: shown, not edited.
 READONLY = {
@@ -149,6 +157,11 @@ def _choices(folder: str, path: str, repo: Path) -> tuple[str, ...] | None:
         return tuple(named_files.names("stages", repo))
     if folder == "suites" and generic in ("scenarios.*.rules",):
         return tuple(named_files.names("rules", repo))
+    if folder == "curricula" and generic == "levels.*.mix":
+        return tuple(
+            named_files.names("mixes", repo)
+            + named_files.names("stages", repo)
+        )
     return None
 
 

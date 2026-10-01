@@ -135,11 +135,22 @@ STAGE = Field("Stage", _files("stages"), "box")
 
 
 def _stages_and_mixes() -> list[str]:
-    """Stages, then map mixes ("mix: basics", 7d5a): training only."""
-    return choices.named("stages") + [
-        choices.Choice(name, f"mix: {getattr(name, 'label', name)}")
-        for name in choices.named("mixes")
-    ]
+    """Stages, then map mixes ("mix: basics", 7d5a), then curricula
+    ("curriculum: skills", 7f5): training only.
+    """
+    return (
+        choices.named("stages")
+        + [
+            choices.Choice(name, f"mix: {getattr(name, 'label', name)}")
+            for name in choices.named("mixes")
+        ]
+        + [
+            choices.Choice(
+                name, f"curriculum: {getattr(name, 'label', name)}"
+            )
+            for name in choices.named("curricula")
+        ]
+    )
 
 
 TRAIN_STAGE = Field("Stage", _stages_and_mixes, "box")
@@ -655,6 +666,7 @@ MAKE_TARGETS = {
     "run_best": "Watch a run's best replay",
     "new_agent": "Create an agent",
     "train": "Train",
+    "train_curriculum": "Train",
     "resume": "Resume training",
     "resume_last": "Resume training",
     "imitate": "Clone your driving",

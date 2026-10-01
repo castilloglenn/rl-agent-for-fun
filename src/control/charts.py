@@ -28,6 +28,8 @@ DOT = 4
 DASH, DASH_GAP = 6, 4
 LINE, DOTS, RING, LEVEL = "line", "dots", "ring", "level"
 DASHED = "dashed"  # a line drawn in dashes (7d4: a skill trained on)
+MARKS = "marks"  # vertical lines at their x (7f5: a curriculum's level ups)
+NOT_DATA = (LEVEL, MARKS)  # drawn across, not data that sets the axes
 
 
 @dataclass
@@ -68,7 +70,9 @@ class Chart:
 
     @property
     def empty(self) -> bool:
-        return not any(s.points for s in self.series if s.style != LEVEL)
+        return not any(
+            s.points for s in self.series if s.style not in NOT_DATA
+        )
 
 
 def compact(value: float) -> str:
@@ -162,8 +166,10 @@ def draw_chart(
             anchor="center",
         )
         return Plot(area, None, title_rect, legend)
-    xs = [x for s in chart.series if s.style != LEVEL for x, _ in s.points]
-    ys = [y for s in chart.series for _, y in s.points]
+    xs = [
+        x for s in chart.series if s.style not in NOT_DATA for x, _ in s.points
+    ]
+    ys = [y for s in chart.series if s.style != MARKS for _, y in s.points]
     x_low, x_high = min(xs), max(xs)
     if x_high <= x_low:
         x_high = x_low + 1
@@ -217,11 +223,14 @@ def draw_chart(
         hovered = {}
         # The x of the nearest real point, not the mouse's in-between one.
         first = next(
-            (s for s in chart.series if s.style != LEVEL and s.points), None
+            (s for s in chart.series if s.style not in NOT_DATA and s.points),
+            None,
         )
         if first:
             x_value = nearest(first, x_value)[0]
         for series in chart.series:
+            if series.style == MARKS:
+                continue
             point = nearest(series, x_value)
             if point is None:
                 continue
@@ -249,6 +258,17 @@ def nearest(series: Series, x: float) -> tuple[float, float] | None:
 
 def _draw_series(surface, series: Series, to_screen, area: Rect) -> None:
     if not series.points:
+        return
+    if series.style == MARKS:
+        for mark, _ in series.points:
+            x, _ = to_screen(mark, 0)
+            if not area.x <= x <= area.right:
+                continue
+            y = area.y
+            while y < area.bottom:
+                end = min(y + DASH, area.bottom)
+                pygame.draw.line(surface, series.color, (x, y), (x, end))
+                y += DASH + DASH_GAP
         return
     if series.style == LEVEL:
         _, y = to_screen(0, series.points[0][1])
@@ -308,6 +328,9 @@ def _legend_items(chart: Chart, hovered: dict | None) -> list:
         items.append((None, chart.x_label.format(text)))
     for series in chart.series:
         if not series.points:
+            continue
+        if series.style == MARKS:  # its label alone
+            items.append((series, series.label))
             continue
         if hovered is not None:
             point = hovered.get(series.label)
@@ -405,5 +428,8 @@ def _swatch(surface, series: Series, center: tuple[int, int]) -> None:
         pygame.draw.line(surface, series.color, (x + 2, y), (x + 6, y))
     elif series.style == DOTS:
         pygame.draw.circle(surface, series.color, center, DOT)
+    elif series.style == MARKS:
+        pygame.draw.line(surface, series.color, (x, y - 6), (x, y - 1))
+        pygame.draw.line(surface, series.color, (x, y + 2), (x, y + 6))
     else:
         pygame.draw.circle(surface, series.color, center, DOT + 2, 2)

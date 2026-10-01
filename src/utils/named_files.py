@@ -15,6 +15,7 @@ REPO = Path(__file__).resolve().parents[2]
 KINDS = (
     "stages", "rules", "rewards", "trainers", "models", "datasets", "suites",
     "mixes",  # 7d5a
+    "curricula",  # 7f5
 )
 USER = "user"  # your files: user/<kind>/
 

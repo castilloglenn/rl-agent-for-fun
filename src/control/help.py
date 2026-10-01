@@ -113,6 +113,24 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
         "min_score": ("points", "Rounds that scored below this are left "
                       "out, so the clone learns from good driving."),
     },
+    "curricula": {
+        "name": ("", "The file's name. Pick it as the Stage (\"curriculum: "
+                 "...\") to train up its levels by itself."),
+        "description": ("", "What this curriculum teaches, in plain words."),
+        "earlier_share": ("share", "The share of episodes on maps only "
+                          "earlier levels had, 0 to under 1: practice "
+                          "against forgetting."),
+        "window": ("episodes", "How many recent episodes on each map make "
+                   "its smoothed rate."),
+        "levels.*.mix": ("", "The level's maps: a mix, or one stage."),
+        "levels.*.goal": ("share", "On every map of the level, its "
+                          "checkpoints a minute over the heuristic's there "
+                          "(1.0: as good). Reached and leveled off: up."),
+        "levels.*.min_decisions": ("decisions", "The least it stays in the "
+                                   "level, so luck doesn't move it up."),
+        "levels.*.max_decisions": ("decisions", "The most it stays: then up "
+                                   "anyway. Leave it out on the last level."),
+    },
     "mixes": {
         "name": ("", "The file's name. Pick it as the Stage to train on all "
                  "its maps."),

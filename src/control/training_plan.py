@@ -17,7 +17,7 @@ from pathlib import Path
 
 from src.control import runs
 from src.control.actions import ACTIONS, NONE
-from src.utils import mixes, named_files, test_maps
+from src.utils import curricula, mixes, named_files, test_maps
 
 REPO = Path(__file__).resolve().parents[2]
 RL = "Reinforcement learning"
@@ -162,6 +162,10 @@ def make_plan(
         if mixes.is_mix(place):
             maps = ", ".join(mixes.stages_of(place))
             place = f"mix {place} ({maps}, in turn)"  # 7d5a
+        elif curricula.is_curriculum(place):  # 7f5
+            levels = curricula.load_curriculum(place).levels
+            order = ", then ".join(level.mix for level in levels)
+            place = f"curriculum {place} ({order}, moving up by itself)"
         game = f"{place} / {values['Rules']}"
         if seconds:
             game += f", {seconds} s rounds"

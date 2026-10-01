@@ -21,6 +21,7 @@ from src.control.charts import (
     DOTS,
     LEVEL,
     LINE,
+    MARKS,
     RING,
     Chart,
     Series,
@@ -270,7 +271,13 @@ def run_stages(config: dict) -> list[str]:
 
 
 def run_place(config: dict) -> str:
-    """Where it played, as shown: "mix basics (4 maps)", or the stage."""
+    """Where it played, as shown: "curriculum skills (2 levels)", "mix
+    basics (4 maps)", or the stage.
+    """
+    taught = config.get("curriculum")
+    if taught:
+        levels = len(taught["spec"]["levels"])
+        return f"curriculum {taught['spec']['name']} ({levels} levels)"
     mix = config.get("mix")
     if mix:
         return f"mix {mix['name']} ({len(mix['stages'])} maps)"
@@ -592,8 +599,14 @@ class RunData:
                 f"{self.who} · trainer {trainer} · dataset "
                 f"{_name(c, 'dataset')} · {rounds} rounds"
             )
+        place = run_place(c)
+        level = self.level_now()
+        if level is not None:  # 7f5: where it is now
+            taught = c["curriculum"]["spec"]
+            total = len(taught["levels"])
+            place = f"curriculum {taught['name']} · level {level} of {total}"
         game = (
-            f"{run_place(c)} · {_name(c, 'rules')} · reward "
+            f"{place} · {_name(c, 'rules')} · reward "
             f"{_name(c, 'reward')} · seed {c.get('first_seed', 0)}"
         )
         if self.kind == TRAINING:
@@ -654,7 +667,33 @@ class RunData:
         }[self.kind]
         return [name for name, _ in table]
 
+    def level_marks(self) -> Series | None:
+        """A curriculum's level ups (7f5), as marks at their decisions."""
+        if not self.config.get("curriculum"):
+            return None
+        start, marks, before = self.start_decisions, [], None
+        for x, level in self.learning.column("level", "decisions"):
+            if before is not None and level != before:
+                marks.append((x + start, level))
+            before = level
+        label = f"level {int(marks[-1][1])}" if marks else "level up"
+        return Series(label, marks, theme.ACCENT, MARKS, priority=1)
+
+    def level_now(self) -> int | None:
+        rows = self.learning.rows
+        if not self.config.get("curriculum") or not rows:
+            return None
+        level = rows[-1].get("level")
+        return int(level) if isinstance(level, (int, float)) else None
+
     def main_chart(self) -> Chart:
+        chart = self._main_chart()
+        marks = self.level_marks()
+        if marks and marks.points:
+            chart.series.append(marks)
+        return chart
+
+    def _main_chart(self) -> Chart:
         if self.kind == TRAINING:
             start = self.start_decisions
             training = [
@@ -778,6 +817,13 @@ class RunData:
         return chart
 
     def second_chart(self, option: str) -> Chart:
+        chart = self._second_chart(option)
+        marks = self.level_marks() if self.kind == TRAINING else None
+        if marks and marks.points and not chart.empty:
+            chart.series.append(marks)
+        return chart
+
+    def _second_chart(self, option: str) -> Chart:
         if option == TERMS_CHART:
             return self._terms_chart()
         if self.kind == TRAINING and option == SKILLS_CHART:

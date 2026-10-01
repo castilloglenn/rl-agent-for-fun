@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "name": "skills",
+  "description": "Easy to hard: skill_training_easy until the agent beats the heuristic on every map and levels off (at least 200k decisions, at most 1.5M), then skill_training, keeping a quarter of the episodes on the easy course.",
+  "earlier_share": 0.25,
+  "window": 20,
+  "levels": [
+    {"mix": "skill_training_easy", "goal": 1.0, "min_decisions": 200000, "max_decisions": 1500000},
+    {"mix": "skill_training", "goal": 1.0, "min_decisions": 200000}
+  ]
+}

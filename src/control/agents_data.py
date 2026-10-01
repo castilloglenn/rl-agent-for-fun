@@ -389,6 +389,8 @@ def high_scores(
 
 def _place(phase: dict) -> str:
     """A phase's map, or its mix: "mix basics" (7d5a)."""
+    if phase.get("curriculum"):
+        return f"curriculum {phase['curriculum']}"
     if phase.get("mix"):
         return f"mix {phase['mix']}"
     return str(phase.get("stage"))
