@@ -52,7 +52,7 @@ help:
 	@echo "  make train AGENT=id                  train an agent (trainers/default.json)"
 	@echo "  make resume RUN=folder               resume a stopped training run exactly"
 	@echo "  make resume_last                     resume the newest stopped training run"
-	@echo "  make eval AGENT=id                   score an agent's checkpoints (suites/box.json)"
+	@echo "  make eval AGENT=id                   score an agent's checkpoints (suites/skills.json)"
 	@echo "  make eval_baselines                  score the heuristic and random baselines"
 	@echo "  make agents                          list agents: best score, milestone"
 	@echo "  make agent AGENT=id                  an agent's digest: lineage, scores, trend"

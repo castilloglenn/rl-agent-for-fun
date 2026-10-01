@@ -392,3 +392,18 @@ def test_style_warnings_and_summary():
     assert driving_style.pedal((0, 0, 1, 1, 1)) == "brake"  # brake wins
     assert driving_style.pedal((0, 0, 1, 1, 0)) == "forward"  # gas beats
     assert driving_style.turn((1, 1, 0, 0, 0)) is None  # both: straight
+
+
+def test_the_default_suite_flag_and_field_name_a_real_suite():
+    """`make eval` and the Evaluate action: their suite must exist."""
+    from absl import flags
+
+    import src.config  # noqa: F401  (defines the flags)
+    from src.control.actions import ACTIONS
+    from src.experiments.evaluation import DEFAULT_SUITE, load_suite
+
+    assert flags.FLAGS["suite"].default == DEFAULT_SUITE
+    evaluate = next(a for a in ACTIONS if a.name == "Evaluate")
+    field = next(f for f in evaluate.fields if f.name == "Suite")
+    assert field.default == DEFAULT_SUITE
+    assert load_suite(DEFAULT_SUITE).name == DEFAULT_SUITE

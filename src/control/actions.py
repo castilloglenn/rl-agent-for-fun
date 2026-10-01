@@ -484,7 +484,7 @@ ACTIONS = (
         "baselines, and pick the best.",
         (
             Field("Agent", _agents_or_baselines),
-            Field("Suite", _files("suites"), "box"),
+            Field("Suite", _files("suites"), "skills"),
         ),
         _evaluate,
     ),
