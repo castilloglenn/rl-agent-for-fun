@@ -89,7 +89,7 @@ def test_the_reward_and_the_sense_share_one_route_field():
     assert list(fields) == [(540, 240)]  # one field for this checkpoint
 
 
-# Seeing it (7f7): the waypoint, the remembered route, the stuck ring,
+# Seeing it (7f8): the waypoint, the remembered route,
 # and an agent's MIND.
 
 
@@ -103,7 +103,7 @@ def test_the_route_runs_from_a_point_to_the_checkpoint():
     assert left == sorted(left, reverse=True)  # always closer
 
 
-def test_the_window_draws_the_route_and_the_stuck_ring():
+def test_the_window_draws_the_remembered_route():
     import os
 
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")

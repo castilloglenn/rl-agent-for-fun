@@ -525,7 +525,6 @@ class Renderer:
                 alpha,
                 ray_levels,
             )
-            self._draw_stuck_ring(world, car, screen_center, hitbox)
             health = world.try_component(car, Health)
             if health is not None:
                 self._draw_health_bar(screen_center, hitbox, health.share)
@@ -1045,8 +1044,8 @@ class Renderer:
 
     # The agent's sense of the route (7f7): the remembered waypoint (a
     # violet diamond, a dashed line to it, a pulse when it's refreshed),
-    # the rest of the remembered route faint (your setting), and a ring
-    # that fills while it's stuck.
+    # and the rest of the remembered route faint (your setting). Being
+    # stuck shows in the OBJECTIVE card.
     PULSE_STEPS = 48  # how long a refresh pulses (0.4 s)
 
     def _draw_route(self, world, car, transform, previous, alpha) -> None:
@@ -1093,30 +1092,6 @@ class Renderer:
                 round(size + 14 * grown),
                 width=max(round(3 * (1 - grown)), 1),
             )
-
-    STUCK_SHOWN = 1.0  # s: a shorter pause shows no ring
-    STUCK_RED = 5.0  # s: the ring turns red
-
-    def _draw_stuck_ring(self, world, car, center, hitbox) -> None:
-        """A ring around the car that fills (clockwise from the top) as
-        the stuck timer grows to its cap, amber, then red.
-        """
-        sense = world.try_component(car, route.RouteSense)
-        if sense is None:
-            return
-        seconds = route.stuck_seconds(world, sense)
-        if seconds < self.STUCK_SHOWN:
-            return
-        share = min(seconds / route.STUCK_CAP, 1.0)
-        radius = math.hypot(hitbox.width, hitbox.height) / 2
-        radius = radius * self.camera.scale + 6
-        box = pygame.Rect(0, 0, 2 * radius, 2 * radius)
-        box.center = (round(center[0]), round(center[1]))
-        color = theme.BAD if seconds >= self.STUCK_RED else theme.WARN
-        top = math.pi / 2
-        pygame.draw.arc(
-            self.display, color, box, top - 2 * math.pi * share, top, 2
-        )
 
     # The car's health (7c4): a thin bar above it, level on screen, so it
     # never turns with the car or covers it. Fuel joins under it (step 9).
