@@ -34,6 +34,11 @@ PROGRESS = 10.0  # px closer along the route than before: progress
 STUCK_CAP = 10.0  # seconds: the stuck input reads 1 from here on
 STEP = 12.0  # px: how far each step of the walk along the route goes
 SIGHT = 10.0  # px: a straight line this clear of walls is in sight
+# The route to drive keeps this far from walls (the reward's exact route
+# keeps half the car's width, so it hugs every corner); where that closes
+# the way (a gap narrower than twice it), the exact route is used.
+PADDING = 30.0
+DETOUR = 1.1  # the padded route this much longer (and 60 px): too far
 SKIP = 14.0  # px: the line's start inside the car's own body isn't checked
 WALK_CLEAR = 6.0  # px: a step of the walk keeps this clear of every wall
 MAX_WALK = 160  # steps of the walk (about 1,900 px)
@@ -48,20 +53,44 @@ class RouteFields:
     def __init__(self) -> None:
         self.fields: dict[tuple, PathField] = {}
 
-    def field(self, world: World, goal: tuple[float, float]) -> PathField:
-        found = self.fields.get(goal)
+    def field(
+        self,
+        world: World,
+        goal: tuple[float, float],
+        clearance: float | None = None,
+    ) -> PathField:
+        """The route field to `goal`: the exact one (half the car's width
+        from walls, for distances and the reward), or one keeping
+        `clearance` px from walls.
+        """
+        key = (goal, clearance)
+        found = self.fields.get(key)
         if found is None:
             if len(self.fields) >= FIELDS:
                 self.fields.clear()
             rect = world.resource(Field)
             walls = world.resource(Walls).boxes
+            extra = {} if clearance is None else {"clearance": clearance}
             found = PathField(
                 (rect.x, rect.y, rect.width, rect.height),
                 [(w.left, w.top, w.right, w.bottom) for w in walls],
                 goal,
+                **extra,
             )
-            self.fields[goal] = found
+            self.fields[key] = found
         return found
+
+    def driving(self, world: World, goal, start) -> PathField:
+        """The route to drive from `start`: PADDING px from walls, or the
+        exact one where padding closes the way.
+        """
+        padded = self.field(world, goal, PADDING)
+        exact = self.field(world, goal)
+        # Padding can close a gap and send the route a long way round:
+        # then the exact route it is.
+        if padded.distance(*start) > exact.distance(*start) * DETOUR + 60:
+            return exact
+        return padded
 
 
 def route_fields(world: World) -> RouteFields:
@@ -135,8 +164,9 @@ def stuck_seconds(world: World, route: RouteSense) -> float:
 
 
 def _refresh(world, route: RouteSense, path: PathField, here, step) -> None:
-    route.waypoint = waypoint(path, here, route.goal, world)
-    route.distance = path.distance(*here)
+    driving = route_fields(world).driving(world, route.goal, here)
+    route.waypoint = waypoint(driving, here, route.goal, world)
+    route.distance = path.distance(*here)  # exact, like the reward
     route.refreshed = step
 
 
@@ -178,7 +208,7 @@ def route_points(world: World, start, goal) -> list[tuple[float, float]]:
     """The whole route from `start` to `goal`, a point every STEP px:
     for showing it (7f7). The agent never sees it, only its waypoint.
     """
-    path = route_fields(world).field(world, goal)
+    path = route_fields(world).driving(world, goal, start)
     if path.open_field:
         return [start, goal]
     points = [start]

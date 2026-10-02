@@ -83,10 +83,32 @@ def test_the_waypoint_is_held_then_refreshed():
 
 
 def test_the_reward_and_the_sense_share_one_route_field():
+    """The exact field (the reward and the route distance) is shared;
+    the waypoint uses a padded one (30 px from walls) as well.
+    """
     env = _env()
     env.step((False, False, True, False, False))
     fields = route.route_fields(env.world).fields
-    assert list(fields) == [(540, 240)]  # one field for this checkpoint
+    assert list(fields) == [((540, 240), None), ((540, 240), route.PADDING)]
+
+
+def test_the_driving_route_keeps_its_distance_from_walls():
+    env = _env("route_spiral")
+    boxes = env.world.resource(Walls).boxes
+    points = route.route_points(env.world, (500, 75), (500, 500))
+    inner = points[3:-3]  # away from the start and the goal
+    near = min(min(b.distance(x, y) for b in boxes) for x, y in inner)
+    assert near >= route.PADDING - 10  # the grid's cells: within 10 px
+
+
+def test_a_gap_too_narrow_for_the_padding_uses_the_exact_route():
+    """skill_gaps: 40 px gaps. Padding would close them: the exact route."""
+    env = _env("skill_gaps")
+    sense = route.sense(env.world, env.car)
+    assert sense.waypoint is not None
+    car = env.world.component(env.car, Transform)
+    points = route.route_points(env.world, (car.x, car.y), sense.goal)
+    assert math.dist(points[-2], sense.goal) <= route.STEP + 1
 
 
 # Seeing it (7f8): the waypoint, the remembered route,
