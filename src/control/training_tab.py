@@ -14,6 +14,7 @@ Start runs the plan as a chain of the Commands tab's actions (chains.py),
 then the Runs tab follows the new run.
 """
 
+import re
 import time
 from pathlib import Path
 from typing import Callable
@@ -77,7 +78,9 @@ def form_fields(
     ]
     if new:
         fields += [
-            Field("Name", None, "", "a new name, for example rookie2"),
+            Field(
+                "Name", None, next_agent_name(agents_dir), "a new agent's name"
+            ),
             Field("Start", lambda: _starts(start), FRESH),
         ]
         if start == FRESH:
@@ -102,6 +105,22 @@ def form_fields(
             REWARD,
         ]
     return fields
+
+
+NAMED = re.compile(r"^agent_(\d+)$")
+
+
+def next_agent_name(agents_dir: Path | None = None) -> str:
+    """The next free agent_N (agent_1 with none yet): a new agent's
+    default name, yours to change.
+    """
+    folder = agents_dir or actions.REPO / "agents"
+    numbers = [
+        int(found.group(1))
+        for path in (folder.glob("*/") if folder.exists() else ())
+        if (found := NAMED.match(path.name))
+    ]
+    return f"agent_{max(numbers, default=0) + 1}"
 
 
 def _agents(agents_dir: Path | None = None) -> list[str]:
@@ -186,6 +205,9 @@ class TrainingTab:
 
     def rebuild(self) -> None:
         values = self.values()
+        taken = values.get("Name", "")
+        if NAMED.match(taken) and (self._agents_folder() / taken).exists():
+            del values["Name"]  # a default now taken: the next one
         self.form.build(
             form_fields(
                 values.get("Mode", RL),
@@ -198,6 +220,9 @@ class TrainingTab:
         if not self.visible:
             self.form.hide()
         self.refresh(force=True)
+
+    def _agents_folder(self) -> Path:
+        return self.agents_dir or actions.REPO / "agents"
 
     # Data changed elsewhere (7c7)
 
@@ -244,7 +269,7 @@ class TrainingTab:
         with the name to type.
         """
         values = {**self.values(), "Mode": RL, "Agent": NEW_AGENT}
-        values.update(Start=start, Name="")
+        values.update(Start=start, Name=next_agent_name(self.agents_dir))
         self.form.build(
             form_fields(RL, NEW_AGENT, start, self.agents_dir), values
         )

@@ -237,7 +237,10 @@ def test_the_training_tab_opens(window):
 def test_start_is_disabled_while_blocked(window):
     window.open_tab("Training")
     tab = window.training_tab
-    assert tab.plan.blockers  # no name yet
+    assert tab.values()["Name"].startswith("agent_")  # suggested
+    tab.form.widgets["Name"].set_text("")  # no name
+    tab.refresh(force=True)
+    assert tab.plan.blockers
     assert not tab.start_button.is_enabled
     tab.form.widgets["Name"].set_text("brand_new_agent")
     tab.refresh(force=True)
@@ -327,3 +330,32 @@ def test_a_mode_picked_just_before_a_refresh_rebuilds_the_form(window):
     values = tab.values()
     assert values["Mode"] == BOTH and "Dataset" in values
     assert tab.plan.steps[-1].action == "Train"
+
+
+def test_a_new_agent_is_named_the_next_agent_n(tmp_path):
+    """agent_1 with none yet, then the next free number; yours to change."""
+    from src.control.training_tab import next_agent_name
+
+    agents = tmp_path / "agents"
+    assert next_agent_name(agents) == "agent_1"
+    for name in ("agent_1", "agent_3", "rookie", "agent_x"):
+        (agents / name).mkdir(parents=True)
+    assert next_agent_name(agents) == "agent_4"
+
+
+def test_the_form_suggests_it_and_moves_on_once_its_taken(tmp_path):
+    from src.control.window import ControlCenter
+
+    (tmp_path / "runs").mkdir()
+    agents = tmp_path / "agents"
+    center = ControlCenter(runs_dir=tmp_path / "runs", agents_dir=agents)
+    tab = center.training_tab
+    tab.rebuild()
+    assert tab.values()["Name"] == "agent_1"
+    (agents / "agent_1").mkdir(parents=True)  # created meanwhile
+    tab.rebuild()
+    assert tab.values()["Name"] == "agent_2"
+    tab.form.widgets["Name"].set_text("rookie")  # yours stays yours
+    tab.rebuild()
+    assert tab.values()["Name"] == "rookie"
+    center.jobs.stop_all()

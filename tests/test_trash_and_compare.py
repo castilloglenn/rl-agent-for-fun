@@ -223,7 +223,8 @@ def test_branch_from_it_opens_the_training_tab(window):
     _release_on(window, tab, "branch")
     assert window.tab == "Training"
     form = window.training_tab.form.values()
-    assert form["Start"] == "pupil@d0100" and form["Name"] == ""
+    assert form["Start"] == "pupil@d0100"
+    assert form["Name"].startswith("agent_")  # a suggested new name
 
 
 # Comparing
