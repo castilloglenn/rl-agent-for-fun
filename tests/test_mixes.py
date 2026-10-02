@@ -92,3 +92,11 @@ def test_the_easy_mix_is_the_first_level():
         "course_small_easy" if s == "course_small" else s for s in hard
     )
     assert test_maps.warning("skill_training_easy") is None
+
+
+def test_the_navigators_lessons_have_no_test_map():
+    """7f12: where the route bends away from the compass, no skill_ map."""
+    stages = mixes.load_mix("route_lessons").stages
+    assert "s_curve" in stages and "course_small" in stages
+    assert not any(s.startswith("skill_") for s in stages)
+    assert test_maps.warning("route_lessons") is None

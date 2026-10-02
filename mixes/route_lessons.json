@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "name": "route_lessons",
+  "description": "Where the route bends away from the straight compass (s_curve 42 % of the time, course_large 26 %, course_small 18 %), with the arena and the box for open driving: record the navigator here so a clone learns to follow the waypoint. No skill_ test map.",
+  "stages": ["s_curve", "course_large", "course_small", "arena", "box"]
+}

@@ -65,7 +65,7 @@ help:
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
 	@echo "  make record_heuristic STAGE=basics   record 50 heuristic rounds (a stage or mix) for imitation"
 	@echo "  make imitate_heuristic AGENT=id      clone the heuristic's recorded driving (datasets/heuristic.json)"
-	@echo "  make record_navigator STAGE=name     record 50 navigator rounds (it follows the route) to clone"
+	@echo "  make record_navigator STAGE=name     record 50 navigator rounds (default mix route_lessons) to clone"
 	@echo "  make imitate_navigator AGENT=id      clone the navigator's driving (datasets/navigator.json)"
 	@echo "  make correct AGENT=id                watch it with REC corrections: take over where it goes wrong"
 	@echo "  make imitate_corrections AGENT=id    learn your corrections (then train again)"
@@ -268,7 +268,7 @@ imitate_heuristic:
 	python app.py -imitate $(AGENT) --dataset heuristic
 
 record_navigator:
-	python app.py -record_rounds navigator --stage $(or $(STAGE),skill_training_easy)
+	python app.py -record_rounds navigator --stage $(or $(STAGE),route_lessons)
 
 imitate_navigator:
 	$(call require,AGENT,my_clone)
