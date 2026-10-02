@@ -148,10 +148,14 @@ def gui_theme() -> dict:
     look["text_entry_line"]["misc"] = {"padding": "10,4"}  # like dropdowns
     look["selection_list"] = {"misc": {"list_item_height": "26"}}
     look["selection_list.@selection_list_item"]["misc"] = ITEM
-    look["drop_down_menu.#selected_option"] = {
-        "font": _font(theme.FONT_FAMILY),
-        "misc": ITEM,
-    }
+    # The shown option is "#selected_option" only when its label is its
+    # value; a labelled one ("curriculum: skills") takes its value as its
+    # id. Every one has the class "@selected_option": style both.
+    for shown in ("#selected_option", "@selected_option"):
+        look[f"drop_down_menu.{shown}"] = {
+            "font": _font(theme.FONT_FAMILY),
+            "misc": ITEM,
+        }
     # An open dropdown's list: darker than the fields behind it, with an
     # accent border, so it clearly sits on top.
     look["drop_down_menu.#drop_down_options_list"] = {
