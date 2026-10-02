@@ -87,14 +87,13 @@ def test_a_small_stage_keeps_its_window():
     assert box.offset == box.layout.field_view.topleft  # unchanged
 
 
-def test_a_big_stage_gets_a_map_card_at_the_top_left():
-    """At the top of the left column, the game's side (7f10)."""
+def test_a_big_stage_gets_a_map_card_at_the_top_right():
     box, arena = _renderer("box"), _renderer("arena")
     card, left = arena.layout.map_box, arena.layout.left_panel
     right = arena.layout.right_panel
     assert arena.map_size == (200, 200)  # the arena is square
-    assert card.topleft == (16, 16)
-    assert left.top == card.bottom + 16  # the game's cards under it
+    assert card.topright == (arena.layout.window.right - 16, 16)
+    assert right.top == card.bottom + 16  # the car's cards under it
     grow = card.h + 16
     assert arena.layout.field_view.size == (855, 480 + grow)
     assert arena.layout.window.w == box.layout.window.w

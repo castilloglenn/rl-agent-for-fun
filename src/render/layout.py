@@ -5,8 +5,8 @@ from pygame import Rect
 MARGIN = 16
 TOP_BAR_HEIGHT = 44  # one row: round, time, score, status, gauges
 PLAYBACK_HEIGHT = 44  # under the field, in replays and the showcase
-LEFT_WIDTH = 250  # the game: map, driver, setup, score, board, display
-RIGHT_WIDTH = 260  # the car and its AI: car, senses, mind, reward
+LEFT_WIDTH = 250  # the game: driver, setup, score, board, display
+RIGHT_WIDTH = 260  # the map, then the car and its AI: car, senses, mind
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,7 @@ class Layout:
     └──────┴──────────────────┴──────┘
 
     On a stage bigger than the view, a map card (`map_box`) sits at the
-    top of the left column, above the game's cards (7f10).
+    top of the right column, above the car's cards.
     """
 
     window: Rect
@@ -56,11 +56,11 @@ class Layout:
         )
         map_box = None
         if map_height:
-            map_box = Rect(left_panel.x, MARGIN, LEFT_WIDTH, map_height)
-            left_panel = Rect(
-                left_panel.x,
+            map_box = Rect(right_panel.x, MARGIN, RIGHT_WIDTH, map_height)
+            right_panel = Rect(
+                right_panel.x,
                 map_box.bottom + MARGIN,
-                LEFT_WIDTH,
+                RIGHT_WIDTH,
                 side_height - map_height - MARGIN,
             )
         playback_bar = None

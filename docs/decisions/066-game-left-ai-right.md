@@ -8,8 +8,8 @@ The side panels had grown feature by feature: the MIND card and the agent's rewa
 
 ## Decision
 
-- **Left, the game:** the MAP card (big stages, moved from the right), DRIVER, GAME (stage, rules, spawns, seed), SCORE (distance, checkpoints, and Collected, moved from OBJECTIVE), LEADERBOARD (a replay: SOURCE), DISPLAY (FPS and vsync, camera and the sim rate, the shortcut hint; the step count went: the round timer says it).
-- **Right, the car and its AI:**
+- **Left, the game:** DRIVER, GAME (stage, rules, spawns, seed), SCORE (distance, checkpoints, and Collected, moved from OBJECTIVE), LEADERBOARD (a replay: SOURCE), DISPLAY (FPS and vsync, camera and the sim rate, the shortcut hint; the step count went: the round timer says it).
+- **Right, the car and its AI,** under the MAP card on a big stage (it was moved to the left first, then back at your request: it's where you look while watching the car):
   - **CAR**, the body: the speed bar and the steering slider, and the keys pressed beside its title (the agent's, or yours taking over). The heading dial and the position went: the radar faces the car's way, and the position was debugging.
   - **SENSES**, everything it perceives in one radar (it replaces SENSORS and OBJECTIVE): the 12 rays and the stopping arc, and on the rim the straight compass to the checkpoint (a green arrow) and the remembered waypoint (a violet diamond). Together they read at a glance: one direction, the way is clear; split, a wall is in between. Under it, the straight and route distances, and the stuck bar.
   - **MIND**, a fixed grid of the 12 actions (steering across, pedal down), each cell brighter the likelier, the picked one outlined, the ones a stopped car can't pick crossed out; and the outlook gauge. Both glide (smoothed over about 0.3 s, `Readouts.smooth`) instead of jumping with every decision. Shown when an agent drives.
@@ -18,4 +18,4 @@ The side panels had grown feature by feature: the MIND card and the agent's rewa
 
 ## Consequences
 
-- Every column fits its tightest case: the box with MIND on the right, and an arena replay with a training replay's five SOURCE rows on the left.
+- Every column fits its tightest case: the right column with MIND, on the box and under the arena's map card (a big stage's window grows by the card), and an arena replay with a training replay's five SOURCE rows on the left.
