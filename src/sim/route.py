@@ -35,6 +35,7 @@ STUCK_CAP = 10.0  # seconds: the stuck input reads 1 from here on
 STEP = 12.0  # px: how far each step of the walk along the route goes
 SIGHT = 10.0  # px: a straight line this clear of walls is in sight
 SKIP = 14.0  # px: the line's start inside the car's own body isn't checked
+WALK_CLEAR = 6.0  # px: a step of the walk keeps this clear of every wall
 MAX_WALK = 160  # steps of the walk (about 1,900 px)
 FIELDS = 64  # route fields kept (random checkpoints never repeat)
 
@@ -151,7 +152,7 @@ def waypoint(
     points = []
     here, left = start, path.distance(*start)
     for _ in range(MAX_WALK):
-        step = _downhill(path, here, left)
+        step = _downhill(path, here, left, boxes)
         if step is None:
             break
         here, left = step
@@ -182,8 +183,9 @@ def route_points(world: World, start, goal) -> list[tuple[float, float]]:
         return [start, goal]
     points = [start]
     here, left = start, path.distance(*start)
+    boxes = world.resource(Walls).boxes
     for _ in range(MAX_WALK * 3):
-        step = _downhill(path, here, left)
+        step = _downhill(path, here, left, boxes)
         if step is None:
             break
         here, left = step
@@ -193,15 +195,24 @@ def route_points(world: World, start, goal) -> list[tuple[float, float]]:
     return points + [goal]
 
 
-def _downhill(path: PathField, here, left: float):
+def _downhill(path: PathField, here, left: float, boxes=()):
     """One STEP along the route: the neighbor (16 directions) closest to
-    the goal, if it's closer than here.
+    the goal, if it's closer than here. A step into or across a wall is
+    never taken: next to a thin wall, a point on its far side reads the
+    far side's (shorter) distance, and the walk used to cut through.
     """
     best = None
     for k in range(16):
         angle = 2 * math.pi * k / 16
         x = here[0] + STEP * math.cos(angle)
         y = here[1] + STEP * math.sin(angle)
+        middle = ((here[0] + x) / 2, (here[1] + y) / 2)
+        if any(
+            box.distance(*point) < WALK_CLEAR
+            for box in boxes
+            for point in ((x, y), middle)
+        ):
+            continue
         d = path.distance(x, y)
         if d < left - 1.0 and (best is None or d < best[1]):
             best = ((x, y), d)

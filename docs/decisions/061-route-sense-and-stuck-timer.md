@@ -19,3 +19,5 @@ With a wall between the car and the checkpoint, agents pushed into the wall unti
 
 - Scoring a checkpoint on the suite takes about 17 % longer (the heuristic on the whole suite: 5.0 s, now 5.8 s): the evaluation plays for game points, so it built no route fields before.
 - Agents trained before have 19 inputs and won't load (none exist).
+
+**Fix (2026-10-02):** the walk that traces the route (for the waypoint and the faint dots) could step through a thin wall: next to one, a point on its far side reads the far side's shorter distance. Seen on `route_spiral`, where the dots cut across its corner. Each step now keeps 6 px clear of every wall (a test checks it on the spiral). The route field itself, the route distance, and the progress reward were never affected.

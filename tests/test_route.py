@@ -146,3 +146,23 @@ def test_a_training_replay_has_no_mind():
                               "training": {"run": "r", "decisions": 1}}}}
     assert _mind_driver(header) is None
     assert _mind_driver({"slots": {"1": {"type": "human"}}}) is None
+
+
+def test_the_route_never_cuts_through_a_wall():
+    """Next to a thin wall, the far side reads a shorter distance: the
+    walk used to step through the spiral's corner. Now no step of it
+    comes within WALK_CLEAR of a wall, and it still reaches the goal.
+    """
+    env = _env("route_spiral")
+    boxes = env.world.resource(Walls).boxes
+    for start in ((500, 75), (800, 75), (900, 300), (75, 600)):
+        points = route.route_points(env.world, start, (500, 500))
+        assert math.dist(points[-2], (500, 500)) <= route.STEP + 1
+        for x, y in points[1:-1]:
+            near = min(box.distance(x, y) for box in boxes)
+            assert near >= route.WALK_CLEAR - 1e-6, (start, x, y)
+        sense_point = route.waypoint(
+            route.route_fields(env.world).field(env.world, (500, 500)),
+            start, (500, 500), env.world,
+        )
+        assert min(b.distance(*sense_point) for b in boxes) >= 5
