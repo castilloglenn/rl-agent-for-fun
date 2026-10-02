@@ -257,15 +257,12 @@ class MazeCarDemo:
                     f"Live play · you took over {self.takeovers}x "
                     f"({self.override_steps / sps:.0f} s)"
                 )
-            if self.corrections and self.corrections.armed and not (
-                self.overriding
-            ):
-                saved = self.corrections.saved_count
-                label = (
-                    f"REC corrections · {self.takeovers} this round, "
-                    f"{saved} saved"
-                )
-                color = theme.BAD
+            detail = None
+            if self.corrections:
+                if self.corrections.armed and not self.overriding:
+                    label, color = "REC corrections", theme.BAD
+                detail = self._corrections_line()
+                messages = self._corrections_saved() or messages
             return ModeInfo(
                 label,
                 color,
@@ -273,6 +270,7 @@ class MazeCarDemo:
                 messages,
                 trail=self.trail,
                 mind=mind_of(self.driver),  # an agent: what it thinks
+                detail=detail,
             )
         if not self.recorder:
             return ModeInfo(
@@ -307,6 +305,46 @@ class MazeCarDemo:
                     ("Press K to keep it", theme.ACCENT),
                 )
         return messages
+
+    SAVED_SHOWN_MS = 3000  # a saved round's confirmation stays this long
+
+    def _corrections_line(self) -> tuple[str, tuple]:
+        """Under the DRIVER label: this round's takeovers that count (while
+        REC is on) and the rounds saved, or how to turn it on.
+        """
+        rec = self.corrections
+        sps = self.env.config.sim.steps_per_second
+        mine = len(rec.takeovers)
+        if not rec.armed and not mine:
+            return (f"C: REC corrections · saved {rec.saved_count}",
+                    theme.TEXT_DIM)
+        return (
+            f"this round: {mine} ({rec.marked_steps / sps:.0f} s)"
+            f" · saved: {rec.saved_count}",
+            theme.TEXT if mine else theme.TEXT_DIM,
+        )
+
+    def _corrections_saved(self) -> tuple:
+        """A confirmation on the field for a few seconds after a round of
+        corrections is saved.
+        """
+        rec = self.corrections
+        if rec.saved_count != getattr(self, "_saved_seen", 0):
+            self._saved_seen = rec.saved_count
+            self._saved_at = pygame.time.get_ticks()
+        since = pygame.time.get_ticks() - getattr(self, "_saved_at", -10**9)
+        if rec.last_round is None or since > self.SAVED_SHOWN_MS:
+            return ()
+        count, steps = rec.last_round
+        sps = self.env.config.sim.steps_per_second
+        return (
+            (
+                f"Correction saved · {count} takeover"
+                f"{'s' if count != 1 else ''}, {steps / sps:.0f} s",
+                theme.GOOD,
+            ),
+            ("Files tab > Recordings > Corrections", theme.TEXT_DIM),
+        )
 
     def _seed(self) -> int:
         return self.env.world.resource(Rng).seed

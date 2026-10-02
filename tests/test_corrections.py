@@ -111,10 +111,22 @@ def test_c_toggles_it_and_the_driver_card_says_so(tmp_path, monkeypatch):
     demo.env.renderer.keys_pressed = [pygame.K_c]
     demo.frame(1 / 60)
     assert demo.corrections.armed
-    assert demo.mode().label.startswith("REC corrections")
+    mode = demo.mode()
+    assert mode.label == "REC corrections"
+    assert mode.detail[0] == "this round: 0 (0 s) · saved: 0"
     held["keys"] = REVERSE
-    demo.frame(1 / 60)
+    for _ in range(30):
+        demo.frame(1 / 60)
     assert demo.mode().label == "YOU are driving"  # that still wins
+    assert demo.mode().detail[0].startswith("this round: 1 (")
+    held["keys"] = NONE
+    for _ in range(60):
+        demo.frame(1 / 60)
+    demo.env.reset()  # R: saved
+    demo.frame(1 / 60)
+    mode = demo.mode()
+    assert mode.messages[0][0].startswith("Correction saved · 1 takeover")
+    assert mode.detail[0].endswith("saved: 1")
 
 
 def test_the_dataset_keeps_only_your_moments_counted_ten_times(

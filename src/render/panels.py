@@ -69,6 +69,7 @@ class ModeInfo:
     source: tuple[tuple[str, str], ...] = ()
     busy: bool = False  # getting ready: a spinner over the messages
     mind: "MindInfo | None" = None  # an agent drives: what it's thinking
+    detail: tuple[str, ColorValue] | None = None  # a line under the label
 
 
 @dataclass(frozen=True)
@@ -445,6 +446,8 @@ def draw_game_panel(
     column.note(car.label if car else DASH, theme.TEXT, bold=True)
     if mode:
         column.note(mode.label, mode.label_color, bold=True)
+        if mode.detail:
+            column.note(*mode.detail)
     else:
         column.note("Live play")
     column.gap()

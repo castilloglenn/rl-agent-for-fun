@@ -204,6 +204,9 @@ class CorrectionRecorder(LibraryRecorder):
         self.armed = False
         self.takeovers: list[list[int]] = []
         self.saved_count = 0
+        # The last round saved: (its takeovers, their steps), for the
+        # window's confirmation.
+        self.last_round: tuple[int, int] | None = None
 
     def on_reset(self, env) -> None:
         super().on_reset(env)
@@ -227,3 +230,9 @@ class CorrectionRecorder(LibraryRecorder):
         if path:
             self.last_saved, self.last_kept = path, False
             self.saved_count += 1
+            self.last_round = (len(self.takeovers), self.marked_steps)
+
+    @property
+    def marked_steps(self) -> int:
+        """Steps of yours marked in this round."""
+        return sum(high - low for low, high in self.takeovers)
