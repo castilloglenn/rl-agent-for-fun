@@ -208,6 +208,10 @@ TERMS: dict[str, tuple[str, str]] = {
                 "after the car was clear of walls for `clear` seconds."),
     "stopped": ("per step stopped", f"1 for each step at speed 0 (idle or "
                 f"pinned): {STEPS_PER_SECOND} steps/s."),
+    "stuck": ("per step stuck", "0 until the car has gone `grace` seconds "
+              "without getting closer along the route than its best, then "
+              "rising to 1 at `full` seconds: circling or pushing into a "
+              "wall costs more the longer it lasts."),
     "time_up": ("per round", "1 on the step the round ends on time."),
     "per_step": ("per step", f"1 every step ({STEPS_PER_SECOND}/s): a "
                  "negative weight is a time cost."),
@@ -233,6 +237,10 @@ TERM_PARAMS: dict[str, tuple[str, str]] = {
     "contact.clear": ("s", "How long the car must be clear of walls before "
                       "a touch counts as a new contact: wiggling against a "
                       "wall counts once."),
+    "stuck.grace": ("s", "How long without progress costs nothing: time to "
+                    "back out or turn around."),
+    "stuck.full": ("s", "When the cost reaches its full weight per step "
+                   "(rising from the grace)."),
 }
 
 # Everything else, by topic.

@@ -29,6 +29,7 @@ from src.sim.observation import (
     OBSERVATION_VERSION,
     observe,
 )
+from src.sim import route
 from src.sim.route import route_fields
 from src.sim.resources import RoundState, SimClock, SimConfig
 from src.sim.rules import Rules, load_rules
@@ -146,6 +147,13 @@ class MazeCarEnv(Environment):
             return None
         return min(spots, key=lambda s: math.dist(s, (car.x, car.y)))
 
+    def _stuck_seconds(self) -> float:
+        """The stuck timer (the observation already brought it up to this
+        step), for the stuck cost (7f14).
+        """
+        sense = route.sense(self.world, self.car)
+        return route.stuck_seconds(self.world, sense)
+
     def _path_distance(self, goal) -> float:
         """The car's path length to `goal` around the walls (inf: none)."""
         if goal is None:
@@ -255,6 +263,7 @@ class MazeCarEnv(Environment):
             clear_seconds=_clear_seconds(
                 touched_before, health.contact_step, sim.steps_per_second
             ),
+            stuck_seconds=self._stuck_seconds(),
             stopped=motion.speed == 0,
             time_up=self._time_up(),
             distance=max(motion.moved, 0.0),

@@ -50,6 +50,9 @@ class StepEvents:
     # contact (inf: it never touched one). The contact term counts a
     # contact only after a real gap, not a wiggle against the wall.
     clear_seconds: float = math.inf
+    # Seconds since the car last got closer along the route than its best
+    # to this checkpoint (the stuck input, 7f7), for the stuck cost.
+    stuck_seconds: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -89,6 +92,17 @@ def _contact(events: StepEvents, params: Mapping) -> float:
     return 0.0
 
 
+def _stuck(events: StepEvents, params: Mapping) -> float:
+    """0 for the first `grace` seconds without progress (time to back out
+    or turn), then rising to 1 at `full` seconds, and 1 after: circling or
+    pushing into a wall costs more the longer it lasts (7f14).
+    """
+    over = events.stuck_seconds - params["grace"]
+    if over <= 0:
+        return 0.0
+    return min(over / max(params["full"] - params["grace"], 1e-6), 1.0)
+
+
 def _checkpoint_speed(events: StepEvents, params: Mapping) -> float:
     """1 for a checkpoint reached instantly, down to 0 at `window` s."""
     window = params["window"]
@@ -111,6 +125,9 @@ TERMS: Mapping[str, Term] = MappingProxyType(
         "wrecked": Term(lambda e, p: float(e.wrecked)),
         "contact": Term(_contact, MappingProxyType({"clear": 0.5})),
         "stopped": Term(lambda e, p: float(e.stopped)),
+        "stuck": Term(
+            _stuck, MappingProxyType({"grace": 3.0, "full": 10.0})
+        ),
         "time_up": Term(lambda e, p: float(e.time_up)),
         "per_step": Term(lambda e, p: 1.0),
         "distance": Term(lambda e, p: e.distance),

@@ -73,6 +73,7 @@ def test_default_profile_is_progress_checkpoints_and_wall_penalties():
         "damage": -1000.0,
         "wrecked": -3000.0,
         "stopped": -0.25,
+        "stuck": -0.5,  # 7f14
     }
     assert profile(_events(points=3)) == 0  # the score isn't the lesson
     assert profile(_events(progress=3.0)) == pytest.approx(3.0)
@@ -450,3 +451,29 @@ def test_the_gap_is_measured_between_wall_touches():
     assert _clear_seconds(None, 50, 120) == math.inf  # never touched
     assert _clear_seconds(10, 12, 120) == pytest.approx(1 / 120)
     assert _clear_seconds(10, 131, 120) == pytest.approx(1.0)
+
+
+def test_being_stuck_costs_nothing_at_first_then_more_and_more():
+    """7f14: a 3 s grace to back out or turn, then rising to full at 10 s."""
+    stuck = TERMS["stuck"]
+    assert stuck(_events(stuck_seconds=0.0)) == 0
+    assert stuck(_events(stuck_seconds=3.0)) == 0
+    assert stuck(_events(stuck_seconds=6.5)) == pytest.approx(0.5)
+    assert stuck(_events(stuck_seconds=10.0)) == pytest.approx(1.0)
+    assert stuck(_events(stuck_seconds=29.0)) == pytest.approx(1.0)
+    profile = load_reward_profile("default")
+    assert profile.contributions(_events(stuck_seconds=29.0))["stuck"] == (
+        pytest.approx(-0.5)
+    )
+
+
+def test_the_env_charges_it_while_the_car_makes_no_progress():
+    config = get_maze_car_config()
+    config.show_gui = False
+    env = MazeCarEnv(config)
+    env.reset(seed=0)
+    for _ in range(12 * 120):  # 12 s parked
+        env.step(NONE)
+    # 3 s free, 7 s rising (3.5 s' worth), 2 s full: about -0.5 x 5.5 s.
+    expected = -0.5 * 120 * (3.5 + 2.0)
+    assert env.round_terms["stuck"] == pytest.approx(expected, rel=0.02)
