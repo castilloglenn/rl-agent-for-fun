@@ -688,6 +688,7 @@ MAKE_TARGETS = {
     "new_agent": "Create an agent",
     "train": "Train",
     "train_curriculum": "Train",
+    "finetune": "Train",
     "resume": "Resume training",
     "resume_last": "Resume training",
     "imitate": "Clone your driving",

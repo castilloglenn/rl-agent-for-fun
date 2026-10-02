@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "name": "finetune",
+  "description": "PPO for continuing a clone (7f13): a third of the learning rate and a tenth of the entropy bonus, so RL improves the clone's driving instead of blurring it. 2M decisions.",
+  "algorithm": "ppo",
+  "learning_rate": 0.0001,
+  "gamma": 0.99,
+  "gae_lambda": 0.95,
+  "clip": 0.2,
+  "entropy": 0.001,
+  "value_coef": 0.5,
+  "max_grad_norm": 0.5,
+  "reward_scale": 0.01,
+  "rollout": 2048,
+  "minibatch": 64,
+  "epochs": 10,
+  "total_decisions": 2000000,
+  "checkpoint_every": 100000,
+  "seed": 0,
+  "evaluate": true
+}

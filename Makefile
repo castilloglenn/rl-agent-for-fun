@@ -10,7 +10,7 @@
 	showcase showcase_all control vitals stop_all delete_run trash restore \
 	empty_trash delete_agent keep unkeep delete_recording edit_map \
 	record_heuristic imitate_heuristic train_curriculum correct \
-	imitate_corrections record_navigator imitate_navigator
+	imitate_corrections record_navigator imitate_navigator finetune
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -52,6 +52,7 @@ help:
 	@echo "  make run_agent AGENT=id              run an agent for 100 episodes"
 	@echo "  make train AGENT=id                  train an agent (trainers/default.json)"
 	@echo "  make train_curriculum AGENT=id       train it up the skills curriculum (easy, then hard, by itself)"
+	@echo "  make finetune AGENT=id               continue a clone with RL, gently (trainers/finetune.json), on the curriculum"
 	@echo "  make resume RUN=folder               resume a stopped training run exactly"
 	@echo "  make resume_last                     resume the newest stopped training run"
 	@echo "  make eval AGENT=id                   score an agent's checkpoints (suites/skills.json)"
@@ -221,6 +222,10 @@ train:
 train_curriculum:
 	$(call require,AGENT,my_agent)
 	python app.py -train $(AGENT) --stage skills
+
+finetune:
+	$(call require,AGENT,my_clone)
+	python app.py -train $(AGENT) --trainer finetune --stage skills
 
 resume:
 	$(call require,RUN,2026-09-26_120000_train-rookie_seed0)
