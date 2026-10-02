@@ -3,7 +3,8 @@ with a drawn preview, and the selected one's details, what uses it, and
 what to do with it.
 
     ┌ MAPS · 4  [sort ▾] ┐ ┌ MAP ────────────────────────────────┐
-    │ ┌ card ┐ ┌ card ┐  │ │ a big preview    size, walls, ...   │
+    │ [All][Built-in][Mine] │ a big preview    size, walls, ...   │
+    │ ┌ card ┐ ┌ card ┐  │ │                                     │
     │ └──────┘ └──────┘  │ │ USED BY: runs, suites               │
     │                    │ │ [Edit] [Drive] [driver ▾] [Watch]   │
     │                    │ │ [new name] [New map] [Duplicate] .. │
@@ -43,6 +44,9 @@ CARD_GAP = (16, 12)
 PREVIEW = (254, 120)  # a card's preview
 SCROLL_STEP = 40
 SORTS = ("name", "newest", "walls")
+# Which maps the cards show (7c17): every one, the app's, or yours.
+FILTERS = ("All", "Built-in", "Mine")
+FILTER_ROW = 36  # px the filter buttons take above the cards
 LIT = (20, 60, 95)
 CARD_BG = (18, 19, 23)
 BADGE_COLORS = {
@@ -81,12 +85,20 @@ class MapsTab:
             area.h,
         )
         box = self.list_box
+        top = 48 + FILTER_ROW
         self.content = Rect(
-            box.x + PAD, box.y + 48, box.w - 2 * PAD, box.h - 48 - PAD
+            box.x + PAD, box.y + top, box.w - 2 * PAD, box.h - top - PAD
         )
+        self.filter_buttons: dict[str, UIButton] = {}
+        x = box.x + PAD
+        for name in FILTERS:
+            self.filter_buttons[name] = UIButton(
+                Rect(x, box.y + 42, 96, 28), name, gui
+            )
+            x += 96 + 6
         self.sort_menu = UIDropDownMenu(
             [f"sort: {s}" for s in SORTS],
-            "sort: name",
+            "sort: newest",
             Rect(box.right - PAD - 150, box.y + 8, 150, 26),
             gui,
         )
@@ -121,7 +133,9 @@ class MapsTab:
         )
         self.rows_a, self.rows_b = rows_a, rows_b
         self.maps: list[MapInfo] = []
-        self.sort = SORTS[0]
+        self.sort = "newest"  # the newest maps first (7c17)
+        self.filter = FILTERS[0]
+        self._light_filter()
         self.selected: str | None = None
         self.scroll = 0
         self.content_height = 0
@@ -153,6 +167,7 @@ class MapsTab:
     def widgets(self) -> list:
         return [
             self.sort_menu,
+            *self.filter_buttons.values(),
             self.driver_menu,
             self.new_name,
             *self.buttons.values(),
@@ -192,20 +207,45 @@ class MapsTab:
             return
         self._refreshed = now
         self.maps = maps_data.load_maps(self.root, self.runs_dir)
-        names = [m.name for m in self.maps]
+        names = [m.name for m in self.shown()]
         if self.selected not in names:
             ordered = self.ordered()
             self.selected = ordered[0].name if ordered else None
         self._update_buttons()
 
+    def shown(self) -> list[MapInfo]:
+        """The maps the filter shows."""
+        if self.filter == "Built-in":
+            return [m for m in self.maps if m.built_in]
+        if self.filter == "Mine":
+            return [m for m in self.maps if not m.built_in]
+        return list(self.maps)
+
     def ordered(self) -> list[MapInfo]:
-        return maps_data.sort_maps(self.maps, self.sort)
+        return maps_data.sort_maps(self.shown(), self.sort)
+
+    def set_filter(self, name: str) -> None:
+        self.filter = name
+        self.scroll = 0
+        self._light_filter()
+        ordered = self.ordered()
+        if self.selected not in [m.name for m in ordered]:
+            self.selected = ordered[0].name if ordered else None
+        self.message = None
+        self._update_buttons()
+
+    def _light_filter(self) -> None:
+        for name, button in self.filter_buttons.items():
+            button.select() if name == self.filter else button.unselect()
 
     @property
     def map(self) -> MapInfo | None:
         return next((m for m in self.maps if m.name == self.selected), None)
 
     def select(self, name: str) -> None:
+        if name not in [m.name for m in self.shown()]:
+            self.filter = FILTERS[0]  # a map the filter hides: show all
+            self._light_filter()
         self.selected = name
         self.message = None
         self._update_buttons()
@@ -325,6 +365,9 @@ class MapsTab:
             for name, button in self.buttons.items():
                 if event.ui_element is button:
                     self.press(name)
+            for name, button in self.filter_buttons.items():
+                if event.ui_element is button:
+                    self.set_filter(name)
         elif event.type == pygame_gui.UI_TEXT_ENTRY_CHANGED:
             self.message = None
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -349,7 +392,7 @@ class MapsTab:
     def draw(self, surface) -> None:
         for rect in (self.list_box, self.detail):
             pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
-        header(surface, self.list_box, f"MAPS · {len(self.maps)}")
+        header(surface, self.list_box, f"MAPS · {len(self.shown())}")
         surface.set_clip(self.content)
         self.hit = []
         width, height = CARD

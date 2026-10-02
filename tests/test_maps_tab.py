@@ -114,7 +114,9 @@ def window(root):
 
 def test_cards_select_a_map(window):
     tab = window.maps_tab
-    assert tab.selected == "arena"  # the first by name
+    assert tab.sort == "newest"  # the default (7c17)
+    assert tab.selected == "ruins"  # yours, the newest
+    tab.sort = "name"
     window.draw()
     names = [name for _, name in tab.hit]
     assert names == ["arena", "box", "pillars", "ruins", "s_curve"]
@@ -170,3 +172,19 @@ def test_delete_asks_and_protects_built_ins(window, root):
     window.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
     assert not (root / "user/stages/ruins.json").exists()
     assert "ruins" not in [m.name for m in tab.maps]
+
+
+def test_the_filter_shows_built_in_or_yours(window):
+    """7c17: All, Built-in, or Mine above the cards."""
+    tab = window.maps_tab
+    tab.set_filter("Mine")
+    window.draw()
+    assert [name for _, name in tab.hit] == ["ruins"]
+    assert tab.selected == "ruins"
+    tab.set_filter("Built-in")
+    window.draw()
+    names = [name for _, name in tab.hit]
+    assert "ruins" not in names and "box" in names
+    assert tab.selected in names  # moved onto a shown map
+    tab.select("ruins")  # picked elsewhere (a new map): shown again
+    assert tab.filter == "All"
