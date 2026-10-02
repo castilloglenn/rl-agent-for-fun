@@ -17,3 +17,12 @@ The heuristic still drives with what it had from the start: a straight compass t
 
 - Clones of the navigator can beat the heuristic on every skill from the start, so the curriculum's level 1 goal (beat the heuristic) comes sooner.
 - The `corrections` dataset needs the navigator's recordings (record it first).
+
+## Update: maps for learning routes
+
+Three built-in maps made for it, where checkpoints usually sit behind walls (no breadcrumbs), not copies of any `skill_` test map (no U pocket, no horizontal serpentine, no gap columns):
+- `route_rooms` (1200 × 900): six rooms, doorways at alternating ends of each wall, random checkpoints at least 300 px from the car;
+- `route_spiral` (1000 × 1000): a squared spiral, 150 px corridors, scripted checkpoints at its center and its outer end;
+- `route_switchbacks` (1400 × 700): four walls with openings at alternating ends, random checkpoints.
+
+Measured with the navigator (60 s rounds, 6 seeds; the share of decisions with the route bending more than 20 degrees from the compass, checkpoints a minute, wrecks): `route_rooms` 56 %, 11.7, none; `route_spiral` 90 %, 2.0 (each leg winds about 3,000 px), none; `route_switchbacks` 70 %, 8.7, none. `route_lessons` is now these three, s_curve, `course_large`, the arena, and the box: about 42 % of its decisions bend away from the compass. A test checks that 40 seeds' random checkpoints on the two random maps all have a path from the spawn.

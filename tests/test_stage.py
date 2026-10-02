@@ -137,3 +137,28 @@ def test_the_easy_course_keeps_each_next_checkpoint_in_sight():
     env = MazeCarEnv(config, stage=stage)
     result = run_episode(env, make_driver("heuristic"), 50_000)
     assert result.checkpoints >= 20  # most of the loop's 28 in 60 s
+
+
+def test_random_checkpoints_on_the_route_maps_can_be_reached():
+    """7f12: on route_rooms and route_switchbacks, every room or lane is
+    connected: 40 seeds' checkpoints all have a path from the spawn.
+    """
+    import math
+
+    from src.sim.paths import PathField
+    from src.sim.spawning import SpawnSchedule
+    from src.sim.walls import Box
+
+    for name in ("route_rooms", "route_switchbacks"):
+        stage = load_stage(name)
+        boxes = [(x, y, x + w, y + h) for x, y, w, h in stage.walls]
+        spawn = (stage.spawns[0].x, stage.spawns[0].y)
+        walls = tuple(Box.from_list(w) for w in stage.walls)
+        for seed in range(40):
+            schedule = SpawnSchedule(
+                "checkpoints", seed, stage.checkpoints,
+                stage.width, stage.height, walls=walls,
+            )
+            spot = schedule.next_spot([spawn])
+            field = PathField((0, 0, stage.width, stage.height), boxes, spot)
+            assert not math.isinf(field.distance(*spawn)), (name, seed)

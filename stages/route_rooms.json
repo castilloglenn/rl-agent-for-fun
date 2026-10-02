@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "name": "route_rooms",
+  "size": [1200, 900],
+  "walls": [
+    [390, 130, 20, 320],
+    [790, 0, 20, 320],
+    [130, 440, 940, 20],
+    [390, 460, 20, 310],
+    [790, 590, 20, 310]
+  ],
+  "spawns": [{"x": 200, "y": 250, "angle": 0}],
+  "checkpoints": {
+    "mode": "random",
+    "radius": 15,
+    "border_margin": 40,
+    "min_car_distance": 300
+  }
+}

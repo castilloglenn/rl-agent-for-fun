@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "route_switchbacks",
+  "size": [1400, 700],
+  "walls": [
+    [270, 0, 20, 560],
+    [550, 140, 20, 560],
+    [830, 0, 20, 560],
+    [1110, 140, 20, 560]
+  ],
+  "spawns": [{"x": 130, "y": 350, "angle": 90}],
+  "checkpoints": {
+    "mode": "random",
+    "radius": 15,
+    "border_margin": 40,
+    "min_car_distance": 300
+  }
+}
