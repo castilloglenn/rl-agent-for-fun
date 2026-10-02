@@ -2,11 +2,13 @@
 
 from src.drivers.base import Driver
 from src.drivers.heuristic import CompassDriver
+from src.drivers.navigator import Navigator
 from src.drivers.random_driver import RandomDriver
 
 BASELINES = {
     "random": RandomDriver,
     "heuristic": CompassDriver,
+    "navigator": Navigator,  # a teacher to record, not a scored bar (7f12)
 }
 
 

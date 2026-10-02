@@ -164,7 +164,7 @@ def test_weighted_rounds_repeat_in_training(tmp_path):
 
 def test_the_built_in_dataset_and_trainer():
     spec = load_dataset_spec("corrections")
-    assert (spec.player, spec.also) == (CORRECTIONS, ("Heuristic",))
+    assert (spec.player, spec.also) == (CORRECTIONS, ("Navigator",))
     assert spec.correction_weight == 10
 
 

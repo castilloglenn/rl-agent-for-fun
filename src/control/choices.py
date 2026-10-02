@@ -10,7 +10,7 @@ from pathlib import Path
 from src.utils import named_files
 
 REPO = Path(__file__).resolve().parents[2]
-BASELINES = ("heuristic", "random")
+BASELINES = ("heuristic", "navigator", "random")
 # Commands whose AGENT is a new name, not an existing agent.
 NEW_AGENT = ("new_agent", "imitate")
 TYPED = ("PLAYER", "SECONDS", "FPS", "EPISODES")

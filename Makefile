@@ -10,7 +10,7 @@
 	showcase showcase_all control vitals stop_all delete_run trash restore \
 	empty_trash delete_agent keep unkeep delete_recording edit_map \
 	record_heuristic imitate_heuristic train_curriculum correct \
-	imitate_corrections
+	imitate_corrections record_navigator imitate_navigator
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -65,6 +65,8 @@ help:
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
 	@echo "  make record_heuristic STAGE=basics   record 50 heuristic rounds (a stage or mix) for imitation"
 	@echo "  make imitate_heuristic AGENT=id      clone the heuristic's recorded driving (datasets/heuristic.json)"
+	@echo "  make record_navigator STAGE=name     record 50 navigator rounds (it follows the route) to clone"
+	@echo "  make imitate_navigator AGENT=id      clone the navigator's driving (datasets/navigator.json)"
 	@echo "  make correct AGENT=id                watch it with REC corrections: take over where it goes wrong"
 	@echo "  make imitate_corrections AGENT=id    learn your corrections (then train again)"
 	@echo "Files"
@@ -264,6 +266,13 @@ record_heuristic:
 imitate_heuristic:
 	$(call require,AGENT,my_clone)
 	python app.py -imitate $(AGENT) --dataset heuristic
+
+record_navigator:
+	python app.py -record_rounds navigator --stage $(or $(STAGE),skill_training_easy)
+
+imitate_navigator:
+	$(call require,AGENT,my_clone)
+	python app.py -imitate $(AGENT) --dataset navigator
 
 correct:
 	$(call require,AGENT,my_agent)

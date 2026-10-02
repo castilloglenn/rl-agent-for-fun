@@ -693,6 +693,8 @@ MAKE_TARGETS = {
     "imitate": "Clone your driving",
     "record_heuristic": "Record a driver's rounds",
     "imitate_heuristic": "Clone your driving",
+    "record_navigator": "Record a driver's rounds",
+    "imitate_navigator": "Clone your driving",
     "dataset": "Preview a dataset",
     "eval": "Evaluate",
     "eval_baselines": "Evaluate",

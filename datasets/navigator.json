@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "navigator",
+  "description": "The navigator's recorded rounds (player \"Navigator\", from make record_navigator): it follows the route around walls, a better teacher than the heuristic.",
+  "player": "Navigator",
+  "include": "all",
+  "min_score": 0
+}

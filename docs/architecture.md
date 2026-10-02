@@ -86,6 +86,7 @@ Everything that decides a car's actions implements **`Driver`** (`base.py`): `re
 | `keyboard.py` | `KeyboardDriver(player)`: you. Its record is `{"type": "human", "player", "device"}` |
 | `random_driver.py` | `RandomDriver`: a random canonical action every 4 steps (30/s, like agents), seeded. The floor |
 | `heuristic.py` | `CompassDriver`: rules on the observation only (steer to the checkpoint, turn away from close walls, brake within stopping range, slow down near an off-center checkpoint so it doesn't orbit it). The bar agents must beat |
+| `navigator.py` | `Navigator`: a teacher to record, never scored (7f12, [decision 069](decisions/069-navigator-teacher.md)): steers at the route waypoint, judges the way ahead with the narrow front rays, slows for a waypoint behind it, and backs out when stuck |
 | `episode.py` | `run_episode(env, driver, seed)`: plays one game headless, returns an `EpisodeResult` (score, checkpoints, reward, how it ended) |
 | `registry.py` | `make_driver(name)`: `keyboard`, `random`, `heuristic`, or `agent:<id>` (best scored checkpoint, else newest) / `agent:<id>@<checkpoint>` / `@best`. An unknown driver or a missing or incompatible agent raises `DriverError`, which `app.py` prints as a clean message |
 
