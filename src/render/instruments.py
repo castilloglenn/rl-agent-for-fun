@@ -29,6 +29,25 @@ class Readouts:
         self._sums: dict[str, list[float]] = {}
         self._shown: dict[str, tuple[str, int]] = {}
         self._peaks: dict[str, float] = {}
+        self._smooth: dict[str, tuple[list[float], int]] = {}
+
+    def smooth(
+        self, key: str, values, now: int | None = None, tau: float = 0.3
+    ) -> list[float]:
+        """`values` blended toward over about `tau` seconds, so a shape
+        fed 30 new values a second glides instead of flickering.
+        """
+        now = pygame.time.get_ticks() if now is None else now
+        values = [float(v) for v in values]
+        held = self._smooth.get(key)
+        if held is None or len(held[0]) != len(values):
+            self._smooth[key] = (values, now)
+            return values
+        last, then = held
+        blend = 1.0 - math.exp(-max(now - then, 0) / 1000 / tau)
+        found = [a + (b - a) * blend for a, b in zip(last, values)]
+        self._smooth[key] = (found, now)
+        return found
 
     def peak(self, key: str, value: float) -> float:
         """The largest size `value` has had so far: a gauge's scale."""
@@ -180,11 +199,16 @@ def draw_radar(
     levels: dict,
     speed: float,
     stop_distance: float,
+    compass: float | None = None,
+    waypoint: float | None = None,
 ) -> tuple[str, float] | None:
     """The car from above, facing up, a spoke per ray at its angle: as
     long as the way is clear (up to RADAR_RANGE px), colored by danger;
-    and the stopping distance as an arc in the direction of travel.
-    Returns the closest ray (name, px).
+    the stopping distance as an arc in the direction of travel; and on
+    the rim, the straight compass to the checkpoint (a green arrow) and
+    the remembered route's waypoint (a violet diamond), each at its angle
+    relative to the car (+ left). Together they say whether the way is
+    clear: one direction, or a wall in between. Returns the closest ray.
     """
     pygame.draw.circle(surface, theme.PANEL_BORDER, center, radius, 1)
     if speed and stop_distance > 0:
@@ -211,12 +235,44 @@ def draw_radar(
         pygame.draw.circle(surface, color, (round(end[0]), round(end[1])), 3)
         if closest is None or ray.distance < closest[1]:
             closest = (ray.name, ray.distance)
+    if waypoint is not None:
+        rad = math.radians(waypoint)
+        x = center[0] - math.sin(rad) * radius
+        y = center[1] - math.cos(rad) * radius
+        size = 5
+        pygame.draw.polygon(
+            surface,
+            theme.ROUTE,
+            [(x, y - size), (x + size, y), (x, y + size), (x - size, y)],
+        )
+    if compass is not None:
+        draw_rim_arrow(surface, center, radius + 3, compass, theme.GOOD)
     body = Rect(0, 0, 9, 15)
     body.center = center
     pygame.draw.rect(surface, theme.ACCENT, body)
     nose = (center[0], body.top), (center[0], body.top + 4)
     pygame.draw.line(surface, theme.TEXT, *nose, 2)
     return closest
+
+
+def draw_rim_arrow(surface, center, radius: float, relative: float, color):
+    """A small triangle just outside a circle, pointing outward at
+    `relative` degrees from straight up (+ left).
+    """
+    rad = math.radians(relative)
+    out = (-math.sin(rad), -math.cos(rad))
+    side = (-out[1], out[0])
+    base = (center[0] + out[0] * radius, center[1] + out[1] * radius)
+    tip = (base[0] + out[0] * 9, base[1] + out[1] * 9)
+    pygame.draw.polygon(
+        surface,
+        color,
+        [
+            tip,
+            (base[0] + side[0] * 5, base[1] + side[1] * 5),
+            (base[0] - side[0] * 5, base[1] - side[1] * 5),
+        ],
+    )
 
 
 def draw_label(surface, column, text: str) -> None:

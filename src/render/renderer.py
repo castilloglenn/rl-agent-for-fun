@@ -330,25 +330,28 @@ class Renderer:
             cars[0] if cars else None,
             self.config.hud,
         )
+        # Left: the game; right: the car and its AI (7f10).
+        if self.layout.map_box:
+            self._draw_map(world, alpha)
         panels.draw_game_panel(
             self.display,
             self.layout.left_panel,
             world,
             cars,
-            reward,
             mode,
             self.readouts,
+            (self.clock.get_fps(), self.frame_rate, self.vsync),
+            self.camera.label(),
+            self.config.hud,
         )
-        if self.layout.map_box:
-            self._draw_map(world, alpha)
         panels.draw_car_panel(
             self.display,
             self.layout.right_panel,
             world,
             cars,
             self.config.hud,
-            (self.clock.get_fps(), self.frame_rate, self.vsync),
-            self.camera.label(),
+            reward,
+            mode,
             self.readouts,
         )
         if self.confirm_quit:

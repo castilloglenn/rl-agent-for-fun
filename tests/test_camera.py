@@ -87,17 +87,19 @@ def test_a_small_stage_keeps_its_window():
     assert box.offset == box.layout.field_view.topleft  # unchanged
 
 
-def test_a_big_stage_gets_a_map_card_at_the_top_right():
+def test_a_big_stage_gets_a_map_card_at_the_top_left():
+    """At the top of the left column, the game's side (7f10)."""
     box, arena = _renderer("box"), _renderer("arena")
-    card, right = arena.layout.map_box, arena.layout.right_panel
+    card, left = arena.layout.map_box, arena.layout.left_panel
+    right = arena.layout.right_panel
     assert arena.map_size == (200, 200)  # the arena is square
-    assert card.topright == (arena.layout.window.right - 16, 16)
-    assert right.top == card.bottom + 16  # the cards under it
+    assert card.topleft == (16, 16)
+    assert left.top == card.bottom + 16  # the game's cards under it
     grow = card.h + 16
     assert arena.layout.field_view.size == (855, 480 + grow)
     assert arena.layout.window.w == box.layout.window.w
     assert arena.layout.window.h == box.layout.window.h + grow
-    assert right.bottom == arena.layout.left_panel.bottom
+    assert right.bottom == left.bottom
 
 
 def test_key_f_and_clicks(capsys):
@@ -269,11 +271,21 @@ def test_the_frame_draws_a_marker_only_when_the_checkpoint_is_away():
     try:
         spot.x, spot.y = car.x + 100, car.y - 100  # in view
         renderer.draw(env.world, 1.0, env.reward_status(), None)
-        seen = [p for c, p in polygons if c == theme.CHECKPOINT]
+        view = renderer.layout.field_view  # not the SENSES radar's arrow
+
+        def markers():
+            return [
+                p
+                for c, p in polygons
+                if c == theme.CHECKPOINT
+                and all(view.collidepoint(x, y) for x, y in p)
+            ]
+
+        seen = markers()
         spot.x, spot.y = 20.0, 20.0  # the far top left: out of view
         polygons.clear()
         renderer.draw(env.world, 1.0, env.reward_status(), None)
-        away = [p for c, p in polygons if c == theme.CHECKPOINT]
+        away = markers()
     finally:
         pygame.draw.polygon = real
     assert not seen and len(away) == 1

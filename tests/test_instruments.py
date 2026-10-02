@@ -72,26 +72,49 @@ def test_the_checkpoint_angle_is_relative_and_left_positive():
 
 
 def test_the_mind_card_draws_stopped_and_moving():
+    """MIND (7f10): a grid of the 12 actions on the right, with the
+    picked one outlined and the blocked ones crossed when stopped.
+    """
     from src.config import get_maze_car_config
-    from src.render import theme
-    from src.render.panels import (
-        MindInfo,
-        ModeInfo,
-        car_infos,
-        draw_game_panel,
-    )
+    from src.render import panels, theme
+    from src.render.panels import MindInfo, ModeInfo, car_infos
     from src.sim.factories import create_game
 
     pygame.init()
-    world, _ = create_game(get_maze_car_config(), seed=1)
+    config = get_maze_car_config()
+    world, _ = create_game(config, seed=1)
     surface = pygame.Surface((260, 600))
     readouts = Readouts()
-    for stopped in (True, False):
-        odds = tuple([0.0, 0.5, 0.25, 0.0] * 3) if stopped else (1 / 12,) * 12
-        mode = ModeInfo(
-            "Live play", theme.TEXT, (), mind=MindInfo(odds, -0.3, stopped)
-        )
-        draw_game_panel(
-            surface, surface.get_rect(), world, car_infos(world),
-            mode=mode, readouts=readouts,
-        )
+    drawn = []
+    real = panels.draw_text
+
+    def spy(surface, text, *args, **kwargs):
+        drawn.append(text)
+        return real(surface, text, *args, **kwargs)
+
+    panels.draw_text = spy
+    try:
+        for stopped in (True, False):
+            odds = (
+                tuple([0.0, 0.5, 0.25, 0.0] * 3) if stopped
+                else (1 / 12,) * 12
+            )
+            mind = MindInfo(odds, -0.3, stopped, choice=5)
+            mode = ModeInfo("Live play", theme.TEXT, (), mind=mind)
+            panels.draw_car_panel(
+                surface, surface.get_rect(), world, car_infos(world),
+                config.hud, mode=mode, readouts=readouts,
+            )
+    finally:
+        panels.draw_text = real
+    assert "MIND · stopped: gas or reverse" in drawn and "MIND" in drawn
+    for label in ("left", "straight", "right", "gas", "coast", "rev"):
+        assert label in drawn
+
+
+def test_smoothing_glides_toward_new_values():
+    readouts = Readouts()
+    assert readouts.smooth("k", [0.0], now=0) == [0.0]  # first: as given
+    halfway = readouts.smooth("k", [1.0], now=208)[0]  # about 0.69 tau
+    assert 0.4 < halfway < 0.6
+    assert readouts.smooth("k", [1.0], now=3000)[0] > 0.99

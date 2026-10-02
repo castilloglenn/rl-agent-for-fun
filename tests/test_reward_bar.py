@@ -126,16 +126,20 @@ def test_the_agent_card_shows_gains_costs_and_the_biggest_cost():
     )
     panels.draw_text = spy
     try:
-        panels.draw_game_panel(
-            surface, pygame.Rect(16, 16, 250, 640), env.world, [], status
+        panels.draw_car_panel(
+            surface,
+            pygame.Rect(16, 16, 260, 640),
+            env.world,
+            [],
+            env.config.hud,
+            reward=status,
         )
     finally:
         panels.draw_text = real
-    assert "AGENT · p" in drawn
-    for text in ("Gains", "+3,901.0", "Costs", "-1,450.0", "Net"):
+    assert "REWARD · p" in drawn  # on the right, with the AI (7f10)
+    for text in ("Net", "Gains · costs", "+3,901.0 · -1,450.0"):
         assert text in drawn
     assert "contact -1,200.0" in drawn  # the biggest cost
-    assert any(t.startswith("step ") and t.endswith("/s") for t in drawn)
 
 
 def test_no_bottom_bar():

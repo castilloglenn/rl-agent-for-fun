@@ -82,6 +82,7 @@ class MindInfo:
     probabilities: tuple[float, ...]
     value: float
     stopped: bool
+    choice: int | None = None  # the action it picked
 
 
 @dataclass(frozen=True)
@@ -135,11 +136,23 @@ class CarInfo:
     score: Score
     health: float  # 0 (wrecked) .. 1 (full)
     stuck: float | None = None  # s since it last got closer (7f7)
+    # The remembered route (7f7): its waypoint's angle relative to the
+    # heading (+ left), and its distance.
+    waypoint: float | None = None
+    route_distance: float | None = None
 
 
-def _stuck(world: World, car: int) -> float | None:
+def _route(world: World, car: int, transform) -> dict:
     sense = world.try_component(car, route.RouteSense)
-    return None if sense is None else route.stuck_seconds(world, sense)
+    if sense is None or sense.goal is None or sense.waypoint is None:
+        return {}
+    x, y = sense.waypoint
+    bearing = math.degrees(math.atan2(-(y - transform.y), x - transform.x))
+    return {
+        "stuck": route.stuck_seconds(world, sense),
+        "waypoint": (bearing - transform.angle + 180) % 360 - 180,
+        "route_distance": sense.distance,
+    }
 
 
 def car_infos(world: World) -> list[CarInfo]:
@@ -157,7 +170,7 @@ def car_infos(world: World) -> list[CarInfo]:
             eliminated=world.try_component(car, Eliminated) is not None,
             score=score,
             health=health.share,
-            stuck=_stuck(world, car),
+            **_route(world, car, transform),
         )
         for car, (
             renderable,
@@ -414,12 +427,15 @@ def draw_game_panel(
     rect: Rect,
     world: World,
     cars: list[CarInfo],
-    reward: RewardStatus | None = None,
     mode: ModeInfo | None = None,
     readouts: instruments.Readouts | None = None,
+    display: tuple[float, int, bool] = (0.0, 60, False),
+    camera: str = "1:1",
+    hud: ConfigDict | None = None,
 ) -> None:
-    """Left: who's playing, which game, and how it's going, and, when an
-    agent drives, what it's thinking (MIND, 7f7).
+    """Left, the game (7f10): who's playing, which game, the score, the
+    leaderboard (or a replay's source), and the display. display: (fps,
+    target frame rate, vsync). camera: its mode, for example "fit 53 %".
     """
     readouts = readouts or instruments.Readouts()
     column = _Column(surface, rect)
@@ -441,64 +457,31 @@ def draw_game_panel(
     if car:
         column.row("Distance", f"+{car.score.distance_points:,.0f}")
         column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
+        column.row("Collected", str(car.score.checkpoints))
 
     if mode and mode.source:  # a replay: where it comes from, instead
         column.header("SOURCE")  # of a one-car leaderboard
         for label, value in mode.source:
             column.row(label, value)
-    if mode and mode.mind:  # an agent drives: what it's thinking
-        _draw_mind(column, mode.mind, readouts)
-    elif not (mode and mode.source):
+    else:
         column.header("LEADERBOARD")
         ranked = sorted(cars, key=lambda info: -info.score.total)
         for rank, info in enumerate(ranked, start=1):
             column.row(f"{rank}  {info.label}", f"{info.score.total:,.0f}")
 
-    # What an agent learns from, and the simulation it steps through.
-    # Its reward this game (decision 032), and the simulation it runs in.
-    title = f"AGENT · {reward.profile}" if reward else "AGENT"
-    width = column.right - column.left
-    column.header(_fit(title, width, theme.HEADER_SIZE, bold=True))
-    if reward:
-        gains, costs = reward_groups(reward)
-        column.row(
-            "Gains",
-            signed(sum(v for _, v in gains)),
-            colors=(theme.TEXT, theme.GOOD),
-        )
-        column.row(
-            "Costs",
-            signed(sum(v for _, v in costs)),
-            colors=(theme.TEXT, theme.BAD),
-        )
-        column.row("Net", signed(reward.total))
-        worst = next(((t, v) for t, v in costs if round(v, 1) < 0), None)
-        column.row(
-            "Biggest cost",
-            f"{worst[0]} {signed(worst[1])}" if worst else "none",
-            colors=(theme.TEXT_DIM, theme.TEXT_DIM),
-        )
-    else:
-        column.note("No reward profile")
-    step = world.resource(SimClock).step
+    fps, frame_rate, vsync = display
+    column.header("DISPLAY")
+    level = warnings.fps_level(fps, frame_rate, hud) if hud else 0
+    column.row(
+        "FPS",
+        f"{readouts.text('fps', fps, lambda v: f'{v:.0f}')}/{frame_rate}"
+        f" · vsync {'on' if vsync else 'off'}",
+        level,
+    )
     sim_rate = world.resource(SimConfig).steps_per_second
-    column.row("Sim", f"step {step:,} at {sim_rate}/s")
+    column.row("Camera", f"{camera} · sim {sim_rate}/s")
+    column.note("?  shortcuts  ·  O  settings")
     column.finish()
-
-
-# The MIND card's colors: steering as in the Agents tab's turning bar,
-# pedals as in the driving style charts.
-STEER_PARTS = (
-    ("left", "left", (90, 150, 230)),
-    ("none", "straight", (95, 100, 112)),
-    ("right", "right", (150, 110, 220)),
-)
-PEDAL_PARTS = (
-    ("gas", "gas", theme.GOOD),
-    ("none", "coast", (95, 100, 112)),
-    ("brake", "brake", theme.WARN),
-    ("reverse", "reverse", theme.BAD),
-)
 
 
 SPEED_INPUT = OBSERVATION_NAMES.index("speed")
@@ -513,54 +496,8 @@ def mind_of(driver) -> MindInfo | None:
         return None
     observation = getattr(driver, "observation", None)
     stopped = observation is not None and float(observation[SPEED_INPUT]) == 0
-    return MindInfo(tuple(probabilities), driver.value, stopped)
-
-
-def _draw_mind(column: "_Column", mind: MindInfo, readouts) -> None:
-    """Its next move's odds (steering, pedal) and its outlook (the value
-    head: how good it thinks things look), at its latest decision.
-    """
-    surface = column.surface
-    title = "MIND · stopped: gas or reverse" if mind.stopped else "MIND"
-    column.header(title)
-    steer, pedal = {}, {}
-    for name, p in zip(CANONICAL_NAMES, mind.probabilities):
-        s, d = name.split("+")
-        steer[s] = steer.get(s, 0.0) + p
-        pedal[d] = pedal.get(d, 0.0) + p
-    for label, odds, parts in (
-        ("Steer", steer, STEER_PARTS),
-        ("Pedal", pedal, PEDAL_PARTS),
-    ):
-        key, shown, _ = max(parts, key=lambda part: odds.get(part[0], 0))
-        _instrument_row(
-            column,
-            label,
-            readouts.text(
-                f"mind_{label}",
-                0.0,
-                lambda _, k=key, n=shown: f"{n} {odds.get(k, 0):.0%}",
-                mean=False,
-            ),
-            theme.TEXT,
-            lambda area, o=odds, ps=parts: instruments.draw_segments(
-                surface,
-                Rect(area.x, area.centery - 4, area.w, 8),
-                [(o.get(k, 0.0), color) for k, _, color in ps],
-            ),
-        )
-    peak = readouts.peak("outlook", mind.value)
-    _instrument_row(
-        column,
-        "Outlook",
-        readouts.text("outlook", mind.value, lambda v: f"{v:+.2f}"),
-        theme.GOOD if mind.value >= 0 else theme.BAD,
-        lambda area: instruments.draw_center_gauge(
-            surface,
-            Rect(area.x, area.centery - 4, area.w, 8),
-            mind.value / peak,
-        ),
-    )
+    choice = getattr(driver, "choice", None)
+    return MindInfo(tuple(probabilities), driver.value, stopped, choice)
 
 
 def reward_groups(reward: RewardStatus) -> tuple[list, list]:
@@ -592,14 +529,13 @@ def draw_car_panel(
     world: World,
     cars: list[CarInfo],
     hud: ConfigDict,
-    display: tuple[float, int, bool] = (0.0, 60, False),
-    camera: str = "1:1",
+    reward: RewardStatus | None = None,
+    mode: ModeInfo | None = None,
     readouts: instruments.Readouts | None = None,
 ) -> None:
-    """Right: the car's live instruments, next to the field, and the
-    display. display: (fps, target frame rate, vsync). camera: its mode
-    (step 7b), for example "fit 53 %". readouts: the window's steady
-    numbers (7f3: a mean, redrawn 4 times a second).
+    """Right, the car and its AI (7f10): CAR (the body), SENSES (all it
+    perceives, in one radar), MIND (what an agent thinks, when one
+    drives), and REWARD (what it earns).
     """
     readouts = readouts or instruments.Readouts()
     column = _Column(surface, rect)
@@ -613,6 +549,7 @@ def draw_car_panel(
 
     column.header("CAR")
     if car:
+        _draw_keys(column, car.action)  # beside the title
         level = warnings.speed_level(
             _ahead_distance(car), car.speed, stop_distance
         )
@@ -637,81 +574,81 @@ def draw_car_panel(
             theme.TEXT,
             lambda area: instruments.draw_slider(surface, area, car.steering),
         )
-        _instrument_row(
-            column,
-            "Heading",
-            readouts.text(
-                "heading", car.heading, lambda v: f"{v:.0f}°", mean=False
-            ),
-            theme.TEXT,
-            lambda area: instruments.draw_dial(
-                surface, (area.x + 8, area.centery), 8, car.heading
-            ),
-        )
-        x = readouts.text("x", car.center[0], lambda v: f"{v:.0f}")
-        y = readouts.text("y", car.center[1], lambda v: f"{v:.0f}")
-        column.row("Position", f"{x}, {y}")
-        _draw_inputs(column, car.action)
     else:
         column.note("No car")
     column.gap()
 
-    column.header("SENSORS")
+    column.header("SENSES")
     if car:
-        levels = warnings.ray_levels(
-            car.rays, car.speed, sim.brake_deceleration, hud
-        )
-        radius = 50
-        center = ((column.left + column.right) // 2, column.y + radius + 4)
-        closest = instruments.draw_radar(
-            surface, center, radius, car.rays, levels, car.speed,
-            stop_distance,
-        )
-        column.y += 2 * radius + 12
-        if closest:
-            name, distance = closest
-            near = readouts.text(
-                "closest", distance, lambda v: f"{v:,.0f} px"
-            )
-            which = readouts.text(
-                "closest_ray",
-                0.0,
-                lambda _, n=name: instruments.ray_label(n),
-                mean=False,
-            )
-            column.note(
-                f"closest {near} · {which}",
-                warnings.value_color(levels.get(name, warnings.NORMAL)),
-            )
+        _draw_senses(column, world, car, hud, sim, stop_distance, readouts)
     column.gap()
 
-    column.header("OBJECTIVE")
-    checkpoint = nearest_checkpoint(world, car) if car else None
-    if checkpoint:
-        distance, relative = checkpoint
-        level = warnings.checkpoint_level(distance, hud)
-        color = warnings.value_color(level)
+    if mode and mode.mind:
+        _draw_mind(column, mode.mind, readouts)
 
-        def compass(area: Rect) -> None:
-            instruments.draw_arrow(
-                surface, (area.x + 8, area.centery), 8, relative, theme.ACCENT
-            )
-            bar = Rect(area.x + 24, area.centery - 3, area.w - 24, 6)
-            pygame.draw.rect(surface, theme.BAR_EMPTY, bar)
-            share = min(distance / instruments.RADAR_RANGE / 3, 1.0)
-            fill = Rect(bar.x, bar.y, round(bar.w * share), bar.h)
-            pygame.draw.rect(surface, color, fill)
-
-        _instrument_row(
-            column,
-            "Checkpoint",
-            readouts.text("checkpoint", distance, lambda v: f"{v:,.0f} px"),
-            color,
-            compass,
+    title = f"REWARD · {reward.profile}" if reward else "REWARD"
+    width = column.right - column.left
+    column.header(_fit(title, width, theme.HEADER_SIZE, bold=True))
+    if reward:
+        gains, costs = reward_groups(reward)
+        column.row("Net", signed(reward.total))
+        column.row(
+            "Gains · costs",
+            f"{signed(sum(v for _, v in gains))} · "
+            f"{signed(sum(v for _, v in costs))}",
+            colors=(theme.TEXT_DIM, theme.TEXT),
+        )
+        worst = next(((t, v) for t, v in costs if round(v, 1) < 0), None)
+        column.row(
+            "Biggest cost",
+            f"{worst[0]} {signed(worst[1])}" if worst else "none",
+            colors=(theme.TEXT_DIM, theme.TEXT_DIM),
         )
     else:
-        column.row("Checkpoint", DASH)
-    if car and car.stuck is not None:
+        column.note("No reward profile")
+    column.finish()
+
+
+RADAR = 38  # px: the SENSES radar's radius
+
+
+def _draw_senses(column, world, car, hud, sim, stop_distance, readouts):
+    """The radar (rays, the stopping arc, the compass's green arrow and
+    the route's violet diamond on the rim), the distances, and the stuck
+    bar.
+    """
+    surface = column.surface
+    levels = warnings.ray_levels(
+        car.rays, car.speed, sim.brake_deceleration, hud
+    )
+    checkpoint = nearest_checkpoint(world, car)
+    center = ((column.left + column.right) // 2, column.y + RADAR + 14)
+    instruments.draw_radar(
+        surface,
+        center,
+        RADAR,
+        car.rays,
+        levels,
+        car.speed,
+        stop_distance,
+        compass=checkpoint[1] if checkpoint else None,
+        waypoint=car.waypoint,
+    )
+    column.y += 2 * RADAR + 28
+    if checkpoint:
+        distance = checkpoint[0]
+        straight = readouts.text("checkpoint", distance, lambda v: f"{v:,.0f}")
+        text = f"checkpoint {straight} px"
+        if car.route_distance is not None:
+            path = readouts.text(
+                "route", car.route_distance, lambda v: f"{v:,.0f}"
+            )
+            text += f" · route {path} px"
+        level = warnings.checkpoint_level(distance, hud)
+        column.note(text, warnings.value_color(level))
+    else:
+        column.note(f"checkpoint {DASH}")
+    if car.stuck is not None:
         stuck = car.stuck
 
         def timer(area: Rect) -> None:
@@ -730,18 +667,72 @@ def draw_car_panel(
             theme.TEXT_DIM if stuck < 1 else theme.WARN,
             timer,
         )
-    column.row("Collected", str(car.score.checkpoints) if car else DASH)
 
-    fps, frame_rate, vsync = display
-    column.header("DISPLAY")
-    column.row(
-        "FPS",
-        f"{readouts.text('fps', fps, lambda v: f'{v:.0f}')}/{frame_rate}",
-        warnings.fps_level(fps, frame_rate, hud),
+
+# MIND (7f10): the 12 actions as a grid, steering across, pedal down.
+GRID_STEER = ("left", "none", "right")
+GRID_PEDAL = ("gas", "none", "brake", "reverse")
+STEER_LABELS = ("left", "straight", "right")
+PEDAL_LABELS = ("gas", "coast", "brake", "rev")
+CELL_H = 16
+GRID_LABEL = 52  # px for the pedal names
+
+
+def _draw_mind(column: "_Column", mind: MindInfo, readouts) -> None:
+    """Its odds for each of the 12 actions (smoothed over about 0.3 s:
+    brighter is likelier), the one it picked outlined, the ones a stopped
+    car can't pick crossed out, and its outlook (the value head).
+    """
+    surface = column.surface
+    title = "MIND · stopped: gas or reverse" if mind.stopped else "MIND"
+    column.header(title)
+    odds = readouts.smooth("mind", mind.probabilities)
+    left = column.left + GRID_LABEL
+    width = (column.right - left) // len(GRID_STEER)
+    for i, label in enumerate(STEER_LABELS):
+        draw_text(
+            surface, label, (left + width * i + width // 2, column.y),
+            theme.HEADER_SIZE, theme.TEXT_DIM, anchor="midtop",
+        )
+    column.y += 16
+    for row, pedal in enumerate(GRID_PEDAL):
+        y = column.y + row * CELL_H
+        draw_text(
+            surface, PEDAL_LABELS[row], (column.left, y + CELL_H // 2),
+            theme.HEADER_SIZE, theme.TEXT_DIM, anchor="midleft",
+        )
+        blocked = mind.stopped and pedal not in ("gas", "reverse")
+        for col, steer in enumerate(GRID_STEER):
+            index = CANONICAL_NAMES.index(f"{steer}+{pedal}")
+            cell = Rect(
+                left + width * col + 1, y + 1, width - 2, CELL_H - 2
+            )
+            share = min(max(odds[index], 0.0), 1.0) ** 0.5  # small ones show
+            color = tuple(
+                round(a + (b - a) * share)
+                for a, b in zip(theme.BAR_EMPTY, theme.ACCENT)
+            )
+            pygame.draw.rect(surface, color, cell)
+            if blocked:
+                pygame.draw.line(
+                    surface, theme.TEXT_DIM, cell.topleft, cell.bottomright
+                )
+            if index == mind.choice:
+                pygame.draw.rect(surface, theme.TEXT, cell, 1)
+    column.y += len(GRID_PEDAL) * CELL_H + 6
+    value = readouts.smooth("outlook", (mind.value,))[0]
+    peak = readouts.peak("outlook", value)
+    _instrument_row(
+        column,
+        "Outlook",
+        readouts.text("outlook", value, lambda v: f"{v:+.2f}"),
+        theme.GOOD if value >= 0 else theme.BAD,
+        lambda area: instruments.draw_center_gauge(
+            surface,
+            Rect(area.x, area.centery - 4, area.w, 8),
+            value / peak,
+        ),
     )
-    column.row("Camera", f"{camera} · vsync {'on' if vsync else 'off'}")
-    column.note("?  shortcuts  ·  O  settings")
-    column.finish()
 
 
 LABEL_WIDTH = 86  # an instrument row's label column
@@ -781,15 +772,10 @@ def _ahead_distance(car: CarInfo) -> float | None:
     return next((ray.distance for ray in car.rays if ray.name == name), None)
 
 
-def _draw_inputs(column: _Column, action: ActionInput) -> None:
-    """Keys as text: pressed keys are bright and bold, others dim."""
-    draw_text(
-        column.surface,
-        "Inputs",
-        (column.left, column.y),
-        theme.TEXT_SIZE,
-        theme.TEXT_DIM,
-    )
+def _draw_keys(column: _Column, action: ActionInput) -> None:
+    """The keys pressed, right of the card's title: bright and bold when
+    pressed, dim otherwise (the agent's keys, or yours taking over).
+    """
     keys = (
         ("W", action.gas),
         ("A", action.turn_left),
@@ -797,16 +783,15 @@ def _draw_inputs(column: _Column, action: ActionInput) -> None:
         ("D", action.turn_right),
         ("SPACE", action.brake),
     )
-    x = column.right
+    x, y = column.right, column.y - theme.LINE_HEIGHT
     for letter, pressed in reversed(keys):
-        rect = draw_text(
+        shown = draw_text(
             column.surface,
             letter,
-            (x, column.y),
-            theme.TEXT_SIZE,
+            (x, y),
+            theme.HEADER_SIZE,
             theme.ACCENT if pressed else theme.TEXT_DIM,
             bold=pressed,
             anchor="topright",
         )
-        x = rect.left - 10
-    column.y += theme.LINE_HEIGHT
+        x = shown.left - 8

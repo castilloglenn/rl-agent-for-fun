@@ -31,6 +31,7 @@ class AgentDriver(Driver):
         self.probabilities: list[float] | None = None
         self.value = 0.0
         self.observation: np.ndarray | None = None
+        self.choice: int | None = None  # the action it picked
         self._steps = 0
         self._action: Action = CANONICAL_ACTIONS[0]
         self._generator = torch.Generator().manual_seed(seed or 0)
@@ -53,6 +54,7 @@ class AgentDriver(Driver):
                         probabilities, 1, generator=self._generator
                     )
                 )
+            self.choice = index
             self._action = CANONICAL_ACTIONS[index]
         self._steps += 1
         return self._action
