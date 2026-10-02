@@ -25,7 +25,7 @@ from pygame import Rect
 from pygame_gui.elements import UIButton
 
 from src.control import actions, choices, help, runs
-from src.control.actions import REWARD, RULES, SECONDS, TRAIN_STAGE, Field
+from src.control.actions import REWARD, RULES, SECONDS, Field
 from src.control.form import Form
 from src.control.jobs import JobManager
 from src.control.text import PAD, fit, header, wrap
@@ -56,6 +56,32 @@ DESCRIPTION = (
     "the Commands tab's actions, and the Runs tab follows it."
 )
 MAX_STEPS = 6  # plan steps shown
+
+
+# What worked for the game's basic controls (7f17): the finetune trainer
+# up the skills curriculum. The Commands tab still offers every trainer,
+# stage, and mix; this form keeps to these until the new features.
+LEFT_OUT_TRAINERS = ("default",)
+
+
+def _trainers() -> list[str]:
+    """The RL trainers, without the ones left out here."""
+    return [
+        name
+        for name in actions._trainers("rl")()
+        if name not in LEFT_OUT_TRAINERS
+    ]
+
+
+def _curricula() -> list:
+    """Only curricula: training goes up from the easy maps by itself."""
+    return [
+        choices.Choice(name, f"curriculum: {getattr(name, 'label', name)}")
+        for name in choices.named("curricula")
+    ]
+
+
+TRAIN_STAGE = Field("Stage", _curricula, "skills")
 
 
 def _starts(also: str = "") -> list[str]:
@@ -98,7 +124,7 @@ def form_fields(
         ]
     if uses_rl(mode):
         fields += [
-            Field("Trainer", actions._trainers("rl"), "default"),
+            Field("Trainer", _trainers, "finetune"),
             TRAIN_STAGE,
             RULES,
             SECONDS,

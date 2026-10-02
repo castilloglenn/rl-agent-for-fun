@@ -359,3 +359,15 @@ def test_the_form_suggests_it_and_moves_on_once_its_taken(tmp_path):
     tab.rebuild()
     assert tab.values()["Name"] == "rookie"
     center.jobs.stop_all()
+
+
+def test_the_form_trains_with_finetune_up_the_curriculum_only():
+    """7f17: what worked for the basic controls, until the new features."""
+    from src.control.training_tab import form_fields
+
+    fields = {f.name: f for f in form_fields(RL, NEW_AGENT, FRESH)}
+    trainers = [str(o) for o in fields["Trainer"].options()]
+    assert "default" not in trainers and "finetune" in trainers
+    assert fields["Trainer"].default == "finetune"
+    stages = [str(o) for o in fields["Stage"].options()]
+    assert stages == ["skills"] and fields["Stage"].default == "skills"
