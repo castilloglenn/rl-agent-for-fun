@@ -12,7 +12,7 @@ With a wall between the car and the checkpoint, agents pushed into the wall unti
 - **The remembered route distance,** refreshed with the waypoint.
 - **A stuck timer:** seconds since the car last got 10 px closer along the route than it had been to this checkpoint, read as 0 to 1 over 10 s.
 - **The observation grows from 19 to 23 numbers** (`route_distance`, `route_sin`, `route_cos`, `stuck`, after the checkpoint compass). The straight compass stays. The heuristic doesn't use them, so it stays the 1.0 bar, and agents can now pass it in mazes.
-- **It's general for any target:** fuel (step 9) gets the same sensor per fuel slot, and the agent learns from the reward which comes first. The route knows only the map's walls; other cars (step 8) are for the rays, so it never needs updating for them.
+- **It's general for any target:** fuel (step 9) gets the same sensor per fuel slot, and the agent learns from the reward which comes first. The route knows only the map's walls; other cars (step 10) are for the rays, so it never needs updating for them.
 - **Where:** a `RouteSense` component on the car, updated when the observation is built (once a step); a plain simulation never pays for it, and the behavior fixtures don't change. One route-field cache (`RouteFields`, in the world) serves both this sense and the progress reward, so training computes nothing more than before.
 
 ## Consequences

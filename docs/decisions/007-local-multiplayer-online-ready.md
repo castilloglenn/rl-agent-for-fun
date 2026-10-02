@@ -1,6 +1,6 @@
 # 007: Local multiplayer now, designed to go online later
 
-**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap step 8).
+**Date:** 2026-09-25. **Status:** Accepted, not implemented (roadmap step 10).
 
 ## Context
 

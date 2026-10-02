@@ -18,4 +18,4 @@ Crash = game over (step 3f) makes the growing box unacceptable: a diagonal car w
 
 - Position becomes a float center point, and the hitbox is the 4 rotated corners.
 - In the box map, a corner check against the field is exact.
-- SAT comes later with inner walls (step 7) and car-vs-car collision (step 8). See [roadmap](../roadmap.md).
+- SAT comes later with inner walls (step 7) and car-vs-car collision (step 10). See [roadmap](../roadmap.md).

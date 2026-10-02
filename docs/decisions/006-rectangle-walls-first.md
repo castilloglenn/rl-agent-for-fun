@@ -14,7 +14,7 @@ Maps (roadmap step 7) need walls, and the map editor (also step 7) needs to draw
 
 ## Decision
 
-Start with axis-aligned rectangle walls, stored as `[x, y, width, height]` in stage files ([decision 009](009-stage-format-and-spawn-schedules.md)). Add line segment walls later (roadmap step 8), alongside SAT collision.
+Start with axis-aligned rectangle walls, stored as `[x, y, width, height]` in stage files ([decision 009](009-stage-format-and-spawn-schedules.md)). Add line segment walls later (roadmap step 10), alongside SAT collision.
 
 ## Consequences
 
