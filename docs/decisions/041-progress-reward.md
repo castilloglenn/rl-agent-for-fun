@@ -22,3 +22,5 @@ The default reward was the game score (+1 per 10 px driven forward, +100 per che
 - The path is only computed for a profile that uses `progress`: about 9 % slower steps on the box, 12 % on the arena (measured 2026-09-30, heuristic driver), and a path field per new checkpoint (about 3 ms on a box-sized stage with walls, 10 ms on the arena).
 - The `time_bonus` profile is gone (you weren't using it; `default` is being built first). Its `checkpoint_speed` term stays, for a profile that wants it later.
 - To see if it works: train an agent on the new default and compare it with one trained on the old (its runs and the suite).
+
+**Update (7f11):** the progress weight is 1.0 per px since [decision 067](067-progress-pays-more.md): at 0.1 the wall costs outweighed following the route.

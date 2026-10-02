@@ -67,7 +67,7 @@ def test_default_profile_is_progress_checkpoints_and_wall_penalties():
     profile = load_reward_profile("default")
     assert profile.name == "default"
     assert dict(profile.terms) == {
-        "progress": 0.1,
+        "progress": 1.0,  # 7f11: was 0.1, outweighed by the wall costs
         "checkpoints": 500.0,
         "contact": -100.0,
         "damage": -1000.0,
@@ -75,14 +75,14 @@ def test_default_profile_is_progress_checkpoints_and_wall_penalties():
         "stopped": -0.25,
     }
     assert profile(_events(points=3)) == 0  # the score isn't the lesson
-    assert profile(_events(progress=3.0)) == pytest.approx(0.3)
+    assert profile(_events(progress=3.0)) == pytest.approx(3.0)
     # Reversing closer pays nothing (agent-1 learned to drive backward
     # when it paid half); farther still costs in full.
     assert profile(_events(progress=3.0, reversing=True)) == 0
     assert profile(_events(progress=-3.0, reversing=True)) == pytest.approx(
-        -0.3
+        -3.0
     )
-    assert profile(_events(progress=-3.0)) == pytest.approx(-0.3)
+    assert profile(_events(progress=-3.0)) == pytest.approx(-3.0)
     assert profile(_events(checkpoints=1)) == 500
     assert profile(_events(stopped=True)) == -0.25  # idle or pinned
     assert profile(_events(contacts=1)) == -100  # a harmless bump
