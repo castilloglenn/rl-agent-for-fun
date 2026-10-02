@@ -68,6 +68,9 @@ flags.DEFINE_string(
     "trainer", "default", "Trainer: a name in trainers/, or a path."
 )
 flags.DEFINE_boolean("record", True, "Record your demo rounds (--norecord).")
+flags.DEFINE_boolean(
+    "corrections", False, "Watching an agent: save your takeovers (7g)."
+)
 flags.DEFINE_boolean("list_recordings", False, "List recorded demo rounds.")
 flags.DEFINE_boolean("replay_last", False, "Watch the newest recording.")
 flags.DEFINE_string("best_replay", "", "Watch a run's best replay (folder).")

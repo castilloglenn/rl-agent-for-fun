@@ -236,16 +236,35 @@ def _dispatch(cl_args) -> None:
 
                 MazeCarDemo(
                     config,
-                    driver=cl_args.driver,
+                    driver=_correcting(cl_args),
                     player=cl_args.player,
                     reward=cl_args.reward,
                     round_seconds=cl_args.round_seconds,
                     record=cl_args.record,
+                    corrections=cl_args.corrections,
                 )
             case _:
                 pass
     else:
         Main()
+
+
+def _correcting(cl_args) -> str:
+    """The driver. Correcting an agent (7g) watches its newest checkpoint,
+    the one the next training continues, not its best.
+    """
+    driver = cl_args.driver
+    if not cl_args.corrections or "@" in driver:
+        return driver
+    from src.agents.store import AgentError, load_agent
+
+    agent = driver.removeprefix("agent:")
+    try:
+        newest = load_agent(agent).checkpoint
+    except AgentError as error:
+        raise SystemExit(str(error))
+    print(f"Correcting {agent}@{newest} (its newest checkpoint)", flush=True)
+    return f"agent:{agent}@{newest}"
 
 
 def _heavy(cl_args) -> bool:

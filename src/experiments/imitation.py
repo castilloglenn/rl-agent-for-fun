@@ -266,10 +266,12 @@ def _split(
 
 
 def _tensors(rounds: list[Round], trainer: ImitationSpec):
-    x = torch.as_tensor(np.concatenate([r.observations for r in rounds]))
-    y = torch.as_tensor(np.concatenate([r.actions for r in rounds]))
+    """Every round's samples, a corrected round's `weight` times (7g)."""
+    copies = [r for r in rounds for _ in range(r.weight)]
+    x = torch.as_tensor(np.concatenate([r.observations for r in copies]))
+    y = torch.as_tensor(np.concatenate([r.actions for r in copies]))
     returns = torch.as_tensor(
-        np.concatenate([_returns(r.rewards, trainer) for r in rounds])
+        np.concatenate([_returns(r.rewards, trainer) for r in copies])
     )
     return x, y, returns
 

@@ -71,6 +71,13 @@ def problems(cl_args, config, root: Path = named_files.REPO) -> list[str]:
         found += _named("models", cl_args.model, "--model", root)
     if command in ("eval", "eval_baselines", "showcase"):
         found += _named("suites", cl_args.suite, "--suite", root)
+    if getattr(cl_args, "corrections", False) and not (
+        command == "demo" and cl_args.driver.startswith("agent:")
+    ):
+        found.append(
+            "--corrections: only while watching an agent "
+            "(-demo maze_car --driver agent:<id>)"
+        )
     if command in DRIVEN:  # recording names its driver in its own flag
         driver = (
             cl_args.record_rounds

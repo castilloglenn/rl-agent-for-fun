@@ -112,6 +112,11 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
                     "ones you kept (K after a round)."),
         "min_score": ("points", "Rounds that scored below this are left "
                       "out, so the clone learns from good driving."),
+        "also": ("", "More players' recordings in the same dataset, for "
+                 "example the heuristic's with your corrections."),
+        "correction_weight": ("times", "How many times a corrected moment "
+                              "counts: a few would be lost among the "
+                              "heuristic's thousands."),
     },
     "curricula": {
         "name": ("", "The file's name. Pick it as the Stage (\"curriculum: "

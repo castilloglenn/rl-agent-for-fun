@@ -9,7 +9,8 @@
 	resume_last eval eval_baselines agents agent dataset imitate \
 	showcase showcase_all control vitals stop_all delete_run trash restore \
 	empty_trash delete_agent keep unkeep delete_recording edit_map \
-	record_heuristic imitate_heuristic train_curriculum
+	record_heuristic imitate_heuristic train_curriculum correct \
+	imitate_corrections
 
 require = $(if $($(1)),,$(error $(1) is required, e.g. make $@ $(1)=$(2)))
 
@@ -64,6 +65,8 @@ help:
 	@echo "  make imitate AGENT=id                clone your driving into an agent (datasets/mine.json)"
 	@echo "  make record_heuristic STAGE=basics   record 50 heuristic rounds (a stage or mix) for imitation"
 	@echo "  make imitate_heuristic AGENT=id      clone the heuristic's recorded driving (datasets/heuristic.json)"
+	@echo "  make correct AGENT=id                watch it with REC corrections: take over where it goes wrong"
+	@echo "  make imitate_corrections AGENT=id    learn your corrections (then train again)"
 	@echo "Files"
 	@echo "  make delete_run RUN=folder           move a run into the trash (its checkpoints stay)"
 	@echo "  make delete_agent AGENT=id           move an agent and its runs into the trash"
@@ -261,6 +264,15 @@ record_heuristic:
 imitate_heuristic:
 	$(call require,AGENT,my_clone)
 	python app.py -imitate $(AGENT) --dataset heuristic
+
+correct:
+	$(call require,AGENT,my_agent)
+	clear
+	python app.py -demo maze_car --driver agent:$(AGENT) --corrections
+
+imitate_corrections:
+	$(call require,AGENT,my_agent)
+	python app.py -imitate $(AGENT) --dataset corrections --imitation_trainer correct
 
 control:
 	python app.py -control

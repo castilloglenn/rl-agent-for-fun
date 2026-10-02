@@ -9,7 +9,11 @@ from src.envs.maze_car.env import MazeCarEnv
 from src.render import theme
 from src.render.map_picker import MapChoice
 from src.render.panels import LIVE_SHORTCUTS, ModeInfo, mind_of
-from src.replay.recordings import LibraryRecorder, RecordingLibrary
+from src.replay.recordings import (
+    CorrectionRecorder,
+    LibraryRecorder,
+    RecordingLibrary,
+)
 from src.replay.viewer import TRAIL_EVERY
 from src.sim.components import Transform
 from src.sim.resources import Rng, RoundState, SimClock
@@ -31,8 +35,9 @@ RECORDING_SHORTCUTS = (
 )
 # Watching a driver (not the keyboard): T shows its trail, as in replays.
 WATCH_SHORTCUTS = (
-    ("W A S D / arrows", "take over while held (testing only)"),
+    ("W A S D / arrows", "take over while held"),
     ("SPACE", "brake, taking over"),
+    ("C", "an agent: REC corrections (save your takeovers)"),
     *LIVE_SHORTCUTS[2:-2],
     ("T", "trail: where the car has been"),
     *LIVE_SHORTCUTS[-2:],
@@ -56,13 +61,16 @@ class MazeCarDemo:
         autorun: bool = True,
         stage=None,
         test_drive: str = "",
+        corrections: bool = False,
+        corrections_root=None,
     ) -> None:
         """round_seconds: above 0, overrides the rules' round length (the
         rules get a new name, so leaderboards don't mix them). autorun:
         start the window loop at once (tests step it with `frame`).
         stage: play this Stage instead of `config.stage`. test_drive: the
         map editor's (7c2) label, for example "saved": never recorded, and
-        T or Esc then Enter goes back to the editor.
+        T or Esc then Enter goes back to the editor. corrections: watching
+        an agent, start with REC corrections on (C toggles it, 7g).
         """
         self.test_drive = test_drive
         if test_drive:
@@ -78,6 +86,14 @@ class MazeCarDemo:
             self.recorder = LibraryRecorder(
                 {"1": self.driver.record()}, RecordingLibrary(player)
             )
+        # Watching an agent: your takeovers can be saved as corrections
+        # (7g). C arms it; only rounds you took over in are saved.
+        self.corrections = None
+        if getattr(self.driver, "agent", None) is not None and not test_drive:
+            self.corrections = CorrectionRecorder(
+                {"1": self.driver.record()}, corrections_root
+            )
+            self.corrections.armed = corrections
         self.config, self.rules, self.reward = config, rules, reward
         self._build_env(stage)
         if test_drive:
@@ -117,7 +133,7 @@ class MazeCarDemo:
             random_seeds=True,
             reward=self.reward,
             rules=self.rules,
-            recorder=self.recorder,
+            recorder=self.recorder or self.corrections,
             stage=stage,
         )
 
@@ -134,6 +150,7 @@ class MazeCarDemo:
 
     def play_map(self, name: str) -> None:
         """A fresh round on another map, with the same driver."""
+        self.env.finish_recording()  # a round of corrections: saved first
         self._build_env(load_stage(name))
         self._offer_maps(name)
         self.paused = False
@@ -176,6 +193,8 @@ class MazeCarDemo:
             self.recorder.keep_last()
         if pygame.K_p in keys:
             self.paused = not self.paused
+        if self.corrections and pygame.K_c in keys:
+            self.corrections.armed = not self.corrections.armed
         # Pump first so the key state is current for this frame.
         # Pumping leaves the events queued for the renderer.
         pygame.event.pump()
@@ -200,6 +219,9 @@ class MazeCarDemo:
                 if taking:
                     action = yours
                     self.override_steps += 1
+                    if self.corrections:  # your stretch, for expert labels
+                        step = self.env.world.resource(SimClock).step
+                        self.corrections.mark(step)
                 self.env.step_world(action)
                 self._grow_trail()
         alpha = 1.0 if frozen or self.waiting else self.clock.alpha
@@ -235,6 +257,15 @@ class MazeCarDemo:
                     f"Live play · you took over {self.takeovers}x "
                     f"({self.override_steps / sps:.0f} s)"
                 )
+            if self.corrections and self.corrections.armed and not (
+                self.overriding
+            ):
+                saved = self.corrections.saved_count
+                label = (
+                    f"REC corrections · {self.takeovers} this round, "
+                    f"{saved} saved"
+                )
+                color = theme.BAD
             return ModeInfo(
                 label,
                 color,

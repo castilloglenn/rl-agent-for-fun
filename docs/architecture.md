@@ -185,6 +185,8 @@ agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 
 `build_dataset(spec, action_repeat)` re-simulates a player's recordings (`datasets/<name>.json`: player, all or kept, min score) into samples: the observation at each decision step, labeled with the most-pressed action over that decision's steps. The idle wait before the first key is left out, and recordings that don't verify are skipped with the reason. `imitate(agent, trainer, dataset, config)` trains the policy on them (cross-entropy), and the value head on the discounted rewards, holding out whole rounds for checking. It saves `clone-e<epochs>`, records an `imitation` phase, and scores the clone. See [decision 019](decisions/019-imitation-agents.md).
 
+**Corrections** (7g, [decision 068](decisions/068-expert-labelling.md)): `CorrectionRecorder` saves a watched agent's rounds you took over in, with `"takeovers"` (step ranges) in the end line; `build_dataset` keeps only those decisions from such a recording, a dataset's `also` adds players, and its `correction_weight` repeats corrected rounds' samples in training.
+
 `record_rounds(driver, config, rounds)` (`src/experiments/driver_rounds.py`, 7c15) plays any driver but the keyboard headless and saves each round to `recordings/<Player>/` like yours (a mix: its maps in turn), so `datasets/heuristic.json` clones the heuristic ([decision 054](decisions/054-imitate-the-heuristic.md)).
 
 ### Showcase (`src/experiments/showcase.py`)

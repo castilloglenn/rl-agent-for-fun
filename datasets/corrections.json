@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "corrections",
+  "description": "Your corrections (watching an agent with C: REC corrections, only the moments you drove), each counted 10 times, with the heuristic's recorded driving so the fixes don't erase the rest.",
+  "player": "Corrections",
+  "also": ["Heuristic"],
+  "include": "all",
+  "min_score": 0,
+  "correction_weight": 10
+}

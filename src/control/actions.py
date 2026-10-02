@@ -350,6 +350,21 @@ ACTIONS = (
         lambda v: ["-demo", "maze_car", "--driver", v["Driver"], *_game(v)],
         opens_window=True,
     ),
+    Action(
+        "Correct an agent",
+        "Agents",
+        "Watch an agent (its newest checkpoint) with REC corrections on: "
+        "hold a driving key to take over where it goes wrong; the rounds "
+        "you took over in are saved for the corrections dataset (C turns "
+        "it off and on). Then Clone your driving with dataset corrections "
+        "and trainer correct, and train again.",
+        (Field("Agent", choices.agents), STAGE, RULES, SECONDS, REWARD),
+        lambda v: [
+            "-demo", "maze_car", "--driver", f"agent:{v['Agent']}",
+            "--corrections", *_game(v),
+        ],
+        opens_window=True,
+    ),
     # Replays
     Action(
         "Watch a replay",
@@ -654,6 +669,8 @@ MAKE_TARGETS = {
     "maze_car_random": "Watch a driver",
     "maze_car_driver": "Watch a driver",
     "maze_car_agent": "Watch a driver",
+    "correct": "Correct an agent",
+    "imitate_corrections": "Clone your driving",
     "replay": "Watch a replay",
     "replay_last": "Watch newest recording",
     "recordings": "List recordings",

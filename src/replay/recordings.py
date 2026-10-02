@@ -182,3 +182,46 @@ def latest_recording(root: Path | None = None) -> Path:
     if not files:
         raise FileNotFoundError("no recordings yet: drive with make maze_car")
     return max(files, key=_age_order)
+
+
+CORRECTIONS = "Corrections"  # the player your corrections are saved as
+CORRECTIONS_KEPT = 1000  # rounds kept: precious, unlike everyday driving
+
+
+class CorrectionRecorder(LibraryRecorder):
+    """Expert labelling (7g, decision 068): records a watched agent's
+    rounds and, while `armed`, saves each round you took over in, with
+    your stretches marked in its end line ("takeovers": [[first step,
+    last step + 1], ...]), to recordings/Corrections/. Rounds you didn't
+    touch aren't saved.
+    """
+
+    def __init__(self, drivers: dict, root: Path | None = None) -> None:
+        library = RecordingLibrary(
+            CORRECTIONS, root=root, limit=CORRECTIONS_KEPT
+        )
+        super().__init__(drivers, library)
+        self.armed = False
+        self.takeovers: list[list[int]] = []
+        self.saved_count = 0
+
+    def on_reset(self, env) -> None:
+        super().on_reset(env)
+        self.takeovers = []
+
+    def mark(self, step: int) -> None:
+        """You drove this step."""
+        if self.takeovers and self.takeovers[-1][1] == step:
+            self.takeovers[-1][1] = step + 1
+        else:
+            self.takeovers.append([step, step + 1])
+
+    def on_finish(self, env, reason: str | None = None) -> None:
+        ReplayRecorder.on_finish(self, env, reason)
+        if not (self.armed and self.takeovers):
+            return
+        self.replay.end["takeovers"] = [list(t) for t in self.takeovers]
+        path = self.library.save(self.replay)
+        if path:
+            self.last_saved, self.last_kept = path, False
+            self.saved_count += 1

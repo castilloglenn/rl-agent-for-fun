@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "correct",
+  "description": "Expert labelling (7g): a short, gentle imitation phase on your corrections and the heuristic's driving, so it learns your fixes without forgetting what RL taught it. Then train with RL again.",
+  "algorithm": "imitation",
+  "learning_rate": 0.0003,
+  "epochs": 10,
+  "minibatch": 256,
+  "validation": 0.2,
+  "value": true,
+  "gamma": 0.99,
+  "reward_scale": 0.01,
+  "seed": 0,
+  "evaluate": true
+}

@@ -50,6 +50,12 @@ class DatasetSpec:
     min_score: float = 0.0
     description: str = ""
     format: int = DATASET_FORMAT
+    # More players' recordings in the same dataset (7g: your corrections
+    # with the heuristic's driving, so the fixes don't erase the rest).
+    also: tuple[str, ...] = ()
+    # How many times a corrected moment counts (7g): a few hundred would
+    # be lost among the heuristic's hundred thousand.
+    correction_weight: int = 10
 
     @staticmethod
     def from_dict(data: dict) -> "DatasetSpec":
@@ -57,7 +63,9 @@ class DatasetSpec:
             raise DatasetError(
                 f"unsupported dataset format {data.get('format')!r}"
             )
-        spec = DatasetSpec(**data)
+        spec = DatasetSpec(**{**data, "also": tuple(data.get("also", ()))})
+        if spec.correction_weight < 1:
+            raise DatasetError("correction_weight is a whole number, 1 up")
         if spec.include not in INCLUDE:
             raise DatasetError(
                 f"include must be one of {', '.join(INCLUDE)}, "
@@ -73,6 +81,8 @@ class DatasetSpec:
             "player": self.player,
             "include": self.include,
             "min_score": self.min_score,
+            "also": list(self.also),
+            "correction_weight": self.correction_weight,
         }
 
 
@@ -96,6 +106,7 @@ class Round:
     observations: np.ndarray  # (decisions, observation size), float32
     actions: np.ndarray  # (decisions,) canonical action indices
     rewards: np.ndarray  # (decisions,) reward profile, summed per decision
+    weight: int = 1  # how many times each sample counts (7g corrections)
 
 
 @dataclass
@@ -116,10 +127,13 @@ class Dataset:
 
 
 def recording_paths(spec: DatasetSpec, root: Path | None = None) -> list[Path]:
-    library = RecordingLibrary(spec.player, root=root or RECORDINGS_DIR)
-    paths = library.kept()
-    if spec.include == "all":
-        paths = library.recent() + paths
+    paths = []
+    for player in (spec.player, *spec.also):
+        library = RecordingLibrary(player, root=root or RECORDINGS_DIR)
+        found = library.kept()
+        if spec.include == "all":
+            found = library.recent() + found
+        paths += found
     return paths
 
 
@@ -148,6 +162,8 @@ def build_dataset(
             dataset.skipped.append((path, f"score {score:,.0f} below min"))
             continue
         round_ = _samples(path, replay, action_repeat)
+        if not isinstance(round_, str) and end.get("takeovers"):
+            round_.weight = spec.correction_weight
         if isinstance(round_, str):
             dataset.skipped.append((path, round_))
         else:
@@ -158,12 +174,13 @@ def build_dataset(
 def _samples(path: Path, replay, repeat: int) -> "Round | str":
     replayer = Replayer(replay)
     env = replayer.env
-    observations, actions, rewards = [], [], []
+    observations, actions, rewards, starts = [], [], [], []
     window: list[int] = []
     reward = 0.0
     while not replayer.done:
         if replayer.step_index % repeat == 0:
             observations.append(env.last_observation.copy())
+            starts.append(replayer.step_index)
         window.append(canonical_index(replayer.next_action()))
         replayer.step()
         reward += env.last_reward
@@ -175,17 +192,34 @@ def _samples(path: Path, replay, repeat: int) -> "Round | str":
     check = replayer.verify()
     if not check.ok:
         return "doesn't verify: " + "; ".join(check.problems)
-    # The wait before the player's first key is reaction time, not
-    # driving: learning it teaches a stopped car to stay stopped.
-    idle = canonical_index((False,) * 5)
-    first = next((i for i, a in enumerate(actions) if a != idle), None)
-    if first is None:
-        return "no keys pressed"
-    observations, actions, rewards = (
-        observations[first:],
-        actions[first:],
-        rewards[first:],
-    )
+    takeovers = (replay.end or {}).get("takeovers")
+    if takeovers:
+        # Corrections (7g): only the decisions you drove, labelled with
+        # your keys, from where the agent had got itself.
+        mine = [
+            i
+            for i, start in enumerate(starts[: len(actions)])
+            if any(low <= start < high for low, high in takeovers)
+        ]
+        if not mine:
+            return "no takeover long enough for a decision"
+        observations = [observations[i] for i in mine]
+        actions = [actions[i] for i in mine]
+        rewards = [rewards[i] for i in mine]
+    else:
+        # The wait before the player's first key is reaction time, not
+        # driving: learning it teaches a stopped car to stay stopped.
+        idle = canonical_index((False,) * 5)
+        first = next(
+            (i for i, a in enumerate(actions) if a != idle), None
+        )
+        if first is None:
+            return "no keys pressed"
+        observations, actions, rewards = (
+            observations[first:],
+            actions[first:],
+            rewards[first:],
+        )
     # Sitting still (stopped, pressing neither gas nor reverse) is left
     # out too: an agent can't pick it (7f6), and it's the stuck habit.
     keep = [
@@ -211,7 +245,8 @@ def _samples(path: Path, replay, repeat: int) -> "Round | str":
 def format_dataset(dataset: Dataset) -> str:
     spec = dataset.spec
     lines = [
-        f"Dataset {spec.name!r}: player {spec.player!r}, "
+        f"Dataset {spec.name!r}: player {spec.player!r}"
+        f"{''.join(f' and {p!r}' for p in spec.also)}, "
         f"{spec.include} recordings, min score {spec.min_score:,.0f}",
         f"  {len(dataset.rounds)} rounds, {dataset.samples:,} samples, "
         f"your mean score {dataset.mean_score:,.0f}",
