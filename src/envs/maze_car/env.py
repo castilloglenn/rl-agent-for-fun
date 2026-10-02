@@ -30,7 +30,7 @@ from src.sim.observation import (
     observe,
 )
 from src.sim import route
-from src.sim.route import route_fields
+from src.sim.route import RouteFields, route_fields
 from src.sim.resources import RoundState, SimClock, SimConfig
 from src.sim.rules import Rules, load_rules
 from src.sim.stage import Stage
@@ -79,6 +79,8 @@ class MazeCarEnv(Environment):
         self.stage = stage
         self.rules = load_rules(rules) if isinstance(rules, str) else rules
         self.recorder = recorder
+        # Route fields kept across this env's games: one per map and goal.
+        self.route_fields = RouteFields()
         self.reward_profile = (
             reward
             if isinstance(reward, RewardProfile)
@@ -102,6 +104,7 @@ class MazeCarEnv(Environment):
             stage=self.stage,
             rules=self.rules,
         )
+        self.world.add_resource(self.route_fields)
         self.running: bool = True
         self.last_reward = 0.0
         self.round_reward = 0.0  # agent reward summed over this game

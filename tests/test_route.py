@@ -89,7 +89,21 @@ def test_the_reward_and_the_sense_share_one_route_field():
     env = _env()
     env.step((False, False, True, False, False))
     fields = route.route_fields(env.world).fields
-    assert list(fields) == [((540, 240), None), ((540, 240), route.PADDING)]
+    kept = {(goal, clearance) for _, _, goal, clearance in fields}
+    assert kept == {((540, 240), None), ((540, 240), route.PADDING)}
+
+
+def test_an_env_keeps_its_route_fields_across_games():
+    """A course meets the same checkpoints every round: built once."""
+    env = _env()
+    first = route.route_fields(env.world).field(env.world, (540, 240))
+    env.reset(seed=1)
+    again = route.route_fields(env.world).field(env.world, (540, 240))
+    assert again is first
+    env.stage = load_stage("box")  # another map: its own fields
+    env.reset(seed=1)
+    other = route.route_fields(env.world).field(env.world, (540, 240))
+    assert other is not first
 
 
 def test_the_driving_route_keeps_its_distance_from_walls():

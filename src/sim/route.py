@@ -21,6 +21,7 @@ reads only the world, so replays rebuild it.
 """
 
 import math
+from collections import OrderedDict
 from dataclasses import dataclass
 
 from src.ecs import World
@@ -42,16 +43,24 @@ DETOUR = 1.1  # the padded route this much longer (and 60 px): too far
 SKIP = 14.0  # px: the line's start inside the car's own body isn't checked
 WALK_CLEAR = 6.0  # px: a step of the walk keeps this clear of every wall
 MAX_WALK = 160  # steps of the walk (about 1,900 px)
-FIELDS = 64  # route fields kept (random checkpoints never repeat)
+FIELDS = 64  # route fields kept, the least recently used dropped first
+# The walk's 16 directions, a STEP long.
+STEPS = [
+    (STEP * math.cos(angle), STEP * math.sin(angle))
+    for angle in (2 * math.pi * k / 16 for k in range(16))
+]
 
 
 class RouteFields:
     """Route fields by goal, shared by the route sense and the progress
-    reward, for one game (a new world starts empty).
+    reward. A field depends only on the map (its size and walls), the
+    goal, and the clearance, so an env keeps one RouteFields across its
+    games (`MazeCarEnv.reset`): the scripted checkpoints of a course or a
+    route map are met every round, and built once.
     """
 
     def __init__(self) -> None:
-        self.fields: dict[tuple, PathField] = {}
+        self.fields: OrderedDict[tuple, PathField] = OrderedDict()
 
     def field(
         self,
@@ -63,21 +72,22 @@ class RouteFields:
         from walls, for distances and the reward), or one keeping
         `clearance` px from walls.
         """
-        key = (goal, clearance)
+        rect = world.resource(Field)
+        area = (rect.x, rect.y, rect.width, rect.height)
+        boxes = tuple(
+            (w.left, w.top, w.right, w.bottom)
+            for w in world.resource(Walls).boxes
+        )
+        key = (area, boxes, goal, clearance)
         found = self.fields.get(key)
         if found is None:
-            if len(self.fields) >= FIELDS:
-                self.fields.clear()
-            rect = world.resource(Field)
-            walls = world.resource(Walls).boxes
             extra = {} if clearance is None else {"clearance": clearance}
-            found = PathField(
-                (rect.x, rect.y, rect.width, rect.height),
-                [(w.left, w.top, w.right, w.bottom) for w in walls],
-                goal,
-                **extra,
-            )
+            found = PathField(area, list(boxes), goal, **extra)
             self.fields[key] = found
+            if len(self.fields) > FIELDS:
+                self.fields.popitem(last=False)  # the least recently used
+        else:
+            self.fields.move_to_end(key)
         return found
 
     def driving(self, world: World, goal, start) -> PathField:
@@ -238,11 +248,14 @@ def _downhill(path: PathField, here, left: float, boxes=()):
     never taken: next to a thin wall, a point on its far side reads the
     far side's (shorter) distance, and the walk used to cut through.
     """
+    # Only walls this near can come within WALK_CLEAR of a step (a point
+    # STEP away is at most STEP nearer; 1 px spare for rounding): the
+    # same steps, far fewer checks.
+    boxes = [b for b in boxes if b.distance(*here) < STEP + WALK_CLEAR + 1]
     best = None
-    for k in range(16):
-        angle = 2 * math.pi * k / 16
-        x = here[0] + STEP * math.cos(angle)
-        y = here[1] + STEP * math.sin(angle)
+    for dx, dy in STEPS:
+        x = here[0] + dx
+        y = here[1] + dy
         middle = ((here[0] + x) / 2, (here[1] + y) / 2)
         if any(
             box.distance(*point) < WALK_CLEAR
@@ -263,6 +276,10 @@ def _clear(a, b, boxes) -> bool:
     length = math.dist(a, b)
     if length <= SKIP:
         return True
+    # Only walls this near the line's middle can come within SIGHT of it.
+    middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+    reach = length / 2 + SIGHT + 1
+    boxes = [w for w in boxes if w.distance(*middle) < reach]
     n = max(int((length - SKIP) / 6), 1)
     for i in range(n + 1):
         t = (SKIP + (length - SKIP) * i / n) / length
