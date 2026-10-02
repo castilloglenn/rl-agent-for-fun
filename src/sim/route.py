@@ -29,7 +29,7 @@ from src.sim.paths import PathField
 from src.sim.resources import Field, SimClock, SimConfig, Walls
 
 REFRESH_SECONDS = 2.0  # a held waypoint is refreshed at least this often
-REACH = 30.0  # px: this close, the waypoint is reached (refreshed)
+REACH = 45.0  # px: this close, the waypoint is reached (refreshed)
 PROGRESS = 10.0  # px closer along the route than before: progress
 STUCK_CAP = 10.0  # seconds: the stuck input reads 1 from here on
 STEP = 12.0  # px: how far each step of the walk along the route goes
@@ -110,6 +110,9 @@ class RouteSense:
     goal: tuple[float, float] | None = None
     waypoint: tuple[float, float] | None = None
     distance: float = math.inf  # px along the route, when refreshed
+    # The waypoint's own distance along the route: once the car is closer
+    # than that, it has passed the waypoint (an overshoot, 7f15).
+    waypoint_distance: float = 0.0
     refreshed: int = 0  # the step of the last refresh
     best: float = math.inf  # the closest it has been along the route
     progress: int = 0  # the step it last got closer
@@ -151,7 +154,10 @@ def sense(world: World, car: int) -> RouteSense:
         route.best, route.progress = live, step
     sps = world.resource(SimConfig).steps_per_second
     reached = route.waypoint and math.dist(here, route.waypoint) < REACH
-    if reached or step - route.refreshed >= REFRESH_SECONDS * sps:
+    # Swept past it wider than REACH: it's behind now. Don't turn back for
+    # it, take the next one (7f15).
+    passed = route.waypoint != route.goal and live < route.waypoint_distance
+    if reached or passed or step - route.refreshed >= REFRESH_SECONDS * sps:
         _refresh(world, route, path, here, step)
     return route
 
@@ -167,6 +173,7 @@ def _refresh(world, route: RouteSense, path: PathField, here, step) -> None:
     driving = route_fields(world).driving(world, route.goal, here)
     route.waypoint = waypoint(driving, here, route.goal, world)
     route.distance = path.distance(*here)  # exact, like the reward
+    route.waypoint_distance = path.distance(*route.waypoint)
     route.refreshed = step
 
 

@@ -188,3 +188,25 @@ def test_the_route_never_cuts_through_a_wall():
             start, (500, 500), env.world,
         )
         assert min(b.distance(*sense_point) for b in boxes) >= 5
+
+
+def test_a_passed_waypoint_is_dropped_at_once():
+    """7f15: swept past the waypoint wider than REACH, the car would turn
+    back for it until the 2 s refresh. Now it takes the next one.
+    """
+    env = _env("route_spiral")
+    sense = route.sense(env.world, env.car)
+    first, goal = sense.waypoint, sense.goal
+    path = route.route_fields(env.world).field(env.world, goal)
+    # A spot further along the route than the waypoint, out of its reach.
+    ahead = next(
+        p for p in route.route_points(env.world, first, goal)
+        if path.distance(*p) < path.distance(*first) - 80
+        and math.dist(p, first) > route.REACH + 20
+    )
+    car = env.world.component(env.car, Transform)
+    car.x, car.y = ahead
+    env.step(NONE)  # within the 2 s: only the overshoot can refresh it
+    sense = route.sense(env.world, env.car)
+    assert sense.waypoint != first
+    assert path.distance(*sense.waypoint) < path.distance(*ahead)

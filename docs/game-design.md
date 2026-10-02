@@ -110,7 +110,7 @@ Rays only detect things a car can hit (the border and walls now; later other car
 | 15 | Checkpoint sin (relative angle) | -1 to 1, positive = to the left |
 | 16 | Checkpoint cos (relative angle) | -1 to 1, positive = ahead |
 | 17 | Route distance (remembered, 7f7) | 0 to 1, divided by 980.5 px: the drivable route's length, refreshed with the waypoint |
-| 18 | Route sin (the waypoint's relative angle) | -1 to 1, positive = to the left: a remembered point about one corner ahead along the route (the checkpoint itself when in sight), refreshed when reached or every 2 s |
+| 18 | Route sin (the waypoint's relative angle) | -1 to 1, positive = to the left: a remembered point about one corner ahead along the route (the checkpoint itself when in sight), refreshed when reached (45 px), passed, or every 2 s |
 | 19 | Route cos | -1 to 1, positive = ahead |
 | 20 | Stuck | 0 to 1: seconds since the car last got closer along the route, over 10 s |
 | 21 | Time left in the round | 1 at the start, down to 0 |
