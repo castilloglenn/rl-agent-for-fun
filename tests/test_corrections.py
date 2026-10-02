@@ -84,6 +84,28 @@ def test_untouched_or_unarmed_rounds_arent_saved(tmp_path, monkeypatch):
     assert not list((tmp_path / "recordings").rglob("*.jsonl.gz"))
 
 
+def test_turning_it_off_before_the_round_ends_still_saves_it(
+    tmp_path, monkeypatch
+):
+    """You turned C on, corrected, turned C off, then closed the window:
+    the corrections made while it was on are saved.
+    """
+    demo, held = _watch(tmp_path, monkeypatch, armed=False)
+    demo.corrections.armed = True  # C
+    held["keys"] = REVERSE
+    for _ in range(20):
+        demo.frame(1 / 60)
+    held["keys"] = NONE
+    demo.corrections.armed = False  # C again
+    held["keys"] = REVERSE  # this one isn't marked
+    for _ in range(60):  # over 1 s in all: shorter rounds aren't saved
+        demo.frame(1 / 60)
+    demo.env.finish_recording()  # closing the window
+    (path,) = (tmp_path / "recordings" / CORRECTIONS).glob("*.jsonl.gz")
+    (stretch,) = read_replay(path).end["takeovers"]
+    assert 0 < stretch[1] - stretch[0] <= 20 * 2 + 2
+
+
 def test_c_toggles_it_and_the_driver_card_says_so(tmp_path, monkeypatch):
     demo, held = _watch(tmp_path, monkeypatch, armed=False)
     demo.env.renderer.keys_pressed = [pygame.K_c]

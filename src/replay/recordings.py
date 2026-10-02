@@ -190,10 +190,10 @@ CORRECTIONS_KEPT = 1000  # rounds kept: precious, unlike everyday driving
 
 class CorrectionRecorder(LibraryRecorder):
     """Expert labelling (7g, decision 068): records a watched agent's
-    rounds and, while `armed`, saves each round you took over in, with
-    your stretches marked in its end line ("takeovers": [[first step,
-    last step + 1], ...]), to recordings/Corrections/. Rounds you didn't
-    touch aren't saved.
+    rounds. Your takeovers while `armed` are marked; a round with any is
+    saved when it ends (whether or not it's still armed then), with them
+    in its end line ("takeovers": [[first step, last step + 1], ...]),
+    to recordings/Corrections/. Other rounds aren't saved.
     """
 
     def __init__(self, drivers: dict, root: Path | None = None) -> None:
@@ -210,7 +210,9 @@ class CorrectionRecorder(LibraryRecorder):
         self.takeovers = []
 
     def mark(self, step: int) -> None:
-        """You drove this step."""
+        """You drove this step (counted only while armed)."""
+        if not self.armed:
+            return
         if self.takeovers and self.takeovers[-1][1] == step:
             self.takeovers[-1][1] = step + 1
         else:
@@ -218,7 +220,7 @@ class CorrectionRecorder(LibraryRecorder):
 
     def on_finish(self, env, reason: str | None = None) -> None:
         ReplayRecorder.on_finish(self, env, reason)
-        if not (self.armed and self.takeovers):
+        if not self.takeovers:  # marked while armed: kept even if C is off
             return
         self.replay.end["takeovers"] = [list(t) for t in self.takeovers]
         path = self.library.save(self.replay)
