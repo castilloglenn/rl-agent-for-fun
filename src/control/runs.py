@@ -830,7 +830,7 @@ class RunData:
         trained = f" · trained on {place}" if place else ""
         chart = Chart(f"SKILLS{trained}", series, "{} decisions")
         chart.y_format = chart.value_format = "{:.2f}".format
-        chart.legend_rows = 3  # seven skills and the rest
+        chart.legend_rows = 3  # eight skills and the rest
         return chart
 
     def second_chart(self, option: str) -> Chart:

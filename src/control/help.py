@@ -343,6 +343,10 @@ TOPICS: dict[str, str] = {
     "along it.",
     "skill:Detour": "skill_detour: a fuel inside a U that opens away "
     "from the start: the straight line hits its back wall.",
+    "skill:Economy": "skill_fuel: one fuel at a time, at least 750 px "
+    "away, in 45 s rounds (9d). A full tank lasts about 16 to 20 s of "
+    "driving, so only driving straight and smooth keeps it going: a "
+    "wasteful driver runs dry.",
     "column:#": "Its place by share of the heuristic's score. Baselines "
     "aren't ranked.",
     "column:share": "The best checkpoint's average share of the heuristic's "

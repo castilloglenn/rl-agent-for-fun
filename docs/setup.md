@@ -61,7 +61,7 @@ One word per command, at most one parameter. `make help` lists them (it's also t
 | `make train_curriculum AGENT=id` | Train it up the built-in `skills` curriculum: `skill_training_easy` until it beats the heuristic on every map and levels off (200k to 1.5M decisions), then `skill_training`, keeping a quarter of the episodes on the easy course. A new phase picks up at the agent's last level. The first time, the heuristic is measured on each training map (about a minute, then cached) |
 | `make finetune AGENT=id` | Continue a clone with RL, gently (`trainers/finetune.json`: a third of the learning rate, a tenth of the entropy bonus), on the `skills` curriculum, so RL improves the clone instead of blurring it |
 | `make resume RUN=folder` | Resume a stopped training run exactly, with its own trainer, stage, rules, and reward |
-| `make eval AGENT=id` | Score an agent's checkpoints with the skills suite (`suites/skills.json`: 7 skills, about 5 s a checkpoint), shown next to the baselines with each one's average share of the heuristic's, best marked. Watching the agent then uses the best one |
+| `make eval AGENT=id` | Score an agent's checkpoints with the skills suite (`suites/skills.json`: 8 skills, about 7 s a checkpoint), shown next to the baselines with each one's average share of the heuristic's, best marked. Watching the agent then uses the best one |
 | `make eval_baselines` | Score the heuristic and random baselines only |
 | `make agents` | List every agent: model, decisions, best checkpoint and score, milestone, last update |
 | `make dataset` | Preview your recordings as an imitation dataset (`datasets/mine.json`): rounds, samples, your mean score, and skipped recordings with why |

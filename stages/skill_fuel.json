@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "skill_fuel",
+  "size": [1600, 1200],
+  "walls": [],
+  "spawns": [{"x": 800, "y": 600, "angle": 0}],
+  "fuel": {
+    "at_once": 1,
+    "mode": "random",
+    "radius": 15,
+    "border_margin": 60,
+    "min_car_distance": 750
+  }
+}

@@ -66,15 +66,17 @@ def _agent(tmp_path, name="pupil"):
 
 
 def test_the_skills_suite_loads():
-    """7d3b: 7 skills in 3 groups, each on its own map, 5 games each."""
+    """7d3b: 8 skills in 4 groups (Economy since 9d), each on its own
+    map, 5 games each.
+    """
     suite = load_suite("skills")
     assert suite.label == f"skills-v{SKILLS['version']}"
     assert [s.name for s in suite.scenarios] == [
         "braking", "threading", "open_field", "long_range", "obstacles",
-        "corridor", "detour",
+        "corridor", "detour", "economy",
     ]
     assert {s.group for s in suite.scenarios} == {
-        "Handling", "Hunting", "Walls",
+        "Handling", "Hunting", "Walls", "Fuel",
     }
     assert all(s.episodes == 5 for s in suite.scenarios)
     assert all(s.first_seed >= 1_000_000 for s in suite.scenarios)

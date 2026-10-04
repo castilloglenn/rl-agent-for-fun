@@ -2,7 +2,7 @@
   "format": 2,
   "name": "skills",
   "version": 1,
-  "description": "7 skills in 3 groups (7d3): each a short test on its own map, the same seeds at every checkpoint. Each skill's score is a share of the heuristic's (at least `floor`), and the best checkpoint has the best average share.",
+  "description": "8 skills in 4 groups (7d3; Economy, 9d): each a short test on its own map, the same seeds at every checkpoint. Each skill's score is a share of the heuristic's (at least `floor`), and the best checkpoint has the best average share.",
   "scenarios": [
     {
       "name": "braking",
@@ -86,6 +86,17 @@
       "rules": "standard",
       "round_seconds": 25,
       "first_seed": 7000000,
+      "episodes": 5
+    },
+    {
+      "name": "economy",
+      "label": "Economy",
+      "group": "Fuel",
+      "kind": "round",
+      "stage": "skill_fuel",
+      "rules": "standard",
+      "round_seconds": 45,
+      "first_seed": 8000000,
       "episodes": 5
     }
   ]
