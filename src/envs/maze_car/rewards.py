@@ -31,7 +31,7 @@ class StepEvents:
     points: float  # game points gained (distance and fuels)
     fuels: int  # fuels reached
     damage: float  # share of full health lost this step (0 to 1)
-    wrecked: bool  # health reached 0 this step
+    wrecked: bool  # health reached 0 this step (out of fuel isn't a wreck)
     contacts: int  # new wall contacts this step (bumps and hits)
     stopped: bool  # the car ended the step at speed 0 (idle, or pinned)
     time_up: bool  # the round ended on time this step
@@ -53,6 +53,10 @@ class StepEvents:
     # Seconds since the car last got closer along the route than its best
     # to this fuel (the stuck input, 7f7), for the stuck cost.
     stuck_seconds: float = 0.0
+    # The tank (9c): fuel burned this step, and whether the car ran dry
+    # out of the round (coasted to a stop with an empty tank) this step.
+    fuel_burned: float = 0.0
+    out_of_fuel: bool = False
 
 
 @dataclass(frozen=True)
@@ -123,6 +127,8 @@ TERMS: Mapping[str, Term] = MappingProxyType(
         ),
         "damage": Term(lambda e, p: e.damage),
         "wrecked": Term(lambda e, p: float(e.wrecked)),
+        "fuel_burned": Term(lambda e, p: e.fuel_burned),
+        "out_of_fuel": Term(lambda e, p: float(e.out_of_fuel)),
         "contact": Term(_contact, MappingProxyType({"clear": 0.5})),
         "stopped": Term(lambda e, p: float(e.stopped)),
         "stuck": Term(

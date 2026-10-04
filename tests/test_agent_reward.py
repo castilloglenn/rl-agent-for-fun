@@ -72,6 +72,8 @@ def test_default_profile_is_progress_fuels_and_wall_penalties():
         "contact": -100.0,
         "damage": -1000.0,
         "wrecked": -3000.0,
+        "fuel_burned": -5.0,  # 9c: a full tank costs about one fuel
+        "out_of_fuel": -3000.0,  # 9c: like a wreck
         "stopped": -0.25,
         "stuck": -0.5,  # 7f14
     }
@@ -85,6 +87,8 @@ def test_default_profile_is_progress_fuels_and_wall_penalties():
     )
     assert profile(_events(progress=-3.0)) == pytest.approx(-3.0)
     assert profile(_events(fuels=1)) == 500
+    assert profile(_events(fuel_burned=2.0)) == pytest.approx(-10.0)
+    assert profile(_events(out_of_fuel=True)) == -3000
     assert profile(_events(stopped=True)) == -0.25  # idle or pinned
     assert profile(_events(contacts=1)) == -100  # a harmless bump
     assert profile(_events(contacts=1, damage=0.25)) == -100 - 250

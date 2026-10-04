@@ -114,8 +114,8 @@ def window(root):
 
 def test_cards_select_a_map(window):
     tab = window.maps_tab
-    assert tab.sort == "newest"  # the default (7c17)
-    assert tab.selected == "ruins"  # yours, the newest
+    assert tab.sort == "walls"  # the default (7c19)
+    assert tab.selected == "arena"  # the most walls: 7
     tab.sort = "name"
     window.draw()
     names = [name for _, name in tab.hit]

@@ -219,3 +219,44 @@ def test_rounds_with_fuel_replay_exactly():
     env.finish_recording()
     assert taken > 0  # it refueled along the way
     assert Replayer(recorder.replay).run().ok
+
+
+# The agent's reward (9c)
+
+
+def _env(stage="box"):
+    config = get_maze_car_config()
+    config.show_gui = False
+    env = MazeCarEnv(config, stage=load_stage(stage))
+    env.reset(seed=0)
+    return env
+
+
+def test_burning_fuel_costs_reward():
+    env = _env()
+    _park_fuels(env.world)
+    env.step((False, False, True, False, False))  # gas: 5/s
+    burned = env.world.component(env.car, Tank).burned
+    assert burned == pytest.approx(5 / STEPS)
+    assert env.round_terms["fuel_burned"] == pytest.approx(-5 * burned)
+
+
+def test_running_dry_is_out_of_fuel_not_a_wreck():
+    env = _env()
+    env.world.component(env.car, Tank).level = 0.0
+    for _ in range(STEPS):
+        *_, terminated, _, info = env.step((False,) * 5)
+        if terminated:
+            break
+    assert info["eliminated"] == "out_of_fuel"
+    assert env.round_terms["out_of_fuel"] == -3000
+    assert env.round_terms["wrecked"] == 0
+
+
+def test_progress_is_toward_the_nearest_fuel_by_route():
+    from src.sim import route
+
+    env = _env("skill_detour")  # a fuel behind a wall: the route is long
+    sense = route.sense(env.world, env.car)
+    goal = sense.goal
+    assert env._goal() == goal  # the first fuel it senses

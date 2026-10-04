@@ -98,7 +98,7 @@ class MapsTab:
             x += 96 + 6
         self.sort_menu = UIDropDownMenu(
             [f"sort: {s}" for s in SORTS],
-            "sort: newest",
+            "sort: walls",
             Rect(box.right - PAD - 150, box.y + 8, 150, 26),
             gui,
         )
@@ -133,7 +133,7 @@ class MapsTab:
         )
         self.rows_a, self.rows_b = rows_a, rows_b
         self.maps: list[MapInfo] = []
-        self.sort = "newest"  # the newest maps first (7c17)
+        self.sort = "walls"  # the most walls first, by default (7c19)
         self.filter = FILTERS[0]
         self._light_filter()
         self.selected: str | None = None

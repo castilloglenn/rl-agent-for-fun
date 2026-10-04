@@ -211,6 +211,10 @@ TERMS: dict[str, tuple[str, str]] = {
     "damage": ("per full health", "Health lost, as a share of full health: "
                "a 25 % hit is 0.25."),
     "wrecked": ("per wreck", "1 on the step health reaches 0."),
+    "fuel_burned": ("per unit", "Fuel burned this step (9c): idle, "
+                    "throttle, and steering, by the rules' tank."),
+    "out_of_fuel": ("per dry run", "1 on the step the car, coasting on "
+                    "an empty tank, stops and is out of the round."),
     "contact": ("per contact", "New wall contacts: each hit or scrape "
                 "counts once, however long it lasts, and a new one only "
                 "after the car was clear of walls for `clear` seconds."),

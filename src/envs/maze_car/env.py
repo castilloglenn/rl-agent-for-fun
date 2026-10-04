@@ -16,10 +16,10 @@ from src.render.panels import RewardStatus
 from src.render.renderer import Command, Renderer
 from src.sim.components import (
     ActionInput,
-    Fuel,
     Eliminated,
     Health,
     Motion,
+    Tank,
     Transform,
 )
 from src.sim.components import Score as CarScore
@@ -30,6 +30,7 @@ from src.sim.observation import (
     observe,
 )
 from src.sim import route
+from src.sim.systems.tank import OUT_OF_FUEL
 from src.sim.route import RouteFields, route_fields
 from src.sim.resources import RoundState, SimClock, SimConfig
 from src.sim.rules import Rules, load_rules
@@ -140,15 +141,11 @@ class MazeCarEnv(Environment):
     # Progress along the path (7e)
 
     def _goal(self) -> tuple[float, float] | None:
-        """The fuel the agent's compass points at: the nearest."""
-        car = self.world.component(self.car, Transform)
-        spots = [
-            (spot.x, spot.y)
-            for _, (spot, _) in self.world.query(Transform, Fuel)
-        ]
-        if not spots:
-            return None
-        return min(spots, key=lambda s: math.dist(s, (car.x, car.y)))
+        """The fuel progress is measured toward: its nearest by route,
+        the first fuel it senses (9c). Measured toward the same one before
+        and after a step, so a new nearest is no jump.
+        """
+        return route.sense(self.world, self.car).goal
 
     def _stuck_seconds(self) -> float:
         """The stuck timer (the observation already brought it up to this
@@ -180,6 +177,11 @@ class MazeCarEnv(Environment):
 
     def _is_out(self) -> bool:
         return self.world.try_component(self.car, Eliminated) is not None
+
+    def _out_now(self, was_out: bool, reason: str) -> bool:
+        """Out of the round this step, for `reason`."""
+        out = self.world.try_component(self.car, Eliminated)
+        return not was_out and out is not None and out.reason == reason
 
     def _time_up(self) -> bool:
         state = self.world.resource(RoundState)
@@ -241,6 +243,7 @@ class MazeCarEnv(Environment):
         contacts_before = health.contacts
         touched_before = health.contact_step  # its last step at a wall
         was_out = self._is_out()
+        tank = self.world.try_component(self.car, Tank)
         # Progress along the path (7e), only for a profile that uses it.
         tracking = "progress" in self.reward_profile.terms
         goal = self._goal() if tracking else None
@@ -261,7 +264,9 @@ class MazeCarEnv(Environment):
             points=points,
             fuels=score.fuels - fuels_before,
             damage=(health_before - health.current) / health.maximum,
-            wrecked=self._is_out() and not was_out,
+            wrecked=self._out_now(was_out, "wrecked"),
+            out_of_fuel=self._out_now(was_out, OUT_OF_FUEL),
+            fuel_burned=tank.burned if tank else 0.0,
             contacts=health.contacts - contacts_before,
             clear_seconds=_clear_seconds(
                 touched_before, health.contact_step, sim.steps_per_second
