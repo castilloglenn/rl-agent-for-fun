@@ -24,7 +24,8 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
         "rounds": ("rounds", "Rounds per game. Only 1 is played so far "
                    "(multiple rounds come later)."),
         "scoring.distance_step": ("px per point", "Driving forward this far "
-                                  "earns +1 game point."),
+                                  "earns +1 game point (0: no distance "
+                                  "points)."),
         "scoring.fuel": ("points", "Game points for each fuel taken."),
         "collisions.health": ("health", "A car's full health. At 0 it's "
                               "wrecked and the round ends for it."),
@@ -37,6 +38,14 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
                                     "linearly."),
         "collisions.scrape_damage": ("health per px", "Health lost for each "
                                      "px the car slides along a wall."),
+        "tank.capacity": ("fuel", "A full tank, at the start (9a2)."),
+        "tank.idle": ("per s", "Fuel the engine burns always, running."),
+        "tank.throttle": ("per s", "More, with gas or reverse held."),
+        "tank.steering": ("per s", "More, while turning. Braking burns "
+                          "nothing."),
+        "tank.refill": ("fuel", "What a fuel puts back, up to the full "
+                        "tank. Empty, the engine stops, and a car that "
+                        "coasts to a stop is out."),
     },
     "trainers": {
         "name": ("", "The file's name."),

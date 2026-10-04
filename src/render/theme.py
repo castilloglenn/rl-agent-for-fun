@@ -27,6 +27,7 @@ TRAIL_RECENT: ColorValue = (90, 190, 255)  # the car's last seconds
 TRAIL_OLD: ColorValue = (78, 81, 92)  # muted gray, still noticeable
 WRECKED: ColorValue = (110, 32, 32)  # a wrecked car
 BAR_EMPTY: ColorValue = (44, 46, 54)  # unfilled blocks of a bar
+FUEL_BAR: ColorValue = (90, 170, 255)  # the tank's level (9a2)
 
 # Helvetica Neue: crisp at small sizes, and its digits all have the same
 # width, so changing numbers don't wobble. "monospace" (Courier) before.

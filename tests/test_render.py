@@ -319,7 +319,7 @@ def test_the_health_bar_sits_above_the_car():
     no HEALTH gauge in the top bar.
     """
     from src.render import theme
-    from src.sim.components import Health, Transform
+    from src.sim.components import Health, Tank, Transform
 
     config = get_maze_car_config()
     renderer = Renderer(config)
@@ -335,13 +335,18 @@ def test_the_health_bar_sits_above_the_car():
             for dx in range(-12, 12)
         }
 
-    bar = -(round(14.4) + renderer.HEALTH_BAR_GAP + 1)  # its bottom row
+    # Fuel's bar is next to the car, health's above it (9a2).
+    fuel_bar = -(round(14.4) + renderer.HEALTH_BAR_GAP + 1)  # bottom row
+    bar = fuel_bar - renderer.HEALTH_BAR_HEIGHT - renderer.BAR_SPACING
     assert theme.GOOD in row_colors(bar)
+    assert theme.FUEL_BAR in row_colors(fuel_bar)
     health = world.component(car, Health)
     health.current = health.maximum * 0.2
+    world.component(car, Tank).level = 10.0  # a tenth of the tank
     renderer.draw(world)
     assert theme.BAD in row_colors(bar) and theme.GOOD not in row_colors(bar)
     assert theme.BAR_EMPTY in row_colors(bar)  # the lost part
+    assert theme.BAD in row_colors(fuel_bar)  # under 15 %: red
     top = renderer.display.subsurface(renderer.layout.top_bar)
     data = pygame.image.tobytes(top, "RGB")
     top_colors = {tuple(data[i : i + 3]) for i in range(0, len(data), 3)}

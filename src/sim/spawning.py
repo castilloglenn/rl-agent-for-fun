@@ -24,7 +24,7 @@ Point = tuple[float, float]
 
 @dataclass
 class SpawnSchedule:
-    name: str  # also the random stream name, e.g. "fuel"
+    name: str  # also the random stream name: "fuel"
     seed: int
     rules: FuelRules
     width: float
@@ -32,7 +32,12 @@ class SpawnSchedule:
     next_slot: int = 0
     walls: tuple = ()  # walls.Box: candidates keep clear of them
 
-    def next_spot(self, cars: list[Point]) -> Point:
+    def next_spot(
+        self, cars: list[Point], others: list[Point] = ()
+    ) -> Point:
+        """The next spot. Random: clear of the cars and of the other
+        fuels out (`others`, 9a2), as far as the candidates allow.
+        """
         slot = self.next_slot
         self.next_slot += 1
         if self.rules.mode == "scripted":
@@ -45,17 +50,18 @@ class SpawnSchedule:
                 first = rng.randrange(len(points))
             return tuple(points[(slot + first) % len(points)])
         candidates = self.candidates(slot)
+        near = list(cars) + list(others)
         for candidate in candidates:
             if all(
-                math.dist(candidate, car) >= self.rules.min_car_distance
-                for car in cars
+                math.dist(candidate, spot) >= self.rules.min_car_distance
+                for spot in near
             ):
                 return candidate
-        if not cars:
+        if not near:
             return candidates[0]
         return max(  # nothing far enough: the least crowded candidate
             candidates,
-            key=lambda c: min(math.dist(c, car) for car in cars),
+            key=lambda c: min(math.dist(c, spot) for spot in near),
         )
 
     def candidates(self, slot: int) -> list[Point]:

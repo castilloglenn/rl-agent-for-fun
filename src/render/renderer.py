@@ -17,6 +17,7 @@ from src.sim.components import (
     Eliminated,
     Health,
     Hitbox,
+    Tank,
     Motion,
     PreviousPose,
     Renderable,
@@ -530,8 +531,14 @@ class Renderer:
                 ray_levels,
             )
             health = world.try_component(car, Health)
+            tank = world.try_component(car, Tank)
             if health is not None:
-                self._draw_health_bar(screen_center, hitbox, health.share)
+                self._draw_bars(
+                    screen_center,
+                    hitbox,
+                    health.share,
+                    tank.share if tank else None,
+                )
         self._draw_offscreen_fuel(world, alpha)
         self._draw_intro_hint()
         self.display.set_clip(None)
@@ -1097,36 +1104,47 @@ class Renderer:
                 width=max(round(3 * (1 - grown)), 1),
             )
 
-    # The car's health (7c4): a thin bar above it, level on screen, so it
-    # never turns with the car or covers it. Fuel joins under it (step 9).
+    # The car's health (7c4) and fuel (9a2): thin bars above it, level on
+    # screen, so they never turn with the car or cover it; fuel under
+    # health.
     HEALTH_BAR_HEIGHT = 3  # px
-    HEALTH_BAR_GAP = 5  # px between the car's farthest corner and the bar
+    HEALTH_BAR_GAP = 5  # px between the car's farthest corner and the bars
     HEALTH_BAR_MIN_WIDTH = 12  # px, when a big stage is shown small
+    BAR_SPACING = 2  # px between the health and fuel bars
 
-    def _draw_health_bar(self, center, hitbox: Hitbox, share: float) -> None:
-        """Above the car (or below it: your settings), clear of its
-        farthest corner at any heading; not drawn at full health if your
-        settings say only when damaged.
+    def _draw_bars(
+        self, center, hitbox: Hitbox, health: float, fuel: float | None
+    ) -> None:
+        """Health, then fuel under it, above the car (or below it: your
+        settings), clear of its farthest corner at any heading. A full
+        bar isn't drawn if your settings say only when damaged.
         """
-        if self.settings["bars_shown"] == "damaged" and share >= 1.0:
+        damaged_only = self.settings["bars_shown"] == "damaged"
+        bars = [(health, panels.health_color(health))]
+        if fuel is not None:
+            bars.append((fuel, panels.fuel_color(fuel)))
+        bars = [(s, c) for s, c in bars if not (damaged_only and s >= 1.0)]
+        if not bars:
             return
         scale = self.camera.scale
         width = max(round(hitbox.width * scale), self.HEALTH_BAR_MIN_WIDTH)
         reach = math.hypot(hitbox.width, hitbox.height) / 2 * scale
-        bar = pygame.Rect(0, 0, width, self.HEALTH_BAR_HEIGHT)
-        gap = self.HEALTH_BAR_GAP
+        height, gap = self.HEALTH_BAR_HEIGHT, self.HEALTH_BAR_GAP
+        stack = len(bars) * height + (len(bars) - 1) * self.BAR_SPACING
+        x = round(center[0]) - width // 2
         if self.settings["bars"] == "below":
-            bar.midtop = (round(center[0]), round(center[1] + reach) + gap)
+            y = round(center[1] + reach) + gap
         else:
-            bar.midbottom = (round(center[0]), round(center[1] - reach) - gap)
-        pygame.draw.rect(self.display, theme.BAR_EMPTY, bar)
-        filled = round(width * max(min(share, 1.0), 0.0))
-        if filled:
-            pygame.draw.rect(
-                self.display,
-                panels.health_color(share),
-                pygame.Rect(bar.x, bar.y, filled, bar.height),
-            )
+            y = round(center[1] - reach) - gap - stack
+        for share, color in bars:
+            bar = pygame.Rect(x, y, width, height)
+            pygame.draw.rect(self.display, theme.BAR_EMPTY, bar)
+            filled = round(width * max(min(share, 1.0), 0.0))
+            if filled:
+                pygame.draw.rect(
+                    self.display, color, pygame.Rect(x, y, filled, height)
+                )
+            y += height + self.BAR_SPACING
 
 
 def offscreen_marker(start, point, view, inset: float):

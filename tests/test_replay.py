@@ -177,7 +177,10 @@ def test_changed_inputs_are_flagged():
     replay.changes[0] = (0, {"1": [False] * 5})
     verification = Replayer(replay).run()
     assert not verification.ok
-    assert "score" in verification.problems[0]
+    # No distance points (9a2): the reward tells, if the score can't.
+    assert any(
+        word in verification.problems[0] for word in ("score", "reward")
+    )
 
 
 def test_gzipped_replays(tmp_path):

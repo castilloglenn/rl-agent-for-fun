@@ -7,8 +7,9 @@ from src.sim.rules import Rules
 
 
 def reward_system(world: World) -> None:
-    """+1 point per `distance_step` px driven forward. Runs right after
-    movement, and starts each car's `last_step` tally for this step.
+    """+1 point per `distance_step` px driven forward (0: no distance
+    points, step 9a2). Runs right after movement, and starts each car's
+    `last_step` tally for this step.
     """
     if not round_active(world):
         return
@@ -16,6 +17,8 @@ def reward_system(world: World) -> None:
     for _, (score,) in world.query(Score):
         score.last_step = 0.0
         score.fuel_ages = []
+    if not distance_step:
+        return
     for _, (motion, score) in world.query(
         Motion, Score, exclude=(Eliminated,)
     ):

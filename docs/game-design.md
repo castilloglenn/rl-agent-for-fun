@@ -36,8 +36,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 
 | Event | Reward |
 |---|---|
-| Driving forward | **+1 per 10 px** driven. The distance accumulates across frames, so slow driving still earns |
-| Stopped or reversing | 0 (so reversing back and forth can't farm points) |
+| Driving | Nothing since 9a2 (`distance_step` 0): points would pay for driving around instead of racing for fuel. A rules file can still give +1 per N px forward |
 | Fuel collected | **+100** |
 | Wall hit | No game points lost, but a wreck ends the round, so all future points are lost. (The agent's default reward profile gives -100 per wall contact, even a harmless bump, -1000 per full loss of health, -3000 for a wreck, and -0.25 per step stopped; the game score doesn't) |
 
@@ -64,16 +63,16 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 
 ### Fuel
 
-The game's targets were called checkpoints until step 9a1 ([decision 075](decisions/075-checkpoints-are-fuel.md)); they're fuel now, and 9a2 makes them work as fuel.
+The game's targets were called checkpoints until step 9a1 ([decision 075](decisions/075-checkpoints-are-fuel.md)); they're fuel now. Since 9a2 they work as fuel ([decision 076](decisions/076-fuel-rules.md)): a car's tank (100, full at the start) burns 1/s idle, +4/s with gas or reverse, +1/s while turning, nothing for braking; each fuel puts back 40, up to the full tank. Empty, the engine dies: the car coasts, and once it stops it's out of the round (coasting into a fuel restarts it). A fuel bar sits under the health bar above the car.
 
 **Implemented in step 3g**, as generic triggers (see Hazards below): a `Trigger` circle plus `ScoreReward` and `Respawn` effects. The demo picks a fresh seed each round, shown in the bottom bar; agents and tests use `game.seed`.
 
 **Since step 4b**, the rules live in the stage file, and spawns follow a **spawn schedule**: stage + seed decide the whole sequence, so every driver gets the same fuels ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)).
 
-- One on the field at a time. Collecting it spawns the next one.
+- Up to 3 on the field at once (a stage's `at_once`, 1 to 3; the `skill_` test maps keep 1). Collecting one spawns the next.
 - Random position from a **seeded** random number generator, so replays reproduce it.
-- Radius 15 px. Spawns at least 100 px from the car and 40 px from the border and any wall.
-- Or **scripted**: the stage lists the points, played in order and looping. With `"start": "seeded"` (7d5a), the first one is picked from the seed, so a training course practices every zone ([decision 050](decisions/050-map-mixes.md)).
+- Radius 15 px. Spawns at least 100 px from any car and from the other fuels, and 40 px from the border and any wall.
+- Or **scripted**: the stage lists the points, played in order and looping; with 3 at once they're a sliding window (the next 3 not taken). With `"start": "seeded"` (7d5a), the first one is picked from the seed, so a training course practices every zone ([decision 050](decisions/050-map-mixes.md)).
 
 ### Controls (realistic driving)
 

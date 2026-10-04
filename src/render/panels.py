@@ -31,6 +31,7 @@ from src.sim.components import (
     Renderable,
     Score,
     Sensors,
+    Tank,
     Transform,
 )
 from src.sim.resources import (
@@ -136,6 +137,7 @@ class CarInfo:
     eliminated: bool
     score: Score
     health: float  # 0 (wrecked) .. 1 (full)
+    fuel: float | None = None  # the tank, 0 (empty) .. 1 (full); None: none
     stuck: float | None = None  # s since it last got closer (7f7)
     # The remembered route (7f7): its waypoint's angle relative to the
     # heading (+ left), and its distance.
@@ -171,6 +173,7 @@ def car_infos(world: World) -> list[CarInfo]:
             eliminated=world.try_component(car, Eliminated) is not None,
             score=score,
             health=health.share,
+            fuel=_tank_share(world, car),
             **_route(world, car, transform),
         )
         for car, (
@@ -185,6 +188,20 @@ def car_infos(world: World) -> list[CarInfo]:
             Renderable, Motion, Transform, ActionInput, Sensors, Score, Health
         )
     ]
+
+
+def _tank_share(world: World, car: int) -> float | None:
+    tank = world.try_component(car, Tank)
+    return tank.share if tank else None
+
+
+def fuel_color(share: float) -> ColorValue:
+    """The tank's bar: blue, amber from 30 %, red under 15 %."""
+    if share >= 0.3:
+        return theme.FUEL_BAR
+    if share >= 0.15:
+        return theme.WARN
+    return theme.BAD
 
 
 def health_color(share: float) -> ColorValue:
@@ -458,7 +475,8 @@ def draw_game_panel(
 
     column.header("SCORE (game points)")
     if car:
-        column.row("Distance", f"+{car.score.distance_points:,.0f}")
+        if world.resource(Rules).scoring.distance_step:
+            column.row("Distance", f"+{car.score.distance_points:,.0f}")
         column.row("Fuels", f"+{car.score.fuel_points:,.0f}")
         column.row("Collected", str(car.score.fuels))
 
@@ -577,6 +595,15 @@ def draw_car_panel(
             theme.TEXT,
             lambda area: instruments.draw_slider(surface, area, car.steering),
         )
+        if car.fuel is not None:  # the tank (9a2)
+            fuel = car.fuel
+            _instrument_row(
+                column,
+                "Fuel",
+                f"{fuel:.0%}" if fuel > 0 else "empty",
+                fuel_color(fuel),
+                lambda area: _draw_level(surface, area, fuel),
+            )
     else:
         column.note("No car")
     column.gap()
@@ -739,6 +766,17 @@ def _draw_mind(column: "_Column", mind: MindInfo, readouts) -> None:
 
 
 LABEL_WIDTH = 86  # an instrument row's label column
+
+
+def _draw_level(surface, area: Rect, share: float) -> None:
+    """A tank's level as a thin bar in its row."""
+    bar = Rect(area.x, area.centery - 4, area.w, 8)
+    pygame.draw.rect(surface, theme.BAR_EMPTY, bar)
+    filled = round(bar.w * max(min(share, 1.0), 0.0))
+    if filled:
+        pygame.draw.rect(
+            surface, fuel_color(share), Rect(bar.x, bar.y, filled, bar.h)
+        )
 
 
 def _instrument_row(

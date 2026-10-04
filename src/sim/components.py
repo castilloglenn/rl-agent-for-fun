@@ -145,7 +145,16 @@ class Respawn:
     schedule (by spawner name).
     """
 
-    spawner: str = "checkpoints"  # the fuel's (its name until 9a2)
+    spawner: str = "fuel"
+
+
+@dataclass
+class Refuel:
+    """Trigger effect (9a2): the car that touches it gets this much fuel,
+    up to its full tank.
+    """
+
+    amount: float
 
 
 @dataclass
@@ -172,6 +181,26 @@ class Health:
     def share(self) -> float:
         """0 (wrecked) .. 1 (full)."""
         return self.current / self.maximum
+
+
+@dataclass
+class Tank:
+    """A car's fuel (9a2, the rules' `tank`). Empty, the engine is dead:
+    the controls do nothing, the car coasts, and once it stops it's out.
+    """
+
+    level: float
+    capacity: float
+    burned: float = 0.0  # this step's burn (for the reward, 9c)
+
+    @property
+    def share(self) -> float:
+        """0 (empty) .. 1 (full)."""
+        return self.level / self.capacity
+
+    @property
+    def empty(self) -> bool:
+        return self.level <= 0.0
 
 
 @dataclass

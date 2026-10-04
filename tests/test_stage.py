@@ -40,7 +40,9 @@ def test_load_by_path():
         ({"spawns": [{"x": 9999, "y": 10}]}, "outside the stage"),
         ({"fuel": {"mode": "zigzag"}}, "unknown fuel mode"),
         ({"fuel": {"start": "middle"}}, "unknown fuel start"),
-        ({"fuel": {"mode": "scripted"}}, "need points"),
+        ({"fuel": {"mode": "scripted"}}, "needs points"),
+        ({"fuel": {"at_once": 4}}, "at_once is 1 to 3"),
+        ({"fuel": {"at_once": 0}}, "at_once is 1 to 3"),
         ({"fuel": {"border_margin": 300}}, "leaves no room"),
     ],
 )

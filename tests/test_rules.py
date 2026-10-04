@@ -11,7 +11,7 @@ from src.replay.replayer import Replayer
 from src.sim.components import Score
 from src.sim.factories import create_game
 from src.sim.resources import RoundState
-from src.sim.rules import RULES_DIR, Rules, RulesError, load_rules
+from src.sim.rules import RULES_DIR, Rules, RulesError, Tank, load_rules
 
 GAS = (False, False, True, False, False)
 
@@ -25,7 +25,9 @@ def _config():
 def test_standard_rules_are_todays_values():
     rules = load_rules("standard")
     assert (rules.round_seconds, rules.rounds) == (60, 1)
-    assert (rules.scoring.distance_step, rules.scoring.fuel) == (10, 100)
+    # 9a2: no distance points, and a tank.
+    assert (rules.scoring.distance_step, rules.scoring.fuel) == (0, 100)
+    assert rules.tank == Tank(100, idle=1, throttle=4, steering=1, refill=40)
 
 
 @pytest.mark.parametrize("name, seconds", [("sprint", 30), ("marathon", 120)])
@@ -48,7 +50,9 @@ def test_round_trip_matches_the_files():
         ({"round_seconds": 0}, "round_seconds must be positive"),
         ({"rounds": 0}, "rounds must be"),
         ({"rounds": 1.5}, "rounds must be"),
-        ({"scoring": {"distance_step": 0}}, "distance_step must be positive"),
+        ({"scoring": {"distance_step": -1}}, "distance_step can't be"),
+        ({"tank": {"capacity": 0}}, "tank capacity must be positive"),
+        ({"tank": {"idle": -1}}, "can't be negative"),
     ],
 )
 def test_invalid_rules_are_rejected(change, message):
@@ -65,15 +69,17 @@ def test_a_round_length_override_renames_the_rules():
 
 
 def test_scoring_comes_from_the_rules():
-    double = Rules.from_dict(
-        {
-            **load_rules("standard").to_dict(),
-            "name": "double",
-            "scoring": {"distance_step": 5, "fuel": 200},
-        }
-    )
+    def scoring(name, step, fuel):
+        return Rules.from_dict(
+            {
+                **load_rules("standard").to_dict(),
+                "name": name,
+                "scoring": {"distance_step": step, "fuel": fuel},
+            }
+        )
+
     totals = []
-    for rules in (load_rules("standard"), double):
+    for rules in (scoring("single", 10, 100), scoring("double", 5, 200)):
         env = MazeCarEnv(_config(), rules=rules)
         env.reset(seed=1)
         for _ in range(150):

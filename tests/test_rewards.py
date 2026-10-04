@@ -17,12 +17,32 @@ from src.sim.components import (
 from src.sim.factories import create_game
 from src.sim.geometry import circle_touches_car
 from src.sim.resources import EventLog, Field
+from src.sim.rules import Rules, load_rules
+from src.sim.stage import load_stage
 
 GAS = ActionInput(gas=True)
 
 
+# The built-in rules have no distance points (9a2): these tests turn them
+# back on, and keep one fuel out, to test distance scoring alone.
+DISTANCE = Rules.from_dict(
+    {
+        **load_rules("standard").to_dict(),
+        "name": "distance",
+        "scoring": {"distance_step": 10, "fuel": 100},
+    }
+)
+
+
 def _game(seed=0):
-    return create_game(get_maze_car_config(), label="Tester", seed=seed)
+    config = get_maze_car_config()
+    return create_game(
+        config,
+        label="Tester",
+        seed=seed,
+        stage=load_stage(config.stage).with_at_once(1),
+        rules=DISTANCE,
+    )
 
 
 def _fuel(world):
@@ -148,7 +168,7 @@ def test_rays_ignore_fuels():
 def test_env_returns_step_rewards_and_the_score():
     config = get_maze_car_config()
     config.show_gui = False
-    env = MazeCarEnv(config)
+    env = MazeCarEnv(config, rules=DISTANCE)
     rewards = [env.game_step((False, False, True, False, False))[0]]
     for _ in range(199):
         rewards.append(env.game_step((False, False, True, False, False))[0])

@@ -17,10 +17,13 @@ from src.sim.stage import load_stage
 NONE = (False,) * 5
 
 
-def _env(stage="skill_detour"):
+def _env(stage="skill_detour", fuels=None):
     config = get_maze_car_config()
     config.show_gui = False
-    env = MazeCarEnv(config, stage=load_stage(stage))
+    stage = load_stage(stage)
+    if fuels:
+        stage = stage.with_at_once(fuels)
+    env = MazeCarEnv(config, stage=stage)
     env.reset(seed=0)
     return env
 
@@ -208,7 +211,7 @@ def test_a_passed_waypoint_is_dropped_at_once():
     """7f15: swept past the waypoint wider than REACH, the car would turn
     back for it until the 2 s refresh. Now it takes the next one.
     """
-    env = _env("route_spiral")
+    env = _env("route_spiral", fuels=1)  # one fuel: one goal
     sense = route.sense(env.world, env.car)
     first, goal = sense.waypoint, sense.goal
     path = route.route_fields(env.world).field(env.world, goal)

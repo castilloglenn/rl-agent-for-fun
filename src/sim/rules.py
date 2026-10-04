@@ -21,8 +21,30 @@ class RulesError(ValueError):
 
 @dataclass(frozen=True)
 class Scoring:
-    distance_step: float = 10.0  # px driven forward per +1 point
+    distance_step: float = 10.0  # px driven forward per +1 point; 0: none
     fuel: float = 100.0  # points per fuel
+
+
+@dataclass(frozen=True)
+class Tank:
+    """A car's fuel tank (step 9a2): every throttle and turn burns it, a
+    fuel refills it, and an empty one ends the car's round. Rates are per
+    second. The same for every car, so a game stays fair.
+    """
+
+    capacity: float = 100.0  # full, at the start
+    idle: float = 1.0  # always, while the engine runs
+    throttle: float = 4.0  # more, with gas or reverse held
+    steering: float = 1.0  # more, while turning
+    refill: float = 40.0  # a fuel's, up to the full tank
+
+    def burn(self, throttle: bool, steering: bool) -> float:
+        """Fuel a second with these controls (braking burns nothing)."""
+        return (
+            self.idle
+            + (self.throttle if throttle else 0.0)
+            + (self.steering if steering else 0.0)
+        )
 
 
 @dataclass(frozen=True)
@@ -59,6 +81,7 @@ class Rules:
     collisions: Collisions
     description: str = ""
     format: int = RULES_FORMAT
+    tank: Tank | None = None  # None: no fuel to burn (fuel only scores)
 
     @staticmethod
     def from_dict(data: dict) -> "Rules":
@@ -80,6 +103,11 @@ class Rules:
                 **{k: float(v) for k, v in data["collisions"].items()}
             ),
             description=data.get("description", ""),
+            tank=(
+                Tank(**{k: float(v) for k, v in data["tank"].items()})
+                if data.get("tank")
+                else None
+            ),
         )
         rules.validate()
         return rules
@@ -94,6 +122,7 @@ class Rules:
             "rounds": self.rounds,
             "scoring": asdict(self.scoring),
             "collisions": asdict(self.collisions),
+            **({"tank": asdict(self.tank)} if self.tank else {}),
         }
 
     def validate(self) -> None:
@@ -101,8 +130,13 @@ class Rules:
             raise RulesError("round_seconds must be positive")
         if not isinstance(self.rounds, int) or self.rounds < 1:
             raise RulesError("rounds must be a whole number, at least 1")
-        if self.scoring.distance_step <= 0:
-            raise RulesError("scoring distance_step must be positive")
+        if self.scoring.distance_step < 0:
+            raise RulesError("scoring distance_step can't be negative")
+        tank = self.tank
+        if tank and tank.capacity <= 0:
+            raise RulesError("tank capacity must be positive")
+        if tank and min(tank.idle, tank.throttle, tank.steering, tank.refill) < 0:
+            raise RulesError("tank burn and refill can't be negative")
         collisions = self.collisions
         if collisions.health <= 0:
             raise RulesError("collisions health must be positive")

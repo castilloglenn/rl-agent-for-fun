@@ -151,4 +151,4 @@ def test_run_episode_result():
     assert result.score == result.reward  # a reward of game points
 
     full = run_episode(env, RandomDriver(), seed=5)
-    assert full.ended_by in ("time", "wall")
+    assert full.ended_by in ("time", "wall", "out_of_fuel")

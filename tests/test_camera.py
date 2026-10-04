@@ -188,12 +188,15 @@ def test_no_intro_on_a_stage_that_fits():
     assert not cam.in_intro
 
 
-def _game(stage, map_intro=True):
+def _game(stage, map_intro=True, fuels=None):
     from src.envs.maze_car.env import MazeCarEnv
 
     config = get_maze_car_config()
     config.window.map_intro = map_intro
-    env = MazeCarEnv(config, stage=load_stage(stage))
+    stage = load_stage(stage)
+    if fuels:
+        stage = stage.with_at_once(fuels)
+    env = MazeCarEnv(config, stage=stage)
     env.reset(seed=1)
     return env
 
@@ -269,7 +272,7 @@ def test_a_marker_sits_on_the_edge_toward_the_fuel():
 
 
 def test_the_frame_draws_a_marker_only_when_the_fuel_is_away():
-    env = _game("arena", map_intro=False)
+    env = _game("arena", map_intro=False, fuels=1)
     renderer = env.renderer
     polygons = []
     real = pygame.draw.polygon

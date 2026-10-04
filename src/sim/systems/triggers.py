@@ -2,11 +2,13 @@ from src.ecs import World
 from src.sim.components import (
     Eliminated,
     Hitbox,
+    Refuel,
     Renderable,
     Respawn,
     Score,
     ScoreReward,
     SpawnedAt,
+    Tank,
     Transform,
     Trigger,
 )
@@ -17,7 +19,7 @@ from src.sim.resources import EventLog, SimClock, SpawnSchedules
 
 def trigger_system(world: World) -> None:
     """Fires every trigger a car touches, and applies its effects (score,
-    respawn). Fuels now; fuel and hazards later.
+    refuel, respawn). Fuel now; hazards later.
     """
     if not round_active(world):
         return
@@ -56,10 +58,14 @@ def _fire(world: World, trigger_id: int, car: int, score: Score) -> None:
             f"{name} reached a {reward.label} +{reward.points:g}",
             kind=reward.label,
         )
+    refuel = world.try_component(trigger_id, Refuel)
+    tank = world.try_component(car, Tank)
+    if refuel and tank:  # up to the full tank (9a2)
+        tank.level = min(tank.level + refuel.amount, tank.capacity)
     respawn = world.try_component(trigger_id, Respawn)
     if respawn:
         spot = world.component(trigger_id, Transform)
-        spot.x, spot.y = next_spawn(world, respawn.spawner)
+        spot.x, spot.y = next_spawn(world, respawn.spawner, trigger_id)
         spawned = world.try_component(trigger_id, SpawnedAt)
         if spawned:
             spawned.step = _steps_done(world)
@@ -72,10 +78,22 @@ def _steps_done(world: World) -> int:
     return world.resource(SimClock).step + 1
 
 
-def next_spawn(world: World, spawner: str) -> tuple[float, float]:
-    """The next spot of a spawn schedule, kept away from the cars."""
+def next_spawn(
+    world: World, spawner: str, moving: int | None = None
+) -> tuple[float, float]:
+    """The next spot of a spawn schedule, kept away from the cars and
+    from the other triggers of the same spawner (`moving`: the one
+    being moved, not counted).
+    """
     cars = [
         (transform.x, transform.y)
         for _, (transform, _) in world.query(Transform, Hitbox)
     ]
-    return world.resource(SpawnSchedules).get(spawner).next_spot(cars)
+    others = [
+        (spot.x, spot.y)
+        for trigger, (respawn, spot) in world.query(Respawn, Transform)
+        if trigger != moving and respawn.spawner == spawner
+    ]
+    return world.resource(SpawnSchedules).get(spawner).next_spot(
+        cars, others
+    )

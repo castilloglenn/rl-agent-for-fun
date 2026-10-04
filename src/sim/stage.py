@@ -4,7 +4,7 @@ See docs/decisions/009-stage-format-and-spawn-schedules.md.
 """
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from src.utils import named_files
@@ -12,7 +12,9 @@ from src.utils import named_files
 STAGE_FORMAT = 1
 STAGES_DIR = Path(__file__).resolve().parents[2] / "stages"
 SCHEDULE_MODES = ("random", "scripted")
-# Where scripted fuel start: the first point, or one picked from
+AT_ONCE = 3  # fuels on the map at once, by default (9a2)
+MAX_AT_ONCE = 3
+# Where scripted fuels start: the first point, or one picked from
 # the seed (7d5a: a training course practices every zone).
 STARTS = ("first", "seeded")
 # A spawn this close to a wall would start with the car touching it (a
@@ -39,6 +41,18 @@ class FuelRules:
     min_car_distance: float = 100.0  # random mode: px from any car
     points: tuple[tuple[float, float], ...] = ()  # scripted mode, in order
     start: str = "first"  # scripted mode: "first" or "seeded" (STARTS)
+    # Fuels on the map at once (9a2): scripted, the next ones in order (a
+    # sliding window: taking any brings in the next); random, that many.
+    at_once: int = 3
+
+    @property
+    def on_map(self) -> int:
+        """Fuels out at once: scripted, never more than its points (a
+        window wider than the sequence would show a point twice).
+        """
+        if self.mode == "scripted":
+            return min(self.at_once, len(self.points))
+        return self.at_once
 
 
 @dataclass(frozen=True)
@@ -84,6 +98,8 @@ class Stage:
             self.fuel.start == "first"
         ):
             del fuel["start"]  # the default: files stay as they were
+        if self.fuel.at_once == AT_ONCE:
+            del fuel["at_once"]  # the default
         return {
             "format": self.format,
             "name": self.name,
@@ -129,9 +145,13 @@ class Stage:
             raise StageError(f"unknown fuel mode {rules.mode!r}")
         if rules.start not in STARTS:
             raise StageError(f"unknown fuel start {rules.start!r}")
+        if not 1 <= rules.at_once <= MAX_AT_ONCE:
+            raise StageError(
+                f"fuel at_once is 1 to {MAX_AT_ONCE}, not {rules.at_once}"
+            )
         if rules.mode == "scripted":
             if not rules.points:
-                raise StageError("scripted fuel need points")
+                raise StageError("scripted fuel needs points")
             for x, y in rules.points:
                 if not self.contains(x, y):
                     raise StageError(f"fuel ({x:g}, {y:g}) is outside")
@@ -141,6 +161,12 @@ class Stage:
                     )
         elif 2 * rules.border_margin >= min(self.width, self.height):
             raise StageError("fuel border_margin leaves no room")
+
+    def with_at_once(self, fuels: int) -> "Stage":
+        """This stage with `fuels` on the map at once (tests, and 9d's
+        skills that test one fuel at a time).
+        """
+        return replace(self, fuel=replace(self.fuel, at_once=fuels))
 
     def contains(self, x: float, y: float) -> bool:
         return 0 <= x <= self.width and 0 <= y <= self.height

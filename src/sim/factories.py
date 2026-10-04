@@ -10,12 +10,14 @@ from src.sim.components import (
     Motion,
     PreviousPose,
     Ray,
+    Refuel,
     Renderable,
     Respawn,
     Score,
     ScoreReward,
     Sensors,
     SpawnedAt,
+    Tank,
     Transform,
     Trigger,
 )
@@ -46,12 +48,13 @@ def create_game(
     stage: Stage | None = None,
     rules: Rules | None = None,
 ) -> tuple[World, int]:
-    """The first-goal game: one car at the stage's spawn, plus a
-    fuel. Returns the world and the car.
+    """One car at the stage's spawn, and the stage's fuels (up to 3 at
+    once, 9a2). Returns the world and the car.
     """
     world = create_world(config, seed, stage, rules)
     car = create_start_car(world, label=label)
-    create_fuel(world)
+    for _ in range(world.resource(Stage).fuel.on_map):
+        create_fuel(world)
     return world, car
 
 
@@ -79,11 +82,8 @@ def create_world(
     world.add_resource(
         SpawnSchedules(
             {
-                # The fuel's spawner. Its name seeds its random stream, so
-                # it stays "checkpoints" until 9a2 changes the spawning
-                # anyway: renamed now, every random fuel would move.
-                "checkpoints": SpawnSchedule(
-                    "checkpoints",
+                "fuel": SpawnSchedule(
+                    "fuel",
                     seed,
                     stage.fuel,
                     stage.width,
@@ -140,7 +140,7 @@ def create_car(
         world.resource(Walls).boxes,
     )
 
-    return world.create_entity(
+    car = world.create_entity(
         ActionInput(),
         transform,
         Motion(),
@@ -152,6 +152,10 @@ def create_car(
         Health(current=health, maximum=health),
         Renderable(color=color, label=label),
     )
+    tank = world.resource(Rules).tank
+    if tank:  # a full tank (9a2)
+        world.add_component(car, Tank(tank.capacity, tank.capacity))
+    return car
 
 
 def create_start_car(
@@ -175,19 +179,22 @@ def create_start_car(
 
 
 def create_fuel(world: World) -> int:
-    """A fuel at the first spot of the fuel schedule."""
-    x, y = next_spawn(world, "checkpoints")
-    return world.create_entity(
+    """A fuel at the next spot of the fuel schedule, refilling a tank
+    if the rules have one.
+    """
+    x, y = next_spawn(world, "fuel")
+    rules = world.resource(Rules)
+    fuel = world.create_entity(
         Transform(x=x, y=y),
         Trigger(radius=world.resource(Stage).fuel.radius),
-        ScoreReward(
-            points=world.resource(Rules).scoring.fuel,
-            label="fuel",
-        ),
-        Respawn(spawner="checkpoints"),
+        ScoreReward(points=rules.scoring.fuel, label="fuel"),
+        Respawn(spawner="fuel"),
         SpawnedAt(step=world.resource(SimClock).step),
         Fuel(),
     )
+    if rules.tank:
+        world.add_component(fuel, Refuel(rules.tank.refill))
+    return fuel
 
 
 def _car_spec(config: SimConfig) -> CarSpec:
