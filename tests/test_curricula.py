@@ -80,6 +80,7 @@ def test_maps_take_turns_by_share_earlier_ones_kept():
     picks = []
     for _ in range(40):
         stage = teacher.next_map()
+        teacher.started(stage)
         picks.append(stage)
         teacher.played(stage, 1, 1.0)
     assert picks.count("a") == picks.count("b") == 20  # level 1: even
@@ -90,11 +91,25 @@ def test_maps_take_turns_by_share_earlier_ones_kept():
     picks = []
     for _ in range(100):
         stage = teacher.next_map()
+        teacher.started(stage)
         picks.append(stage)
         teacher.played(stage, 1, 1.0)
     assert {m: picks.count(m) for m in "abcd"} == {
         "a": 25, "b": 25, "c": 25, "d": 25,
     }
+
+
+def test_games_starting_together_get_different_maps():
+    """Step 8: counted at the start, four rounds starting before any ends
+    each take the map furthest behind after the ones before them.
+    """
+    teacher = _teacher([["a", "b", "c", "d"]])
+    picks = []
+    for _ in range(4):
+        stage = teacher.next_map()
+        teacher.started(stage)
+        picks.append(stage)
+    assert sorted(picks) == ["a", "b", "c", "d"]
 
 
 def test_it_moves_up_on_the_goal_once_leveled_off():
@@ -188,15 +203,23 @@ def test_a_new_phase_starts_where_the_last_left_off(tmp_path, monkeypatch):
     assert learning[0]["level"] == "2"
 
 
-def test_a_curriculum_run_resumes_exactly(tmp_path, monkeypatch):
+def test_a_curriculum_run_resumes_the_same_twice(tmp_path, monkeypatch):
+    """Step 8: a resume starts fresh rounds; its level and counts carry
+    over, so resuming the same state twice gives the same run.
+    """
     from tests.test_resume import _same_run, _stop_at
 
-    whole = _train_on(tmp_path / "whole", monkeypatch)
-    stopped = _train_on(tmp_path, monkeypatch, on_update=_stop_at(2))
-    resumed = training.resume_training(
-        stopped.folder, agents_root=tmp_path / "agents"
-    )
-    _same_run(whole.folder, resumed.folder)
+    resumed = []
+    for where in ("a", "b"):
+        stopped = _train_on(
+            tmp_path / where, monkeypatch, on_update=_stop_at(2)
+        )
+        resumed.append(
+            training.resume_training(
+                stopped.folder, agents_root=tmp_path / where / "agents"
+            )
+        )
+    _same_run(resumed[0].folder, resumed[1].folder)
 
 
 # Seeing it

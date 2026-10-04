@@ -237,9 +237,15 @@ class Teacher:
             - self.state.counts.get(m, 0),
         )
 
+    def started(self, stage: str) -> None:
+        """An episode on `stage` started. Counted at the start, not the
+        end: games starting together (step 8) each get the map furthest
+        behind after the ones before them.
+        """
+        self.state.counts[stage] = self.state.counts.get(stage, 0) + 1
+
     def played(self, stage: str, checkpoints: int, minutes: float) -> None:
         """An episode on `stage` ended."""
-        self.state.counts[stage] = self.state.counts.get(stage, 0) + 1
         rates = self.state.rates.setdefault(stage, [])
         rates.append(checkpoints / max(minutes, 1e-6))
         del rates[: -2 * self.curriculum.window]  # two windows kept

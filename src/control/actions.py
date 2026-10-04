@@ -456,7 +456,7 @@ ACTIONS = (
     Action(
         "Resume training",
         "Agents",
-        "Continue a stopped training run exactly where it stopped.",
+        "Continue a stopped training run from its last update, with fresh rounds.",
         (Field("Run", _stopped_runs, NEWEST_STOPPED),),
         _resume,
     ),

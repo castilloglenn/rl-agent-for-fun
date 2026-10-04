@@ -1,6 +1,6 @@
 # 015: Exact resume by re-simulation, and branching as new agents
 
-**Date:** 2026-09-26. **Status:** Implemented in roadmap step 5a3 (`src/experiments/training.py`, `src/agents/store.py`, `make resume`, `make resume_last`).
+**Date:** 2026-09-26. **Status:** Implemented in roadmap step 5a3 (`src/experiments/training.py`, `src/agents/store.py`, `make resume`, `make resume_last`). **Superseded in part** by [decision 073](073-parallel-games.md) (step 8): a resume starts fresh rounds instead of re-simulating the current one; it's exact from there.
 
 ## Context
 

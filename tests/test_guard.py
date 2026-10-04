@@ -246,7 +246,7 @@ def test_the_estimate_reads_each_commands_model(tmp_path):
     run = tmp_path / "runs" / "2026-09-30_000000_train-big_seed0"
     run.mkdir(parents=True)
     (run / "config.json").write_text(
-        '{"kind": "training", "agent": {"id": "big"}}'
+        '{"kind": "training", "agent": {"id": "big"}, "games": 4}'
     )
     (run / "summary.json").write_text('{"interrupted": true}')
     (run / "resume.pt").write_bytes(b"")
@@ -254,12 +254,14 @@ def test_the_estimate_reads_each_commands_model(tmp_path):
     def gb(*argv):
         return round(estimate_gb(["app.py", *argv], tmp_path), 2)
 
-    assert gb("-train", "big") == 1.56  # 33.7 M parameters
-    assert gb("-train", "tiny") == 0.3
-    assert gb("-eval", "big") == gb("-train", "big")
+    assert gb("-eval", "big") == 1.56  # 33.7 M parameters
+    # A training: and its 4 games' workers by default (step 8).
+    assert gb("-train", "big") == 1.96
+    assert gb("-train", "big", "--games", "1") == 1.56  # no worker
+    assert gb("-train", "tiny") == 0.7
     assert gb("-imitate", "new_one", "--model", "wide") == 0.62
     assert gb("-imitate", "new_one") == 0.3  # the default model: small
-    assert gb("-resume", run.name) == gb("-train", "big")
+    assert gb("-resume", run.name) == gb("-train", "big")  # its 4 games
     assert gb("-resume_last") == gb("-train", "big")
     assert gb("-run", "r", "--driver", "agent:big@d0100k") == 1.56
     assert gb("-run", "r", "--driver", "heuristic") == BASE_GB
@@ -270,10 +272,10 @@ def test_room_for_a_job_below_amber_and_under_the_cap(tmp_path):
     _model(tmp_path / "agents" / "big", [4096, 4096])
     train = ["app.py", "-train", "big"]
     limits = GuardLimits(max_heavy=8)
-    # 16 GB: amber at 14.08 GB. It needs 1.56 GB.
+    # 16 GB: amber at 14.08 GB. It needs 1.96 GB (with 4 games).
     assert room_for(train, 12.0, 16.0, 0, limits, tmp_path) is None
     why = room_for(train, 13.2, 16.0, 0, limits, tmp_path)
-    assert why.startswith("it needs about 1.6 GB, and 0.9 GB is free")
+    assert why.startswith("it needs about 2.0 GB, and 0.9 GB is free")
     why = room_for(train, 1.0, 16.0, 8, limits, tmp_path)
     assert why.startswith("8 heavy jobs are running, at most 8")
 

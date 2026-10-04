@@ -346,6 +346,8 @@ def _train(cl_args, config) -> None:
             rules=rules,
             on_update=_training_progress,
             on_start=_announce_run,
+            games=cl_args.games,
+            adapt=True,
         )
     except AgentError as error:
         raise SystemExit(
@@ -375,6 +377,7 @@ def _resume(cl_args, config) -> None:
             base_config=config,
             on_update=_training_progress,
             on_start=_announce_run,
+            adapt=True,
         )
     except (AgentError, TrainingError) as error:
         raise SystemExit(str(error))
@@ -492,6 +495,7 @@ def _training_progress(report) -> None:
         f"  {report.decisions:>9,}/{report.total:,} decisions  "
         f"{report.episodes:>4} episodes  score {score:>6}  "
         f"entropy {report.stats.entropy:.2f}  {report.seconds:,.0f} s"
+        + (f"  {report.games} games" if report.games > 1 else "")
     )
     print(line + (f"  saved {report.saved}" if report.saved else ""))
     if report.evaluation:

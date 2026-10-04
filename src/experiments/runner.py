@@ -42,6 +42,7 @@ METRICS_COLUMNS = (
     "reward",
     "ended_by",
     "stage",  # the map it played (7d5a: a mix plays several)
+    "game",  # which of a training's games played it (step 8), 1 up
 )
 TERM = "reward:"  # a reward term's column (6e): "reward:contact"
 
@@ -171,7 +172,12 @@ def _write_config(folder, name, env, driver, episodes, first_seed) -> None:
 
 
 def _metrics_row(
-    episode: int, result: EpisodeResult, config, stage: str, terms=()
+    episode: int,
+    result: EpisodeResult,
+    config,
+    stage: str,
+    terms=(),
+    game: int = 1,
 ) -> list:
     seconds = result.steps / config.sim.steps_per_second
     return [
@@ -185,6 +191,7 @@ def _metrics_row(
         round(result.reward, 6),
         result.ended_by or "",
         stage,
+        game,
         *(round(result.terms.get(term, 0.0), 4) for term in terms),
     ]
 

@@ -6,13 +6,19 @@ and resumes a stopped one exactly (5a3).
       metrics.csv    one row per training episode (same columns as runs)
       learning.csv   one row per update: losses, entropy, KL, ...
       replays/       every new best training episode, gzipped
-      resume.pt      everything needed to continue exactly, after every
-                     update: weights, optimizer, random state, counters,
-                     and the current episode's actions so far
+      resume.pt      everything needed to continue after every update:
+                     weights, optimizer, random state, counters (a resume
+                     starts fresh rounds, and is exact from there)
       summary.json   totals, written at the end (also after Ctrl+C)
       notes.md       your observations
 
 Weights go to the agent: agents/<id>/checkpoints/d0100k.pt, ...
+
+Several games at once (roadmap 8, decision 073): one network decides for
+all of them in one pass, each game in its own worker process
+(`games.py`), as many as the machine has room for (`game_count.py`). The
+rollout stays `trainer.rollout` decisions in total, split over the games,
+and each update learns from every game's piece.
 """
 
 import csv
@@ -26,6 +32,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
 import torch
 from ml_collections import ConfigDict
 
@@ -39,8 +46,7 @@ from src.agents.store import (
 )
 from src.agents.trainer import TrainerSpec
 from src.config import config_with_game, game_config
-from src.drivers.actions import CANONICAL_ACTIONS
-from src.drivers.episode import EpisodeResult, episode_result
+from src.drivers.episode import EpisodeResult
 from src.envs.maze_car.env import MazeCarEnv
 from src.envs.maze_car.rewards import RewardProfile
 from src.experiments.evaluation import (
@@ -48,6 +54,8 @@ from src.experiments.evaluation import (
     evaluate_checkpoint,
     load_suite,
 )
+from src.experiments.game_count import FixedCount, GameCount
+from src.experiments.games import GameSetup, Step, open_game
 from src.experiments.runner import (
     RUN_FORMAT,
     RUNS_DIR,
@@ -81,6 +89,7 @@ LEARNING_COLUMNS = (
     "approx_kl",
     "clip_fraction",
     "level",  # the curriculum's level (7f5), 1 up; blank without one
+    "games",  # games that played this rollout (step 8)
 )
 RECENT = 20  # episodes averaged in learning.csv and progress lines
 EPISODE_SUMMARY = 100  # a history summary line per this many episodes
@@ -105,6 +114,7 @@ class UpdateReport:
     seconds: float
     saved: str | None  # checkpoint written after this update
     evaluation: dict | None = None  # its suite scores, if evaluated
+    games: int = 1  # games that played this rollout
 
 
 @dataclass(frozen=True)
@@ -145,11 +155,20 @@ def train_agent(
     on_update: Callable[[UpdateReport], None] | None = None,
     suite: str = DEFAULT_SUITE,
     on_start: Callable[[Path], None] | None = None,
+    games: int = 1,
+    adapt: bool = False,
+    count: GameCount | FixedCount | None = None,
+    workers: bool | None = None,
 ) -> TrainingSummary:
     """One training phase: continues the agent's newest checkpoint for
-    `trainer.total_decisions` decisions. Episode i uses seed first_seed + i.
-    Ctrl+C stops it, keeping the metrics and the weights learned so far,
-    and `resume_training` continues it exactly.
+    `trainer.total_decisions` decisions. The i-th round to start uses
+    seed first_seed + i. Ctrl+C stops it, keeping the metrics and the
+    weights learned so far, and `resume_training` continues it.
+
+    games: the most at once. adapt: follow the machine's free room
+    (`GameCount`); without it, always `games` (the same seed and games:
+    the same run). workers: games in worker processes (default: with
+    more than one).
     """
     loaded = load_agent(agent, root=agents_root)
     config = config.copy_and_resolve_references()
@@ -199,6 +218,8 @@ def train_agent(
         mix=mix,
         stages=stages,
         teacher=teacher,
+        count=count or _count(games, adapt),
+        workers=games > 1 if workers is None else workers,
     )
     training.write_config()
     if on_start:
@@ -231,10 +252,13 @@ def resume_training(
     on_update: Callable[[UpdateReport], None] | None = None,
     suite: str = DEFAULT_SUITE,
     on_start: Callable[[Path], None] | None = None,
+    adapt: bool = False,
+    count: GameCount | FixedCount | None = None,
 ) -> TrainingSummary:
-    """Continues a stopped training run exactly where its last update
-    left it, with the run's own trainer, stage, rules, and reward. It ends
-    as if it had never stopped.
+    """Continues a stopped training run from its last update, with the
+    run's own trainer, stage, rules, reward, and most games. Rounds start
+    fresh (the ones playing when it stopped are dropped); from there it's
+    exact: resuming the same state twice gives the same run.
     """
     folder = _run_folder(run, runs_dir)
     run_config = _read_json(folder / "config.json")
@@ -298,6 +322,8 @@ def resume_training(
         mix=mix,
         stages=stages,
         teacher=teacher,
+        count=count or _count(run_config["games"], adapt),
+        workers=run_config["games"] > 1,
     )
     training.restore(state)
     if on_start:
@@ -341,6 +367,10 @@ def _curriculum_level(folder: Path, curriculum: Curriculum) -> int:
     return min(level, len(curriculum.levels) - 1)
 
 
+def _count(games: int, adapt: bool) -> GameCount | FixedCount:
+    return GameCount(games) if adapt and games > 1 else FixedCount(games)
+
+
 def _env(agent, config, reward, rules=None, stage=None) -> MazeCarEnv:
     return MazeCarEnv(
         config,
@@ -378,6 +408,19 @@ def _check_not_running(folder: Path) -> None:
     raise TrainingError(f"{folder.name} is still training")
 
 
+@dataclass(eq=False)
+class _Slot:
+    """A game the training plays, and the round it plays now."""
+
+    number: int  # 1 up, in the order the games were opened
+    game: object  # a LocalGame or a WorkerGame
+    observation: object = None
+    round: int = 0  # its seed is first_seed + round
+    stage: str = ""
+    leaving: bool = False  # stops when this round ends
+    save_as: Path | None = None  # its finished round's replay, a new best
+
+
 class _Training:
     def __init__(
         self,
@@ -393,20 +436,38 @@ class _Training:
         mix: Mix | None = None,
         stages: list[Stage] | None = None,
         teacher: Teacher | None = None,
+        count: GameCount | FixedCount | None = None,
+        workers: bool = False,
     ) -> None:
         self.agent = agent
-        # A mix's maps, played in turn: episode i on map i mod n (7d5a);
-        # with a curriculum, its teacher picks each episode's map (7f5).
+        # A mix's maps, each round on the one furthest behind (7d5a, step
+        # 8); with a curriculum, its teacher picks each round's map (7f5).
         self.mix = mix
         self.stages = stages or []
         self.teacher = teacher
-        self.episode_stage: str | None = None  # this episode's map
         # Scoring checkpoints plays separate games with its own driver, so
-        # it never changes the training (exact resume still holds).
+        # it never changes the training.
         self.suite = load_suite(suite) if trainer.evaluate else None
         self.trainer = trainer
+        # The run's settings (config, reward, rules, stage); the games
+        # play elsewhere, each with its own env.
         self.env = env
-        self.recorder = env.recorder
+        self.config = env.config
+        self.terms = tuple(env.reward_profile.terms)
+        world = env.world
+        played = self.stages or [world.resource(Stage)]
+        self.setup = GameSetup(
+            env.config,
+            env.driver,
+            env.reward_profile.to_dict(),
+            world.resource(Rules).to_dict(),
+            tuple(stage.to_dict() for stage in played),
+            agent.spec.action_repeat,
+        )
+        self.count = count or FixedCount(1)
+        self.workers = workers
+        self.slots: list[_Slot] = []
+        self.opened = 0  # games opened so far (their numbers)
         self.first_seed = first_seed
         self.folder = folder
         self.start_checkpoint = start_checkpoint
@@ -421,7 +482,10 @@ class _Training:
         self.decisions = 0  # collected
         self.learned = 0  # collected and learned from (in the weights)
         self.updates = 0
-        self.episode = 0
+        self.episode = 0  # rounds finished (metrics rows)
+        self.rounds = 0  # rounds started (their seeds)
+        self.map_counts: dict[str, int] = {}  # a mix's rounds per map
+        self.games = 0  # games that played the last rollout
         self.results: list[EpisodeResult] = []
         self.best_score, self.best_episode = float("-inf"), None
         # The best score on each map so far: a replay is saved for a new
@@ -451,14 +515,14 @@ class _Training:
                 self.metrics = csv.writer(metrics_file)
                 learning = csv.writer(learn_file)
                 if not self.resumed:
-                    self.metrics.writerow(
-                        metrics_columns(self.env.reward_profile.terms)
-                    )
+                    self.metrics.writerow(metrics_columns(self.terms))
                     learning.writerow(LEARNING_COLUMNS)
                 try:
                     self._train(learning, learn_file, started, on_update)
                 except KeyboardInterrupt:
                     interrupted = True
+                finally:
+                    self._close_games()
             if interrupted:
                 self._stop_at_last_update()
             return self._write_summary(interrupted, started)
@@ -468,7 +532,7 @@ class _Training:
     def _stop_at_last_update(self) -> None:
         """After Ctrl+C: back to the state right after the last update
         (Ctrl+C can land mid-update or mid-rollout), whose weights are
-        kept as a checkpoint. Resuming continues from exactly there.
+        kept as a checkpoint. Resuming continues from there.
         """
         path = self.folder / "resume.pt"
         if not path.exists():  # stopped before the first update
@@ -483,16 +547,19 @@ class _Training:
             _write_atomic(state, path)
 
     def _train(self, learning, learn_file, started, on_update) -> None:
-        if not self.resumed:
-            self._start_episode()
+        first = self.count.first()
+        for _ in range(first):
+            self._open_game()
+        if self.count.most > 1:
+            print(f"Games: {first} at once, up to {self.count.most}", flush=True)
         total = self.trainer.total_decisions
         while self.learned < total:
             size = min(self.trainer.rollout, total - self.learned)
-            rollout = self._collect(size)
+            rollouts = self._collect(size)
             stats = update(
                 self.network,
                 self.optimizer,
-                rollout,
+                rollouts,
                 self.trainer,
                 self.generator,
             )
@@ -502,12 +569,14 @@ class _Training:
             evaluation = None
             if saved and self.suite:
                 evaluation = evaluate_checkpoint(
-                    self.agent.folder, saved, self.suite, self.env.config
+                    self.agent.folder, saved, self.suite, self.config
                 )
             seconds = self._seconds(started)
             learning.writerow(self._learning_row(stats, seconds))
             learn_file.flush()
             self._write_resume_state(started)
+            if self.learned < total:
+                self._adjust_games()
             if on_update:
                 on_update(
                     UpdateReport(
@@ -520,17 +589,55 @@ class _Training:
                         seconds,
                         saved,
                         evaluation,
+                        self.games,
                     )
                 )
 
     def _seconds(self, started: float) -> float:
         return self.seconds_before + time.perf_counter() - started
 
-    def _start_episode(self) -> None:
-        # The replay's driver record says which training moment played it.
-        self.episode_start = self.decisions
-        self.episode_actions: list[int] = []
-        self.recorder.drivers = {
+    # Games and rounds
+
+    def _open_game(self) -> None:
+        self.opened += 1
+        slot = _Slot(self.opened, open_game(self.setup, self.workers))
+        self.slots.append(slot)
+        self._start_round(slot)
+
+    def _close_games(self) -> None:
+        """Ends every game (the end of training, or Ctrl+C): rounds still
+        playing are dropped.
+        """
+        for slot in self.slots:
+            try:
+                slot.game.close()
+            except Exception:  # noqa: BLE001 - closing never hides the why
+                pass
+        self.slots = []
+
+    def _adjust_games(self) -> None:
+        """One game more or fewer, if the machine says so (after an
+        update). A game leaving finishes its round first.
+        """
+        staying = [slot for slot in self.slots if not slot.leaving]
+        change = self.count.check(len(staying))
+        if change is None:
+            return
+        games, why = change
+        if games < len(staying):
+            staying[-1].leaving = True  # the newest goes first
+        else:
+            self._open_game()
+        print(f"Games: {games} ({why})", flush=True)
+
+    def _start_round(self, slot: _Slot) -> None:
+        """Starts the slot's next round (saving its last one first, if it
+        was a new best). The replay's driver record says which training
+        moment played it.
+        """
+        slot.round, self.rounds = self.rounds, self.rounds + 1
+        slot.stage = self._next_map()
+        drivers = {
             "1": {
                 "type": "agent",
                 "id": self.agent.agent_id,
@@ -541,106 +648,145 @@ class _Training:
                 },
             }
         }
-        if self.stages:
-            if self.teacher and self.episode_stage is None:
-                name = self.teacher.next_map()
-                self.env.stage = next(
-                    s for s in self.stages if s.name == name
-                )
-            elif self.episode_stage is not None:  # resuming this episode
-                self.env.stage = next(
-                    s for s in self.stages if s.name == self.episode_stage
-                )
-            else:
-                self.env.stage = self.stages[self.episode % len(self.stages)]
-            self.episode_stage = self.env.stage.name
-        self.observation, _ = self.env.reset(
-            seed=self.first_seed + self.episode
+        slot.game.send(
+            (
+                "start",
+                self.first_seed + slot.round,
+                slot.stage,
+                drivers,
+                slot.save_as,
+            )
         )
-        self.steps = 0
+        slot.observation = slot.game.receive()
+        slot.save_as = None
 
-    def _act(self, action: int) -> tuple[float, bool, bool, dict]:
-        """Holds one decision for `action_repeat` steps, or until the
-        episode ends. Returns (reward, done, truncated, info).
+    def _next_map(self) -> str:
+        """This round's map: the curriculum's pick, a mix's map furthest
+        behind (one game: in turn), or the one stage.
         """
-        reward = 0.0
-        done = truncated = False
-        info: dict = {}
-        self.episode_actions.append(action)
-        for _ in range(self.agent.spec.action_repeat):
-            step = self.env.step(CANONICAL_ACTIONS[action])
-            self.observation, step_reward, terminated, truncated = step[:4]
-            info = step[4]
-            self.steps += 1
-            reward += step_reward
-            done = terminated or truncated
-            if done:
-                break
-        return reward, done, truncated, info
+        if not self.stages:
+            return self.setup.stages[0]["name"]
+        if self.teacher:
+            name = self.teacher.next_map()
+            self.teacher.started(name)
+            return name
+        name = min(
+            (stage.name for stage in self.stages),
+            key=lambda n: self.map_counts.get(n, 0),
+        )
+        self.map_counts[name] = self.map_counts.get(name, 0) + 1
+        return name
 
-    def _collect(self, size: int) -> Rollout:
-        """Plays `size` decisions with the current policy (sampled)."""
-        buffer = {
-            "observations": torch.zeros(size, len(self.observation)),
-            "actions": torch.zeros(size, dtype=torch.long),
-            "log_probs": torch.zeros(size),
-            "values": torch.zeros(size),
-            "rewards": torch.zeros(size),
-            "dones": torch.zeros(size),
+    def _collect(self, size: int) -> list[Rollout]:
+        """Plays `size` decisions with the current policy (sampled), split
+        over the games: one rollout per game. The games step together, and
+        one network pass decides for all of them.
+        """
+        slots = list(self.slots)
+        self.games = len(slots)
+        quota = {
+            slot.number: size // len(slots) + (i < size % len(slots))
+            for i, slot in enumerate(slots)
         }
-        for t in range(size):
-            observation = torch.as_tensor(self.observation)
+        names = (
+            "observations", "actions", "log_probs", "values", "rewards",
+            "dones",
+        )
+        buffers = {slot.number: {name: [] for name in names} for slot in slots}
+        while True:
+            acting = [
+                slot
+                for slot in slots
+                if slot in self.slots
+                and len(buffers[slot.number]["actions"]) < quota[slot.number]
+            ]
+            if not acting:
+                break
+            observations = torch.as_tensor(
+                np.stack([slot.observation for slot in acting])
+            )
             with torch.no_grad():
-                logits, value = self.network(observation.unsqueeze(0))
-                log_probs = torch.log_softmax(logits[0], dim=-1)
-                action = int(
-                    torch.multinomial(
-                        log_probs.exp(), 1, generator=self.generator
+                logits, values = self.network(observations)
+                log_probs = torch.log_softmax(logits, dim=-1)
+                actions = [
+                    int(
+                        torch.multinomial(
+                            log_probs[i].exp(), 1, generator=self.generator
+                        )
                     )
+                    for i in range(len(acting))
+                ]
+            for slot, action in zip(acting, actions):
+                slot.game.send(("act", action))
+            for i, slot in enumerate(acting):
+                step: Step = slot.game.receive()
+                buffer = buffers[slot.number]
+                buffer["observations"].append(observations[i])
+                buffer["actions"].append(actions[i])
+                buffer["log_probs"].append(log_probs[i, actions[i]])
+                buffer["values"].append(values[i])
+                buffer["rewards"].append(
+                    step.reward * self.trainer.reward_scale
                 )
-            reward, done, truncated, info = self._act(action)
-            buffer["observations"][t] = observation
-            buffer["actions"][t] = action
-            buffer["log_probs"][t] = log_probs[action]
-            buffer["values"][t] = value[0]
-            buffer["rewards"][t] = reward * self.trainer.reward_scale
-            buffer["dones"][t] = float(done)
-            self.decisions += 1
-            if done:
-                self._finish_episode(truncated, info)
+                buffer["dones"].append(float(step.done))
+                self.decisions += 1
+                slot.observation = step.observation
+                if step.done:
+                    self._finish_round(slot, step)
         self.metrics_file.flush()
 
-        with torch.no_grad():
-            _, last_value = self.network(
-                torch.as_tensor(self.observation).unsqueeze(0)
+        rollouts = []
+        for slot in slots:
+            buffer = buffers[slot.number]
+            if not buffer["actions"]:
+                continue
+            last_value = 0.0  # a game that left ended its round: unused
+            if slot in self.slots:
+                with torch.no_grad():
+                    _, value = self.network(
+                        torch.as_tensor(slot.observation).unsqueeze(0)
+                    )
+                last_value = float(value[0])
+            rollouts.append(
+                Rollout(
+                    observations=torch.stack(buffer["observations"]),
+                    actions=torch.tensor(buffer["actions"], dtype=torch.long),
+                    log_probs=torch.stack(buffer["log_probs"]),
+                    values=torch.stack(buffer["values"]),
+                    rewards=torch.tensor(
+                        buffer["rewards"], dtype=torch.float32
+                    ),
+                    dones=torch.tensor(buffer["dones"], dtype=torch.float32),
+                    last_value=last_value,
+                )
             )
-        return Rollout(**buffer, last_value=float(last_value[0]))
+        return rollouts
 
-    def _finish_episode(self, truncated: bool, info: dict) -> None:
-        seed = self.first_seed + self.episode
-        result = episode_result(self.env, seed, self.steps, truncated, info)
+    def _finish_round(self, slot: _Slot, step: Step) -> None:
+        result = step.result
         self.results.append(result)
         self.metrics.writerow(
             _metrics_row(
                 self.episode,
                 result,
-                self.env.config,
-                self.env.world.resource(Stage).name,
-                tuple(self.env.reward_profile.terms),
+                self.config,
+                step.stage,
+                self.terms,
+                game=slot.number,
             )
         )
         if result.score > self.best_score:
             self.best_score, self.best_episode = result.score, self.episode
-        stage = self.env.world.resource(Stage).name
+        stage = step.stage
         if self.teacher:
-            sps = self.env.config.sim.steps_per_second
+            sps = self.config.sim.steps_per_second
             self.teacher.played(
-                stage, result.checkpoints, self.steps / sps / 60
+                stage, result.checkpoints, result.steps / sps / 60
             )
             self._check_level()
         if result.score > self.best_by_map.get(stage, float("-inf")):
             self.best_by_map[stage] = result.score
-            self.recorder.save(
+            slot.save_as = (
                 self.folder
                 / "replays"
                 / f"ep{self.episode:04d}_score{result.score:.0f}.jsonl.gz"
@@ -660,8 +806,11 @@ class _Training:
                 / len(last),
             )
         self.episode += 1
-        self.episode_stage = None  # the next one picks its map
-        self._start_episode()
+        if slot.leaving:
+            slot.game.close(slot.save_as)
+            self.slots.remove(slot)
+        else:
+            self._start_round(slot)
 
     def _check_level(self) -> None:
         """Moves up the curriculum when it's time (7f5), and says so."""
@@ -732,7 +881,7 @@ class _Training:
 
     def _write_resume_state(self, started: float) -> None:
         """Everything needed to continue from right after this update.
-        The env is rebuilt by re-simulating the current episode's actions.
+        The rounds playing then aren't kept: a resume starts fresh ones.
         """
         state = {
             "format": RESUME_FORMAT,
@@ -743,6 +892,8 @@ class _Training:
             "learned": self.learned,
             "updates": self.updates,
             "episode": self.episode,
+            "rounds": self.rounds,
+            "map_counts": dict(self.map_counts),
             "results": [asdict(result) for result in self.results],
             "best_score": self.best_score,
             "best_episode": self.best_episode,
@@ -751,9 +902,6 @@ class _Training:
             "saved_at": self.saved_at,
             "seconds": self._seconds(started),
             "resumes": self.resumes,
-            "episode_start": self.episode_start,
-            "episode_actions": list(self.episode_actions),
-            "episode_stage": self.episode_stage,
             "curriculum": (
                 self.teacher.state.to_dict() if self.teacher else None
             ),
@@ -768,16 +916,9 @@ class _Training:
         self.resumes = state["resumes"] + 1
         self.resumed = True
 
-        # Rows written after that update are replayed again: drop them.
+        # Rows written after that update are played again: drop them.
         _keep_rows(self.folder / "metrics.csv", self.episode)
         _keep_rows(self.folder / "learning.csv", self.updates)
-
-        # Rebuild the current episode by playing its actions again.
-        self.decisions = state["episode_start"]
-        self._start_episode()
-        for action in state["episode_actions"]:
-            self._act(action)
-        self.decisions = self.learned
 
     def _restore_counters(self, state: dict) -> None:
         """The learner and counters as they were right after an update."""
@@ -787,13 +928,14 @@ class _Training:
         self.decisions = self.learned = state["learned"]
         self.updates = state["updates"]
         self.episode = state["episode"]
+        self.rounds = state["rounds"]
+        self.map_counts = dict(state["map_counts"])
         self.results = [EpisodeResult(**row) for row in state["results"]]
         self.best_score = state["best_score"]
         self.best_episode = state["best_episode"]
         self.best_by_map = dict(state.get("best_by_map", {}))
         self.saved = list(state["saved"])
         self.saved_at = state["saved_at"]
-        self.episode_stage = state.get("episode_stage")
         if self.teacher and state.get("curriculum"):
             self.teacher.state = CurriculumState.from_dict(state["curriculum"])
 
@@ -817,6 +959,7 @@ class _Training:
             "" if reward_mean is None else round(reward_mean, 3),
             *(round(value, 6) for value in asdict(stats).values()),
             self.teacher.state.level + 1 if self.teacher else "",
+            self.games,
         ]
 
     def write_config(self) -> None:
@@ -844,6 +987,7 @@ class _Training:
                 else None
             ),
             "first_seed": self.first_seed,
+            "games": self.count.most,  # at most, at once (step 8)
             "stage": world.resource(Stage).to_dict(),  # a mix's first map
             "mix": (
                 {

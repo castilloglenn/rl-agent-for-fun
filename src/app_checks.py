@@ -59,6 +59,8 @@ def problems(cl_args, config, root: Path = named_files.REPO) -> list[str]:
         found += _named("rewards", cl_args.reward, "--reward", root)
     if command == "train":
         found += _trainer(cl_args.trainer, "rl", "--trainer", root)
+        if cl_args.games < 1:
+            found.append(f"--games {cl_args.games}: at least 1")
     if command == "imitate":
         found += _named("datasets", cl_args.dataset, "--dataset", root)
         found += _trainer(

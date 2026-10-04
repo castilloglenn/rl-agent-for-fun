@@ -148,31 +148,34 @@ runs/<date>_<time>_<name>_seed<N>/     (gitignored: local data)
 
 ### Training runs (`src/experiments/training.py`)
 
-`train_agent(agent, trainer, config, first_seed, reward, rules)` runs one **training phase**: it continues the agent's newest checkpoint for `total_decisions` decisions, with episode *i* on seed `first_seed + i`.
+`train_agent(agent, trainer, config, first_seed, reward, rules, games, adapt)` runs one **training phase**: it continues the agent's newest checkpoint for `total_decisions` decisions, the *i*-th round to start on seed `first_seed + i`.
 
 ```
 runs/<date>_<time>_train-<id>_seed<N>/
   config.json    kind "training", agent (model, start checkpoint and
                  decisions), trainer, stage, mix (or null), rules,
                  reward, game config
-  metrics.csv    one row per training episode (same columns as runs)
+  metrics.csv    one row per training episode, in the order they end
+                 (same columns as runs; `game`: which game played it)
   learning.csv   one row per update: decisions, episodes, mean score and
-                 reward of the last 20 episodes, losses, entropy, KL, clip
+                 reward of the last 20 episodes, losses, entropy, KL, clip,
+                 level, games
   replays/       each new best training episode on its map (7c14)
-  resume.pt      everything to continue exactly (after every update)
+  resume.pt      everything to continue (after every update)
   summary.json   decisions, updates, last 100 episodes, checkpoints written
 agents/<id>/checkpoints/d0100k.pt, d0200k.pt, ...
 ```
 
-- **Curricula** (7f5, [decision 063](decisions/063-automatic-curriculum.md)): with a curriculum as the stage, a `Teacher` picks each episode's map and moves up levels; the level is in the resume state, `learning.csv` (`level`), and the agent's history (`level_up`).
-- **Map mixes** (7d5a, [decision 050](decisions/050-map-mixes.md)): with a mix as the stage, episode *i* plays the mix's map *i* mod *n* (the env's stage is swapped before each reset). The config keeps every map's full content for an exact resume, and `"stage"` is the first map.
+- **Curricula** (7f5, [decision 063](decisions/063-automatic-curriculum.md)): with a curriculum as the stage, a `Teacher` picks each episode's map (counted when it starts, so games starting together get different maps) and moves up levels; the level is in the resume state, `learning.csv` (`level`), and the agent's history (`level_up`).
+- **Several games at once** (step 8, [decision 073](decisions/073-parallel-games.md)): `games.py` (no torch) has a `Game` (an env, its recorder, a decision held `action_repeat` steps) behind two handles with `send` and `receive`: `LocalGame` (one game, in the training process) and `WorkerGame` (a `python -m src.experiments.game_worker` subprocess, pickled messages on its pipes; it ends when the pipe closes). `_Training` keeps a slot per game, steps them together with one network pass, splits the rollout over them, and hands `ppo.update` one rollout per game. `game_count.py` (no torch): `GameCount` decides one more or fewer after each update from memory, CPU, and the free cores; `FixedCount` keeps a number (tests, one game).
+- **Map mixes** (7d5a, [decision 050](decisions/050-map-mixes.md)): with a mix as the stage, each round plays the mix's map furthest behind (one game: map *i* mod *n*, in turn). The config keeps every map's full content for a resume, and `"stage"` is the first map.
 - Each decision samples the policy, holds it `action_repeat` steps, and its reward is the reward profile summed over them. A wreck or time up ends the value chain. That's right for time up too, because `time_left` is in the observation.
 - Checkpoints are named by the agent's total decisions at the mark they passed (`d0100k` holds the weights after the first update past 100,000; the exact count is inside). A second phase continues the count.
-- **Exact resume** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md)): after every update, `runs/<run>/resume.pt` holds the weights, optimizer, torch random state, counters, episode results, and the current episode's seed and decisions. `resume_training(run)` rebuilds the game by re-simulating that episode, and the run ends exactly as if it had never stopped. `last_stopped_run()` finds the newest stopped one.
+- **Resume** (5a3, [decision 015](decisions/015-exact-resume-by-resimulation.md); step 8, [decision 073](decisions/073-parallel-games.md)): after every update, `runs/<run>/resume.pt` holds the weights, optimizer, torch random state, counters (rounds started and finished, a mix's map counts), episode results, and the curriculum's state. `resume_training(run)` starts fresh rounds with the run's own most games; resuming the same state twice gives the same run. `last_stopped_run()` finds the newest stopped one.
 - Ctrl+C rolls back to the last update (it can land mid-rollout or mid-update), trims the CSVs to it, and saves its weights as a checkpoint.
 - Checkpoints record the run that wrote them. Resume is refused if another run trained the agent since, or while `training.lock` names a live process.
 - **Branch:** `branch_agent(new_id, source, checkpoint)` (`store.py`) copies the model and a checkpoint into a new agent's `initial`, with `branched_from` and the decision count.
-- Reproducible: the same agent, trainer, seeds, and files give the same `learning.csv` and weights. `app.py` sets torch to one thread.
+- Reproducible: the same agent, trainer, seeds, files, and a fixed number of games give the same `learning.csv` and weights (with `adapt`, the number follows the machine, so a run can't be re-created). `app.py` sets torch to one thread.
 - Training replays record `{"type": "agent", "id", "training": {"run", "decisions"}}` as their driver.
 
 ### Evaluation suite (`src/experiments/evaluation.py`)

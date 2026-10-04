@@ -102,10 +102,35 @@ def model_params(hidden: list[int]) -> int:
 
 
 def estimate_gb(argv: list[str], repo: Path = REPO) -> float:
-    """About how much memory a heavy command line needs."""
+    """About how much memory a heavy command line needs: a training with
+    its games' workers at their most (step 8).
+    """
+    from src.experiments.game_count import GAME_GB
+
     hidden = _hidden(argv, repo)
     params = model_params(hidden) if hidden else 0
-    return BASE_GB + params * BYTES_PER_PARAM / GB
+    games = _games(argv, repo)
+    workers = games if games > 1 else 0  # one game plays in the job itself
+    return BASE_GB + params * BYTES_PER_PARAM / GB + workers * GAME_GB
+
+
+def _games(argv: list[str], repo: Path) -> int:
+    """A training's most games at once (1 for other commands)."""
+    from src.experiments.game_count import DEFAULT_GAMES
+
+    if _after(argv, "-train"):
+        given = _after(argv, "--games")
+        for arg in argv:
+            if arg.startswith("--games="):
+                given = arg.split("=", 1)[1]
+        return int(given) if given and given.isdigit() else DEFAULT_GAMES
+    run = _after(argv, "-resume")
+    folder = repo / "runs" / run if run else None
+    if "-resume_last" in argv:
+        folder = _last_stopped_run(repo / "runs")
+    if folder:
+        return int(_read(folder / "config.json").get("games") or 1)
+    return 1
 
 
 def _after(argv: list[str], flag: str) -> str | None:
@@ -208,15 +233,33 @@ def project_processes(repo: Path = REPO) -> list[ProjectProcess]:
         except psutil.Error:
             continue
         memory = process.info["memory_info"]
+        held = (memory.rss if memory else 0) + _children_bytes(process)
         found.append(
             ProjectProcess(
                 process.info["pid"],
                 process.info["create_time"],
                 argv,
-                memory.rss / GB if memory else 0.0,
+                held / GB,
             )
         )
     return found
+
+
+def _children_bytes(process: psutil.Process) -> int:
+    """The memory a job's own processes hold (a training's game workers,
+    step 8).
+    """
+    total = 0
+    try:
+        children = process.children(recursive=True)
+    except psutil.Error:
+        return 0
+    for child in children:
+        try:
+            total += child.memory_info().rss
+        except psutil.Error:
+            pass
+    return total
 
 
 def ahead_of(
@@ -248,7 +291,11 @@ def read_machine(repo: Path = REPO) -> Reading:
         disk_free=psutil.disk_usage(str(repo)).free / GB,
         battery=battery.percent if battery else None,
         plugged=battery.power_plugged if battery else None,
-        own_memory=psutil.Process().memory_info().rss / GB,
+        own_memory=(
+            psutil.Process().memory_info().rss
+            + _children_bytes(psutil.Process())
+        )
+        / GB,
     )
 
 

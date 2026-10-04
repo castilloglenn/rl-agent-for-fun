@@ -25,6 +25,11 @@ flags.DEFINE_boolean("list_runs", False, "List experiment runs.")
 flags.DEFINE_string("new_agent", "", "Create an untrained agent with this id.")
 flags.DEFINE_string("model", "small", "Model for a new agent (models/).")
 flags.DEFINE_string("train", "", "Train this agent (a training phase).")
+flags.DEFINE_integer(
+    "games",
+    4,  # src.experiments.game_count.DEFAULT_GAMES
+    "Training: the most games at once (fewer while the machine is busy).",
+)
 flags.DEFINE_string("resume", "", "Resume a stopped training run (folder).")
 flags.DEFINE_boolean("resume_last", False, "Resume the newest stopped run.")
 flags.DEFINE_string("eval", "", "Score an agent's checkpoints (suite).")

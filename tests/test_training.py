@@ -177,7 +177,7 @@ def test_an_update_favors_rewarded_actions(tmp_path):
             dones=torch.ones(256),
             last_value=0.0,
         )
-        stats = update(network, optimizer, rollout, TINY, generator)
+        stats = update(network, optimizer, [rollout], TINY, generator)
     assert probability_of_3() > before + 0.2
     assert stats.entropy > 0 and 0 <= stats.clip_fraction <= 1
 

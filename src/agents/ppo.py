@@ -61,12 +61,29 @@ class UpdateStats:
 def update(
     network: PolicyNetwork,
     optimizer: torch.optim.Optimizer,
-    rollout: Rollout,
+    rollouts: list[Rollout],
     trainer: TrainerSpec,
     generator: torch.Generator,
 ) -> UpdateStats:
-    """Learns from one rollout: `epochs` passes in shuffled minibatches."""
-    advantage, returns = advantages(rollout, trainer.gamma, trainer.gae_lambda)
+    """Learns from one rollout per game (step 8: several games at once):
+    each game's advantages from its own decisions in order, then
+    `epochs` passes over all of them in shuffled minibatches.
+    """
+    found = [
+        advantages(r, trainer.gamma, trainer.gae_lambda) for r in rollouts
+    ]
+    advantage = torch.cat([a for a, _ in found])
+    returns = torch.cat([r for _, r in found])
+    rollout = Rollout(
+        *(
+            torch.cat([getattr(r, name) for r in rollouts])
+            for name in (
+                "observations", "actions", "log_probs", "values", "rewards",
+                "dones",
+            )
+        ),
+        last_value=0.0,  # each game's own was used above
+    )
     count = len(rollout.rewards)
     totals = {name: 0.0 for name in UpdateStats.__dataclass_fields__}
     batches = 0
