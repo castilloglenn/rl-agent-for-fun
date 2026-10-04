@@ -2,7 +2,7 @@
 with no drawing. Every change is checked by the game's own Stage
 validation, and saving writes the stage file.
 
-    tools: select (V), wall (W), spawn (P), checkpoint (C)
+    tools: select (V), wall (W), spawn (P), fuel (C)
     positions snap to a 10 px grid (G turns it off)
     undo and redo keep a snapshot of the stage after each change
 """
@@ -22,9 +22,9 @@ SPAWN_TURN = 15  # degrees per Q, E, or mouse wheel notch
 MIN_STAGE = 200  # px: the smallest stage side
 SPAWN_ROOM = 16  # px the spawn keeps from the stage's edge (its clearance)
 SPAWN_PICK = 16  # px around the spawn that selects it
-CHECKPOINT_PICK = 6  # px beyond a checkpoint's radius that selects it
-TOOLS = ("select", "wall", "spawn", "checkpoint")
-RANDOM_CHECKPOINTS = {
+FUEL_PICK = 6  # px beyond a fuel's radius that selects it
+TOOLS = ("select", "wall", "spawn", "fuel")
+RANDOM_FUEL = {
     "mode": "random",
     "radius": 15,
     "border_margin": 40,
@@ -33,14 +33,14 @@ RANDOM_CHECKPOINTS = {
 
 
 def new_stage(name: str) -> dict:
-    """A new stage: the box's size, spawn, and checkpoint rules."""
+    """A new stage: the box's size, spawn, and fuel rules."""
     return {
         "format": 1,
         "name": name,
         "size": [855, 480],
         "walls": [],
         "spawns": [{"x": 213.75, "y": 240, "angle": 0}],
-        "checkpoints": dict(RANDOM_CHECKPOINTS),
+        "fuel": dict(RANDOM_FUEL),
     }
 
 
@@ -58,9 +58,9 @@ def dump_stage(data: dict) -> str:
         walls_text = f"[\n{rows}\n  ]"
     else:
         walls_text = "[]"
-    checkpoints = ",\n".join(
+    fuel = ",\n".join(
         f"    {inline(key)}: {inline(value)}"
-        for key, value in data["checkpoints"].items()
+        for key, value in data["fuel"].items()
     )
     lines = [
         f'  "format": {inline(data["format"])}',
@@ -68,7 +68,7 @@ def dump_stage(data: dict) -> str:
         f'  "size": {inline(data["size"])}',
         f'  "walls": {walls_text}',
         f'  "spawns": {inline(data["spawns"])}',
-        f'  "checkpoints": {{\n{checkpoints}\n  }}',
+        f'  "fuel": {{\n{fuel}\n  }}',
     ]
     return "{\n" + ",\n".join(lines) + "\n}\n"
 
@@ -111,7 +111,7 @@ class EditorModel:
         self.selection: tuple[str, int] | None = None
         self._history = [json.dumps(self.stage)]
         self._at = 0
-        self._points = list(self.stage["checkpoints"].get("points", []))
+        self._points = list(self.stage["fuel"].get("points", []))
 
     # State
 
@@ -132,12 +132,12 @@ class EditorModel:
         return self.stage["spawns"][0]
 
     @property
-    def checkpoints(self) -> dict:
-        return self.stage["checkpoints"]
+    def fuel(self) -> dict:
+        return self.stage["fuel"]
 
     @property
     def points(self) -> list:
-        return self.checkpoints.get("points", [])
+        return self.fuel.get("points", [])
 
     @property
     def dirty(self) -> bool:
@@ -178,7 +178,7 @@ class EditorModel:
 
     def _restore(self) -> None:
         self.stage = json.loads(self._history[self._at])
-        if self.checkpoints.get("points"):
+        if self.fuel.get("points"):
             self._points = list(self.points)
         if not self._valid_selection():
             self.selection = None
@@ -189,20 +189,20 @@ class EditorModel:
         kind, index = self.selection
         if kind == "wall":
             return index < len(self.walls)
-        if kind == "checkpoint":
+        if kind == "fuel":
             return index < len(self.points)
         return True
 
     # Finding what's under the mouse (world px; `slack` widens it)
 
     def pick(self, x: float, y: float, slack: float = 0.0):
-        """The thing at (x, y): ("checkpoint", i), ("spawn", 0), or
+        """The thing at (x, y): ("fuel", i), ("spawn", 0), or
         ("wall", i), checking the smaller ones first; or None.
         """
-        radius = self.checkpoints.get("radius", 15)
+        radius = self.fuel.get("radius", 15)
         for i, (px, py) in enumerate(self.points):
-            if math.dist((x, y), (px, py)) <= radius + CHECKPOINT_PICK + slack:
-                return ("checkpoint", i)
+            if math.dist((x, y), (px, py)) <= radius + FUEL_PICK + slack:
+                return ("fuel", i)
         spawn = self.spawn
         if math.dist((x, y), (spawn["x"], spawn["y"])) <= SPAWN_PICK + slack:
             return ("spawn", 0)
@@ -244,7 +244,7 @@ class EditorModel:
 
     def content_size(self) -> tuple[float, float]:
         """The smallest stage that keeps everything inside: the walls,
-        the spawn with its clearance, and the checkpoints, at least
+        the spawn with its clearance, and the fuel, at least
         MIN_STAGE.
         """
         right = bottom = MIN_STAGE
@@ -253,7 +253,7 @@ class EditorModel:
         spawn = self.spawn
         right = max(right, spawn["x"] + SPAWN_ROOM)
         bottom = max(bottom, spawn["y"] + SPAWN_ROOM)
-        radius = self.checkpoints.get("radius", 15)
+        radius = self.fuel.get("radius", 15)
         for x, y in self.points:
             right, bottom = max(right, x + radius), max(bottom, y + radius)
         return right, bottom
@@ -329,8 +329,8 @@ class EditorModel:
     def turn_spawn(self, degrees: float) -> None:
         self.spawn["angle"] = _number((self.spawn["angle"] + degrees) % 360)
 
-    def add_checkpoint(self, x: float, y: float) -> None:
-        """The next scripted checkpoint (scripted mode from now on)."""
+    def add_fuel(self, x: float, y: float) -> None:
+        """The next scripted fuel (scripted mode from now on)."""
         self._scripted()
         point = [
             _number(snap(x, self.snapping)),
@@ -338,9 +338,9 @@ class EditorModel:
         ]
         self.points.append(point)
         self._points = list(self.points)
-        self.selection = ("checkpoint", len(self.points) - 1)
+        self.selection = ("fuel", len(self.points) - 1)
 
-    def move_checkpoint(self, index: int, x: float, y: float) -> None:
+    def move_fuel(self, index: int, x: float, y: float) -> None:
         stage_width, stage_height = self.size
         self.points[index] = [
             _number(min(max(snap(x, self.snapping), 0), stage_width)),
@@ -348,21 +348,21 @@ class EditorModel:
         ]
         self._points = list(self.points)
 
-    def toggle_checkpoint_mode(self) -> None:
+    def toggle_fuel_mode(self) -> None:
         """Random (from the seed) or scripted (the points, in order). The
         points come back when switching back to scripted.
         """
-        radius = self.checkpoints.get("radius", 15)
-        if self.checkpoints.get("mode") == "scripted":
+        radius = self.fuel.get("radius", 15)
+        if self.fuel.get("mode") == "scripted":
             self._points = list(self.points)
-            self.stage["checkpoints"] = {**RANDOM_CHECKPOINTS, "radius": radius}
+            self.stage["fuel"] = {**RANDOM_FUEL, "radius": radius}
         else:
             self._scripted()
 
     def _scripted(self) -> None:
-        if self.checkpoints.get("mode") != "scripted":
-            radius = self.checkpoints.get("radius", 15)
-            self.stage["checkpoints"] = {
+        if self.fuel.get("mode") != "scripted":
+            radius = self.fuel.get("radius", 15)
+            self.stage["fuel"] = {
                 "mode": "scripted",
                 "radius": radius,
                 "points": list(self._points),
@@ -375,7 +375,7 @@ class EditorModel:
         kind, index = self.selection
         if kind == "wall":
             del self.walls[index]
-        elif kind == "checkpoint":
+        elif kind == "fuel":
             del self.points[index]
             self._points = list(self.points)
         else:

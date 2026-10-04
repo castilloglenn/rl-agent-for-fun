@@ -1,7 +1,7 @@
 """A stage drawn small (roadmap step 7c3): the Maps tab's cards and
 detail, and the game window's MAPS box (moved here from src/control/ so
 the game window can use it). The stage in its own shape, centered in the rect: the border,
-walls, the spawn as the car (with its heading), and checkpoints, in
+walls, the spawn as the car (with its heading), and fuel, in
 order (numbered, if there's room) or random (their border margin,
 dashed).
 """
@@ -29,10 +29,10 @@ def draw_stage_preview(surface, rect: Rect, data: dict) -> Rect:
         return box.x + x * scale, box.y + y * scale
 
     pygame.draw.rect(surface, theme.BACKGROUND, box)
-    checkpoints = data.get("checkpoints", {})
-    scripted = checkpoints.get("mode") == "scripted"
+    fuel = data.get("fuel", {})
+    scripted = fuel.get("mode") == "scripted"
     if not scripted:
-        margin = checkpoints.get("border_margin", 40) * scale
+        margin = fuel.get("border_margin", 40) * scale
         _dashed(surface, box.inflate(-2 * margin, -2 * margin))
     for x, y, w, h in data.get("walls", []):
         left, top = at(x, y)
@@ -43,13 +43,13 @@ def draw_stage_preview(surface, rect: Rect, data: dict) -> Rect:
             max(round(h * scale), 1),
         )
         pygame.draw.rect(surface, theme.TEXT_DIM, wall)
-    points = checkpoints.get("points", []) if scripted else []
+    points = fuel.get("points", []) if scripted else []
     spots = [at(x, y) for x, y in points]
     if len(spots) > 1:
         pygame.draw.lines(surface, theme.GUIDE, True, spots)
-    radius = max(checkpoints.get("radius", 15) * scale, 3)
+    radius = max(fuel.get("radius", 15) * scale, 3)
     for i, spot in enumerate(spots):
-        pygame.draw.circle(surface, theme.CHECKPOINT, spot, radius, 1)
+        pygame.draw.circle(surface, theme.FUEL, spot, radius, 1)
         if radius >= 7:
             draw_text(
                 surface,
@@ -73,7 +73,7 @@ def draw_stage_preview(surface, rect: Rect, data: dict) -> Rect:
 
 
 def _dashed(surface, rect: Rect) -> None:
-    """A dashed outline: random checkpoints stay inside it."""
+    """A dashed outline: random fuels stay inside it."""
     if rect.w <= 0 or rect.h <= 0:
         return
     edges = (

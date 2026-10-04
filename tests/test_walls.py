@@ -20,14 +20,14 @@ from src.sim.factories import create_car, create_world
 from src.sim.geometry import car_corners
 from src.sim.resources import Walls
 from src.sim.spawning import CANDIDATES_PER_SLOT, SpawnSchedule
-from src.sim.stage import CheckpointRules, Stage, StageError, load_stage
+from src.sim.stage import FuelRules, Stage, StageError, load_stage
 from src.sim.walls import Box, overlaps, ray_to_walls, wall_contact
 from src.utils.types import Colors
 
 SIZE = [855, 480]
 
 
-def _stage(walls, spawn=(100, 240), checkpoints=None):
+def _stage(walls, spawn=(100, 240), fuel=None):
     return Stage.from_dict(
         {
             "format": 1,
@@ -35,7 +35,7 @@ def _stage(walls, spawn=(100, 240), checkpoints=None):
             "size": SIZE,
             "walls": walls,
             "spawns": [{"x": spawn[0], "y": spawn[1], "angle": 0}],
-            "checkpoints": checkpoints or {"mode": "random"},
+            "fuel": fuel or {"mode": "random"},
         }
     )
 
@@ -172,12 +172,12 @@ def test_a_car_never_ends_inside_a_wall():
             break
 
 
-# Checkpoints and stages
+# Fuels and stages
 
 
-def test_checkpoints_keep_clear_of_walls():
+def test_fuels_keep_clear_of_walls():
     wall = Box(0, 0, 855, 300)  # only the bottom is free
-    rules = CheckpointRules(border_margin=40)
+    rules = FuelRules(border_margin=40)
     schedule = SpawnSchedule(
         "checkpoints", 7, rules, 855, 480, walls=(wall,)
     )
@@ -187,7 +187,7 @@ def test_checkpoints_keep_clear_of_walls():
 
 
 def test_no_walls_draw_exactly_the_same_spots():
-    rules = CheckpointRules()
+    rules = FuelRules()
     plain = SpawnSchedule("checkpoints", 3, rules, 855, 480)
     assert len(plain.candidates(0)) == CANDIDATES_PER_SLOT
     walled = SpawnSchedule(
@@ -211,11 +211,11 @@ def test_stage_validation(walls, message):
         _stage(walls)
 
 
-def test_a_scripted_checkpoint_cant_touch_a_wall():
+def test_a_scripted_fuel_cant_touch_a_wall():
     with pytest.raises(StageError, match="touches a wall"):
         _stage(
             [[400, 0, 20, 480]],
-            checkpoints={"mode": "scripted", "points": [[410, 100]]},
+            fuel={"mode": "scripted", "points": [[410, 100]]},
         )
 
 

@@ -4,7 +4,7 @@ stays the 1.0 bar every skill is measured against; this is not scored.
 
 Unlike the heuristic it:
 - steers at the remembered route's waypoint (7f7), not straight at the
-  checkpoint, so it goes around walls;
+  fuel, so it goes around walls;
 - judges the way ahead with the narrow front rays (0 and 15 degrees), so
   it drives through gaps the heuristic's 45-degree rays turn it away from;
 - backs out when the stuck timer says it's been stuck a while.
@@ -28,7 +28,7 @@ class Navigator(Driver):
         wall_margin: float = 0.03,  # px / 980: a wall this close ahead
         side_margin: float = 0.015,  # a side wall this close: ease off it
         corner_speed: float = 0.45,  # speed cap while turning hard
-        approach_speed: float = 0.3,  # near an off-center checkpoint
+        approach_speed: float = 0.3,  # near an off-center fuel
         behind_speed: float = 0.15,  # the waypoint behind: turn slowly
         stuck_after: float = 0.2,  # the stuck input (2 s): back out
         back_out_steps: int = 90,  # 0.75 s of reverse
@@ -95,8 +95,8 @@ class Navigator(Driver):
             speed_cap = self.corner_speed
         if o["route_cos"] < 0:  # behind: a tight turn
             speed_cap = self.behind_speed
-        near = o["checkpoint_distance"] < 0.15
-        if near and o["checkpoint_cos"] < self.aim_cos:
+        near = o["fuel_distance"] < 0.15
+        if near and o["fuel_cos"] < self.aim_cos:
             speed_cap = min(speed_cap, self.approach_speed)
         if o["ray_front"] < 0.02 + stopping and speed > 0.05:
             pedal = "brake"

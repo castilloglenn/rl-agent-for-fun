@@ -251,10 +251,10 @@ def test_live_play_waits_for_the_intro():
     assert demo.env.world.resource(SimClock).step == 0
 
 
-# Markers for checkpoints outside the view
+# Markers for fuels outside the view
 
 
-def test_a_marker_sits_on_the_edge_toward_the_checkpoint():
+def test_a_marker_sits_on_the_edge_toward_the_fuel():
     from src.render.renderer import offscreen_marker
 
     view = pygame.Rect(0, 0, 800, 400)
@@ -268,7 +268,7 @@ def test_a_marker_sits_on_the_edge_toward_the_checkpoint():
     assert y == pytest.approx(384) and dx > 0 and dy > 0  # a corner-ish way
 
 
-def test_the_frame_draws_a_marker_only_when_the_checkpoint_is_away():
+def test_the_frame_draws_a_marker_only_when_the_fuel_is_away():
     env = _game("arena", map_intro=False)
     renderer = env.renderer
     polygons = []
@@ -279,9 +279,9 @@ def test_the_frame_draws_a_marker_only_when_the_checkpoint_is_away():
         return real(surface, color, points, *args, **kwargs)
 
     from src.render import theme
-    from src.sim.components import Checkpoint, Transform
+    from src.sim.components import Fuel, Transform
 
-    (spot,) = [t for _, (t, _) in env.world.query(Transform, Checkpoint)]
+    (spot,) = [t for _, (t, _) in env.world.query(Transform, Fuel)]
     car = env.world.component(env.car, Transform)
     pygame.draw.polygon = spy
     try:
@@ -293,7 +293,7 @@ def test_the_frame_draws_a_marker_only_when_the_checkpoint_is_away():
             return [
                 p
                 for c, p in polygons
-                if c == theme.CHECKPOINT
+                if c == theme.FUEL
                 and all(view.collidepoint(x, y) for x, y in p)
             ]
 

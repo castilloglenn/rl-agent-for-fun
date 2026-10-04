@@ -357,7 +357,7 @@ ACTIONS = (
     Action(
         "Edit a map",
         "Play",
-        "The map editor: draw walls, place the spawn and checkpoints, and "
+        "The map editor: draw walls, place the spawn and fuel, and "
         "save to stages/. An existing stage opens; a new name starts one.",
         (Field("Map", None, "my_map", "a stage in stages/, or a new name"),),
         lambda v: ["-edit_map", v["Map"].strip()],

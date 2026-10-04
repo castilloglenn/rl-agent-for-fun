@@ -137,7 +137,7 @@ class Rng:
 
 @dataclass
 class SpawnSchedules:
-    """Spawn schedules by spawner name (checkpoints now, fuel later)."""
+    """Spawn schedules by spawner name (fuels now, fuel later)."""
 
     schedules: dict[str, SpawnSchedule] = field(default_factory=dict)
 

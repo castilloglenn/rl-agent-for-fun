@@ -70,7 +70,7 @@ TERMS_CHART = "Reward by term"
 TERM = "reward:"  # a term's column in metrics.csv
 TERM_COLORS = {
     "progress": theme.GOOD,
-    "checkpoints": theme.ACCENT,
+    "fuels": theme.ACCENT,
     "contact": theme.WARN,
     "damage": (230, 130, 70),
     "wrecked": theme.BAD,
@@ -112,7 +112,7 @@ IMITATION_CHARTS = (
 EPISODE_CHARTS = (
     ("Agent reward", "reward"),
     (TERMS_CHART, None),
-    ("Checkpoints", "checkpoints"),
+    ("Fuels", "fuels"),
     ("Distance points", "distance_points"),
     ("Steps", "steps"),
 )

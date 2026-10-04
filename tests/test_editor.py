@@ -72,9 +72,9 @@ def test_draw_move_resize_and_delete_a_wall(root):
 def test_picking_prefers_small_things(root):
     model = EditorModel("box", root=root)
     model.add_wall(100, 100, 400, 400)
-    model.add_checkpoint(200, 200)
+    model.add_fuel(200, 200)
     model.spawn.update(x=300, y=300)
-    assert model.pick(201, 199) == ("checkpoint", 0)
+    assert model.pick(201, 199) == ("fuel", 0)
     assert model.pick(302, 301) == ("spawn", 0)
     assert model.pick(150, 350) == ("wall", 0)
     assert model.pick(600, 50) is None
@@ -82,7 +82,7 @@ def test_picking_prefers_small_things(root):
     assert model.corner_at(399, 101, 6) == 1  # the top right corner
 
 
-# The spawn and checkpoints
+# The spawn and fuel
 
 
 def test_the_spawn_moves_and_turns(root):
@@ -93,17 +93,17 @@ def test_the_spawn_moves_and_turns(root):
     assert model.spawn["angle"] == 345
 
 
-def test_checkpoints_in_order_and_back_to_random(root):
+def test_fuels_in_order_and_back_to_random(root):
     model = EditorModel("box", root=root)
-    model.add_checkpoint(100, 100)
-    model.add_checkpoint(700, 400)
-    assert model.checkpoints["mode"] == "scripted"
+    model.add_fuel(100, 100)
+    model.add_fuel(700, 400)
+    assert model.fuel["mode"] == "scripted"
     assert model.points == [[100, 100], [700, 400]]
-    model.move_checkpoint(1, 648, 352)
+    model.move_fuel(1, 648, 352)
     assert model.points[1] == [650, 350]
-    model.toggle_checkpoint_mode()
-    assert model.checkpoints["mode"] == "random"
-    model.toggle_checkpoint_mode()  # the points come back
+    model.toggle_fuel_mode()
+    assert model.fuel["mode"] == "random"
+    model.toggle_fuel_mode()  # the points come back
     assert model.points == [[100, 100], [650, 350]]
 
 
@@ -283,10 +283,10 @@ def test_resizing_the_stage(root):
     assert model.undo() and model.size == (855, 480)
 
 
-def test_walls_and_checkpoints_limit_shrinking(root):
+def test_walls_and_fuels_limit_shrinking(root):
     model = EditorModel("s_curve", root=root)
     model.resize_stage("corner", 300, 300)
-    # The last checkpoint (720, 80) + its radius, and a wall to y 480.
+    # The last fuel (720, 80) + its radius, and a wall to y 480.
     assert model.size == (735, 480)
 
 

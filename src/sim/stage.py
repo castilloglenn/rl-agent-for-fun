@@ -12,7 +12,7 @@ from src.utils import named_files
 STAGE_FORMAT = 1
 STAGES_DIR = Path(__file__).resolve().parents[2] / "stages"
 SCHEDULE_MODES = ("random", "scripted")
-# Where scripted checkpoints start: the first point, or one picked from
+# Where scripted fuel start: the first point, or one picked from
 # the seed (7d5a: a training course practices every zone).
 STARTS = ("first", "seeded")
 # A spawn this close to a wall would start with the car touching it (a
@@ -32,7 +32,7 @@ class Spawn:
 
 
 @dataclass(frozen=True)
-class CheckpointRules:
+class FuelRules:
     mode: str = "random"  # "random" (from the seed) or "scripted"
     radius: float = 15.0
     border_margin: float = 40.0  # random mode: px inside the border
@@ -47,7 +47,7 @@ class Stage:
     width: float
     height: float
     spawns: tuple[Spawn, ...]
-    checkpoints: CheckpointRules
+    fuel: FuelRules
     walls: tuple = ()  # [x, y, width, height] rectangles (step 7a)
     format: int = STAGE_FORMAT
 
@@ -59,16 +59,16 @@ class Stage:
                 f"expected {STAGE_FORMAT}"
             )
         width, height = data["size"]
-        checkpoints = dict(data.get("checkpoints", {}))
-        checkpoints["points"] = tuple(
-            tuple(point) for point in checkpoints.get("points", ())
+        fuel = dict(data.get("fuel", {}))
+        fuel["points"] = tuple(
+            tuple(point) for point in fuel.get("points", ())
         )
         stage = Stage(
             name=data["name"],
             width=float(width),
             height=float(height),
             spawns=tuple(Spawn(**spawn) for spawn in data["spawns"]),
-            checkpoints=CheckpointRules(**checkpoints),
+            fuel=FuelRules(**fuel),
             walls=tuple(tuple(wall) for wall in data.get("walls", ())),
         )
         stage.validate()
@@ -76,21 +76,21 @@ class Stage:
 
     def to_dict(self) -> dict:
         """Plain data, in the file's layout. Replays embed this."""
-        checkpoints = asdict(self.checkpoints)
-        checkpoints["points"] = [list(p) for p in self.checkpoints.points]
-        if self.checkpoints.mode != "scripted":
-            del checkpoints["points"]
-        if self.checkpoints.mode != "scripted" or (
-            self.checkpoints.start == "first"
+        fuel = asdict(self.fuel)
+        fuel["points"] = [list(p) for p in self.fuel.points]
+        if self.fuel.mode != "scripted":
+            del fuel["points"]
+        if self.fuel.mode != "scripted" or (
+            self.fuel.start == "first"
         ):
-            del checkpoints["start"]  # the default: files stay as they were
+            del fuel["start"]  # the default: files stay as they were
         return {
             "format": self.format,
             "name": self.name,
             "size": [self.width, self.height],
             "walls": [list(wall) for wall in self.walls],
             "spawns": [asdict(spawn) for spawn in self.spawns],
-            "checkpoints": checkpoints,
+            "fuel": fuel,
         }
 
     def validate(self) -> None:
@@ -124,23 +124,23 @@ class Stage:
                     f"the spawn at {where} is on or next to a wall "
                     f"(keep {SPAWN_CLEARANCE:g} px clear)"
                 )
-        rules = self.checkpoints
+        rules = self.fuel
         if rules.mode not in SCHEDULE_MODES:
-            raise StageError(f"unknown checkpoint mode {rules.mode!r}")
+            raise StageError(f"unknown fuel mode {rules.mode!r}")
         if rules.start not in STARTS:
-            raise StageError(f"unknown checkpoint start {rules.start!r}")
+            raise StageError(f"unknown fuel start {rules.start!r}")
         if rules.mode == "scripted":
             if not rules.points:
-                raise StageError("scripted checkpoints need points")
+                raise StageError("scripted fuel need points")
             for x, y in rules.points:
                 if not self.contains(x, y):
-                    raise StageError(f"checkpoint ({x:g}, {y:g}) is outside")
+                    raise StageError(f"fuel ({x:g}, {y:g}) is outside")
                 if any(b.distance(x, y) < rules.radius for b in boxes):
                     raise StageError(
-                        f"checkpoint ({x:g}, {y:g}) touches a wall"
+                        f"fuel ({x:g}, {y:g}) touches a wall"
                     )
         elif 2 * rules.border_margin >= min(self.width, self.height):
-            raise StageError("checkpoint border_margin leaves no room")
+            raise StageError("fuel border_margin leaves no room")
 
     def contains(self, x: float, y: float) -> bool:
         return 0 <= x <= self.width and 0 <= y <= self.height

@@ -22,14 +22,14 @@ BEST = {
     "share": 2.0,
     "score_mean": 5000.0,
     "score_min": 4000.0,
-    "checkpoints_per_min": 30.0,
+    "fuels_per_min": 30.0,
     "survival": 1.0,
     "wreck_rate": 0.1,
     "contacts": 1.0,
     "braking": 0.8,
 }
 HEURISTIC = {
-    **BEST, "share": 1.0, "score_mean": 2500.0, "checkpoints_per_min": 15.0,
+    **BEST, "share": 1.0, "score_mean": 2500.0, "fuels_per_min": 15.0,
 }
 
 

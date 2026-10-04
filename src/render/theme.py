@@ -15,8 +15,8 @@ WARN: ColorValue = (240, 180, 60)  # caution
 BAD: ColorValue = (230, 80, 80)  # danger
 
 RAY: ColorValue = (70, 72, 82)  # muted; warning rays use WARN / BAD
-CHECKPOINT: ColorValue = (70, 200, 120)
-GUIDE: ColorValue = (40, 95, 65)  # faint line from car to checkpoint
+FUEL: ColorValue = (70, 200, 120)
+GUIDE: ColorValue = (40, 95, 65)  # faint line from car to fuel
 # The agent's sense of the route (7f7): its remembered waypoint, and the
 # whole route faint (the agent sees only the waypoint).
 ROUTE: ColorValue = (175, 125, 245)

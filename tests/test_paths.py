@@ -41,7 +41,7 @@ def test_closer_along_the_path_is_smaller():
     distances = [path.distance(x, y) for x, y in route]
     assert distances == sorted(distances, reverse=True)
     # At the goal: within one cell's diagonal (the grid's precision; a
-    # checkpoint's radius is 15 px, so it's reached before that matters).
+    # fuel's radius is 15 px, so it's reached before that matters).
     assert path.distance(150, 20) <= 10 * math.sqrt(2) + 1e-9
 
 

@@ -1,4 +1,4 @@
-"""The heuristic's checkpoints a minute on each training map (7f5): the
+"""The heuristic's fuels a minute on each training map (7f5): the
 bar a curriculum's level is judged against, on the maps it trains on,
 never the skills suite's test maps.
 
@@ -35,7 +35,7 @@ def heuristic_rates(
     agents_root: Path,
     base_config: ConfigDict | None = None,
 ) -> dict[str, float]:
-    """{map: the heuristic's checkpoints a minute there}, cached."""
+    """{map: the heuristic's fuels a minute there}, cached."""
     path = Path(agents_root) / "baselines" / "maps.json"
     try:
         cache = json.loads(path.read_text())
@@ -66,13 +66,13 @@ def heuristic_rates(
 
 def _measure(stage: str, rules: Rules, config: ConfigDict) -> float:
     env = MazeCarEnv(config, stage=load_stage(stage), rules=rules)
-    checkpoints = steps = 0
+    fuels = steps = 0
     for i in range(ROUNDS):
         result = run_episode(env, CompassDriver(), FIRST_SEED + i)
-        checkpoints += result.checkpoints
+        fuels += result.fuels
         steps += result.steps
     minutes = steps / env.config.sim.steps_per_second / 60
-    return round(checkpoints / max(minutes, 1e-6), 4)
+    return round(fuels / max(minutes, 1e-6), 4)
 
 
 def _code_digest() -> str:

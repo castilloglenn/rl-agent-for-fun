@@ -13,7 +13,7 @@ from src.render.instruments import Readouts
 from src.render.spinner import draw_spinner
 from src.sim import route
 from src.sim.components import (
-    Checkpoint,
+    Fuel,
     Eliminated,
     Health,
     Hitbox,
@@ -95,7 +95,7 @@ class Renderer:
         self.intro_hold = camera.INTRO_HOLD
         self._intro_world = None  # the round whose intro has started
         self._frame_ticks: int | None = None
-        # Debug lines (rays, hitbox, the checkpoint guide). H toggles them
+        # Debug lines (rays, hitbox, the fuel guide). H toggles them
         # (your "lines" setting); the config flags pick which kinds exist.
         self.show_lines = True
         self.show_shortcuts = False  # "?" toggles the shortcuts box
@@ -407,15 +407,15 @@ class Renderer:
     MARKER_INSET = 16  # px from the view's edge
     MARKER_SIZE = 12  # px, tip to base
 
-    def _draw_offscreen_checkpoints(self, world: World, alpha: float) -> None:
-        """A green triangle on the view's edge for a checkpoint outside it,
-        on the line from the car to the checkpoint, pointing to it.
+    def _draw_offscreen_fuel(self, world: World, alpha: float) -> None:
+        """A green triangle on the view's edge for a fuel outside it,
+        on the line from the car to the fuel, pointing to it.
         """
         car = self._first_car(world, alpha)
         if car is None:
             return
         start = self.camera.to_screen(car[0], car[1])
-        for _, (spot, _) in self._checkpoints:
+        for _, (spot, _) in self._fuels:
             point = self.camera.to_screen(spot.x, spot.y)
             marker = offscreen_marker(
                 start, point, self.camera.view, self.MARKER_INSET
@@ -428,7 +428,7 @@ class Renderer:
             back = (x - dx * size / 2, y - dy * size / 2)
             pygame.draw.polygon(
                 self.display,
-                theme.CHECKPOINT,
+                theme.FUEL,
                 [
                     tip,
                     (back[0] - dy * half, back[1] + dx * half),
@@ -472,7 +472,7 @@ class Renderer:
             pygame.draw.rect(self.display, theme.FIELD_BORDER, rect, 1)
 
     def _draw_field(self, world: World, alpha: float, trail=None) -> None:
-        self._checkpoints = world.query(Transform, Checkpoint)
+        self._fuels = world.query(Transform, Fuel)
         cam = self.camera
         self._follow(world, alpha)
         view = cam.view
@@ -494,11 +494,11 @@ class Renderer:
         pygame.draw.rect(self.display, theme.FIELD_BORDER, border, 1)
         self._draw_walls(world)
         for _, (spot, trigger, _) in world.query(
-            Transform, Trigger, Checkpoint
+            Transform, Trigger, Fuel
         ):
             pygame.draw.circle(
                 self.display,
-                theme.CHECKPOINT,
+                theme.FUEL,
                 cam.to_screen(spot.x, spot.y),
                 max(trigger.radius * cam.scale, 3),
                 width=2,
@@ -532,13 +532,13 @@ class Renderer:
             health = world.try_component(car, Health)
             if health is not None:
                 self._draw_health_bar(screen_center, hitbox, health.share)
-        self._draw_offscreen_checkpoints(world, alpha)
+        self._draw_offscreen_fuel(world, alpha)
         self._draw_intro_hint()
         self.display.set_clip(None)
 
     def _draw_map(self, world: World, alpha: float) -> None:
         """The MAP card (big stages): the whole stage, small, at the top
-        of the right column: walls, the checkpoint, the car with its
+        of the right column: walls, the fuel, the car with its
         heading, and in follow mode the area the view shows.
         """
         card = self.layout.map_box
@@ -579,9 +579,9 @@ class Renderer:
                 round(min(cam.view.h, cam.stage_height) * s),
             )
             pygame.draw.rect(self.display, theme.PANEL_BORDER, seen, 1)
-        for _, (spot, _) in self._checkpoints:
+        for _, (spot, _) in self._fuels:
             pygame.draw.circle(
-                self.display, theme.CHECKPOINT, at(spot.x, spot.y), 3
+                self.display, theme.FUEL, at(spot.x, spot.y), 3
             )
         car = self._first_car(world, alpha)
         if car:
@@ -675,7 +675,7 @@ class Renderer:
         self._draw_centered_lines(lines)
 
     def _print_events(self, world: World) -> None:
-        """Prints the game's new events (hits, scrapes, checkpoints,
+        """Prints the game's new events (hits, scrapes, fuels,
         wrecks, round over) as they happen: the control center's console
         shows them, and so does the terminal.
         """
@@ -1009,8 +1009,8 @@ class Renderer:
             rotated = pygame.transform.rotozoom(surface, angle, scale)
         screen_center = cam.to_screen(center_x, center_y)
         if self.show_lines:
-            # Guide to the checkpoint, under the car.
-            for _, (spot, _) in self._checkpoints:
+            # Guide to the fuel, under the car.
+            for _, (spot, _) in self._fuels:
                 pygame.draw.line(
                     self.display,
                     theme.GUIDE,

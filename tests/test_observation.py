@@ -8,7 +8,7 @@ import pytest
 
 from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
-from src.sim.components import Checkpoint, Transform
+from src.sim.components import Fuel, Transform
 from src.sim.factories import create_game
 from src.sim.observation import OBSERVATION_NAMES, observe
 from src.sim.resources import Field
@@ -30,9 +30,9 @@ def _value(observation, name):
     return float(observation[OBSERVATION_NAMES.index(name)])
 
 
-def _place_checkpoint(world, car, dx, dy):
+def _place_fuel(world, car, dx, dy):
     transform = world.component(car, Transform)
-    spot = world.query(Transform, Checkpoint)[0][1][0]
+    spot = world.query(Transform, Fuel)[0][1][0]
     spot.x, spot.y = transform.x + dx, transform.y + dy
 
 
@@ -76,15 +76,15 @@ def test_start_values():
         (0, 100, -1, 0),  # right
     ],
 )
-def test_checkpoint_compass(dx, dy, sin, cos):
+def test_fuel_compass(dx, dy, sin, cos):
     world, car = create_game(get_maze_car_config())
-    _place_checkpoint(world, car, dx, dy)
+    _place_fuel(world, car, dx, dy)
     observation = observe(world, car)
-    assert _value(observation, "checkpoint_sin") == pytest.approx(sin, abs=1e-6)
-    assert _value(observation, "checkpoint_cos") == pytest.approx(cos, abs=1e-6)
+    assert _value(observation, "fuel_sin") == pytest.approx(sin, abs=1e-6)
+    assert _value(observation, "fuel_cos") == pytest.approx(cos, abs=1e-6)
     field = world.resource(Field).rect
     distance = 100 / math.hypot(field.width, field.height)
-    assert _value(observation, "checkpoint_distance") == pytest.approx(
+    assert _value(observation, "fuel_distance") == pytest.approx(
         distance, rel=1e-6
     )
 
@@ -92,9 +92,9 @@ def test_checkpoint_compass(dx, dy, sin, cos):
 def test_compass_is_relative_to_the_heading():
     world, car = create_game(get_maze_car_config())
     world.component(car, Transform).angle = 90  # facing up
-    _place_checkpoint(world, car, 0, -100)  # up = ahead now
+    _place_fuel(world, car, 0, -100)  # up = ahead now
     observation = observe(world, car)
-    assert _value(observation, "checkpoint_cos") == pytest.approx(1, abs=1e-6)
+    assert _value(observation, "fuel_cos") == pytest.approx(1, abs=1e-6)
 
 
 def test_values_stay_in_range_during_random_driving():

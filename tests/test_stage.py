@@ -17,7 +17,7 @@ def test_box_stage():
     stage = load_stage("box")
     assert (stage.name, stage.width, stage.height) == ("box", 855, 480)
     assert stage.spawns[0].x == 213.75 and stage.spawns[0].y == 240
-    assert stage.checkpoints.mode == "random"
+    assert stage.fuel.mode == "random"
     assert stage.walls == ()
 
 
@@ -38,10 +38,10 @@ def test_load_by_path():
         ({"size": [0, 480]}, "size must be positive"),
         ({"spawns": []}, "at least one spawn"),
         ({"spawns": [{"x": 9999, "y": 10}]}, "outside the stage"),
-        ({"checkpoints": {"mode": "zigzag"}}, "unknown checkpoint mode"),
-        ({"checkpoints": {"start": "middle"}}, "unknown checkpoint start"),
-        ({"checkpoints": {"mode": "scripted"}}, "need points"),
-        ({"checkpoints": {"border_margin": 300}}, "leaves no room"),
+        ({"fuel": {"mode": "zigzag"}}, "unknown fuel mode"),
+        ({"fuel": {"start": "middle"}}, "unknown fuel start"),
+        ({"fuel": {"mode": "scripted"}}, "need points"),
+        ({"fuel": {"border_margin": 300}}, "leaves no room"),
     ],
 )
 def test_invalid_stages_are_rejected(change, message):
@@ -73,17 +73,17 @@ def test_a_custom_stage_changes_the_world():
 
 def test_a_seeded_start_round_trips_and_the_default_stays_out():
     data = json.loads((STAGES_DIR / "skill_gaps.json").read_text())
-    assert "start" not in load_stage("skill_gaps").to_dict()["checkpoints"]
-    data["checkpoints"]["start"] = "seeded"
+    assert "start" not in load_stage("skill_gaps").to_dict()["fuel"]
+    data["fuel"]["start"] = "seeded"
     stage = Stage.from_dict(data)
-    assert stage.checkpoints.start == "seeded"
-    assert stage.to_dict()["checkpoints"]["start"] == "seeded"
+    assert stage.fuel.start == "seeded"
+    assert stage.to_dict()["fuel"]["start"] == "seeded"
     assert Stage.from_dict(stage.to_dict()) == stage
 
 
-def test_every_scripted_checkpoint_can_be_reached():
+def test_every_scripted_fuel_can_be_reached():
     """Each built-in scripted stage (the courses of 7d5b too): every
-    checkpoint has a drivable path from the spawn and from the one
+    fuel has a drivable path from the spawn and from the one
     before it (a seeded start can begin anywhere in the loop).
     """
     import math
@@ -92,11 +92,11 @@ def test_every_scripted_checkpoint_can_be_reached():
 
     for path in sorted(STAGES_DIR.glob("*.json")):
         stage = load_stage(path.stem)
-        if stage.checkpoints.mode != "scripted":
+        if stage.fuel.mode != "scripted":
             continue
         rect = (0, 0, stage.width, stage.height)
         boxes = [(x, y, x + w, y + h) for x, y, w, h in stage.walls]
-        points = stage.checkpoints.points
+        points = stage.fuel.points
         spawn = (stage.spawns[0].x, stage.spawns[0].y)
         for i, goal in enumerate(points):
             field = PathField(rect, boxes, goal)
@@ -109,13 +109,13 @@ def test_every_scripted_checkpoint_can_be_reached():
 
 def test_the_courses_start_anywhere():
     for name in ("course_small", "course_large"):
-        assert load_stage(name).checkpoints.start == "seeded"
+        assert load_stage(name).fuel.start == "seeded"
 
 
-def test_the_easy_course_keeps_each_next_checkpoint_in_sight():
+def test_the_easy_course_keeps_each_next_fuel_in_sight():
     """7f2: on course_small_easy every leg is a straight line with room
     for the car (at least 24 px from any wall), and the heuristic, which
-    only steers at the checkpoint, drives most of a loop in 60 s.
+    only steers at the fuel, drives most of a loop in 60 s.
     """
     from src.config import get_maze_car_config
     from src.drivers.episode import run_episode
@@ -125,7 +125,7 @@ def test_the_easy_course_keeps_each_next_checkpoint_in_sight():
 
     stage = load_stage("course_small_easy")
     boxes = [Box.from_list(wall) for wall in stage.walls]
-    points = stage.checkpoints.points
+    points = stage.fuel.points
     for i, (bx, by) in enumerate(points):
         ax, ay = points[i - 1]
         n = int(max(abs(bx - ax), abs(by - ay)) // 2) + 1
@@ -136,12 +136,12 @@ def test_the_easy_course_keeps_each_next_checkpoint_in_sight():
     config.show_gui = False
     env = MazeCarEnv(config, stage=stage)
     result = run_episode(env, make_driver("heuristic"), 50_000)
-    assert result.checkpoints >= 20  # most of the loop's 28 in 60 s
+    assert result.fuels >= 20  # most of the loop's 28 in 60 s
 
 
-def test_random_checkpoints_on_the_route_maps_can_be_reached():
+def test_random_fuels_on_the_route_maps_can_be_reached():
     """7f12: on route_rooms and route_switchbacks, every room or lane is
-    connected: 40 seeds' checkpoints all have a path from the spawn.
+    connected: 40 seeds' fuel all have a path from the spawn.
     """
     import math
 
@@ -156,7 +156,7 @@ def test_random_checkpoints_on_the_route_maps_can_be_reached():
         walls = tuple(Box.from_list(w) for w in stage.walls)
         for seed in range(40):
             schedule = SpawnSchedule(
-                "checkpoints", seed, stage.checkpoints,
+                "checkpoints", seed, stage.fuel,  # 9a2 renames the stream
                 stage.width, stage.height, walls=walls,
             )
             spot = schedule.next_spot([spawn])

@@ -38,7 +38,7 @@ METRICS_COLUMNS = (
     "seconds",
     "score",
     "distance_points",
-    "checkpoints",
+    "fuels",
     "reward",
     "ended_by",
     "stage",  # the map it played (7d5a: a mix plays several)
@@ -60,7 +60,7 @@ class RunSummary:
     mean_score: float
     best_score: float
     best_episode: int | None
-    mean_checkpoints: float
+    mean_fuels: float
     survival_rate: float  # share of episodes that lasted the whole round
     seconds: float  # real time the run took
 
@@ -187,7 +187,7 @@ def _metrics_row(
         round(seconds, 3),
         result.score,
         result.distance_points,
-        result.checkpoints,
+        result.fuels,
         round(result.reward, 6),
         result.ended_by or "",
         stage,
@@ -205,8 +205,8 @@ def _summarize(folder, results, interrupted, best, best_episode, started):
         mean_score=statistics.mean(r.score for r in results) if count else 0,
         best_score=best if count else 0,
         best_episode=best_episode,
-        mean_checkpoints=(
-            statistics.mean(r.checkpoints for r in results) if count else 0
+        mean_fuels=(
+            statistics.mean(r.fuels for r in results) if count else 0
         ),
         survival_rate=(
             sum(r.ended_by == "time" for r in results) / count if count else 0

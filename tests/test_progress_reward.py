@@ -1,5 +1,5 @@
 """The progress reward (roadmap 7e, decision 041): px closer to the
-checkpoint along a drivable path, gains while reversing at a share,
+fuel along a drivable path, gains while reversing at a share,
 losses in full.
 """
 
@@ -12,7 +12,7 @@ from src.sim.rules import load_rules
 
 def _events(progress, reversing=False):
     return StepEvents(
-        points=0, checkpoints=0, damage=0.0, wrecked=False, contacts=0,
+        points=0, fuels=0, damage=0.0, wrecked=False, contacts=0,
         stopped=False, time_up=False, distance=0.0, speed=0.0,
         steering_change=0.0, closest_wall=1.0,
         progress=progress, reversing=reversing,
@@ -46,19 +46,19 @@ def _run(stage, steps=900):
     env.reset(seed=4)
     driver = make_driver("heuristic")
     driver.reset(4)
-    rewards, checkpoints = [], 0
+    rewards, fuels = [], 0
     for _ in range(steps):
         _, reward, done, cut, info = env.step(driver.act(env.last_observation))
         rewards.append(reward)
-        checkpoints = info["checkpoints"]
+        fuels = info["fuels"]
         if done or cut:
             break
-    return rewards, checkpoints
+    return rewards, fuels
 
 
-def test_driving_to_checkpoints_pays_without_jumps():
-    rewards, checkpoints = _run("box")
-    assert checkpoints >= 2  # it reached some, and the next one spawned
+def test_driving_to_fuels_pays_without_jumps():
+    rewards, fuels = _run("box")
+    assert fuels >= 2  # it reached some, and the next one spawned
     assert sum(rewards) > 200
     # On the box the path is the straight line: a step is at most the px
     # driven (300 px/s at 120 steps/s: 2.5 px), never a jump at a spawn.
@@ -66,8 +66,8 @@ def test_driving_to_checkpoints_pays_without_jumps():
 
 
 def test_around_walls_it_pays_too_and_stays_small_per_step():
-    rewards, checkpoints = _run("pillars")
-    assert checkpoints >= 1 and sum(rewards) > 100
+    rewards, fuels = _run("pillars")
+    assert fuels >= 1 and sum(rewards) > 100
     # The grid's path runs up to 8 % longer than a straight line, and next
     # to a wall a step can gain a little more than the px driven (under 2
     # steps' worth), never a jump. It's still "before minus after" at the

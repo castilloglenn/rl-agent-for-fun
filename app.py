@@ -615,7 +615,7 @@ def _experiment_run(cl_args, config) -> None:
         f"Done ({state}{summary.episodes} episodes, {summary.seconds:.1f} s): "
         f"mean score {summary.mean_score:,.0f}, best {summary.best_score:,.0f} "
         f"(episode {summary.best_episode}), "
-        f"checkpoints {summary.mean_checkpoints:.1f}/round, "
+        f"fuels {summary.mean_fuels:.1f}/round, "
         f"survived {summary.survival_rate:.0%}"
     )
     print(f"Saved in {summary.folder}")

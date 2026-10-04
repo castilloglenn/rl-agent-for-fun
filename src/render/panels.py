@@ -3,7 +3,7 @@
 Retro style: only lines and text, with colors and bold for distinction.
 Graphics belong inside the field.
 
-Sections for features that don't exist yet (round, score, checkpoints,
+Sections for features that don't exist yet (round, score, fuels,
 rewards, agent) show a dash. Their roadmap steps fill them in.
 """
 
@@ -23,7 +23,7 @@ from src.sim.observation import OBSERVATION_NAMES
 from src.render.layout import MARGIN
 from src.sim.components import (
     ActionInput,
-    Checkpoint,
+    Fuel,
     Eliminated,
     Health,
     Motion,
@@ -195,14 +195,14 @@ def health_color(share: float) -> ColorValue:
     return theme.BAD
 
 
-def nearest_checkpoint(
+def nearest_fuel(
     world: World, car: CarInfo
 ) -> tuple[float, float] | None:
     """Distance (center to center) and angle, relative to the car's
     heading (counterclockwise: + is to its left), of the nearest
-    checkpoint.
+    fuel.
     """
-    spots = [spot for _, (spot, _) in world.query(Transform, Checkpoint)]
+    spots = [spot for _, (spot, _) in world.query(Transform, Fuel)]
     if not spots:
         return None
     x, y = car.center
@@ -311,7 +311,7 @@ def round_details(
     details = [
         ("STAGE", f"{stage.name} {stage.width:g}×{stage.height:g}"),
         ("RULES", world.resource(Rules).name),
-        ("SPAWNS", stage.checkpoints.mode),
+        ("SPAWNS", stage.fuel.mode),
         ("SEED", str(world.resource(Rng).seed)),
     ]
     if reward:
@@ -459,8 +459,8 @@ def draw_game_panel(
     column.header("SCORE (game points)")
     if car:
         column.row("Distance", f"+{car.score.distance_points:,.0f}")
-        column.row("Checkpoints", f"+{car.score.checkpoint_points:,.0f}")
-        column.row("Collected", str(car.score.checkpoints))
+        column.row("Fuels", f"+{car.score.fuel_points:,.0f}")
+        column.row("Collected", str(car.score.fuels))
 
     if mode and mode.source:  # a replay: where it comes from, instead
         column.header("SOURCE")  # of a one-car leaderboard
@@ -624,7 +624,7 @@ def _draw_senses(column, world, car, hud, sim, stop_distance, readouts):
     levels = warnings.ray_levels(
         car.rays, car.speed, sim.brake_deceleration, hud
     )
-    checkpoint = nearest_checkpoint(world, car)
+    fuel = nearest_fuel(world, car)
     center = ((column.left + column.right) // 2, column.y + RADAR + 14)
     instruments.draw_radar(
         surface,
@@ -634,23 +634,23 @@ def _draw_senses(column, world, car, hud, sim, stop_distance, readouts):
         levels,
         car.speed,
         stop_distance,
-        compass=checkpoint[1] if checkpoint else None,
+        compass=fuel[1] if fuel else None,
         waypoint=car.waypoint,
     )
     column.y += 2 * RADAR + 28
-    if checkpoint:
-        distance = checkpoint[0]
-        straight = readouts.text("checkpoint", distance, lambda v: f"{v:,.0f}")
-        text = f"checkpoint {straight} px"
+    if fuel:
+        distance = fuel[0]
+        straight = readouts.text("fuel", distance, lambda v: f"{v:,.0f}")
+        text = f"fuel {straight} px"
         if car.route_distance is not None:
             path = readouts.text(
                 "route", car.route_distance, lambda v: f"{v:,.0f}"
             )
             text += f" · route {path} px"
-        level = warnings.checkpoint_level(distance, hud)
+        level = warnings.fuel_near_level(distance, hud)
         column.note(text, warnings.value_color(level))
     else:
-        column.note(f"checkpoint {DASH}")
+        column.note(f"fuel {DASH}")
     if car.stuck is not None:
         stuck = car.stuck
 

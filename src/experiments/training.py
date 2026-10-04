@@ -781,7 +781,7 @@ class _Training:
         if self.teacher:
             sps = self.config.sim.steps_per_second
             self.teacher.played(
-                stage, result.checkpoints, result.steps / sps / 60
+                stage, result.fuels, result.steps / sps / 60
             )
             self._check_level()
         if result.score > self.best_by_map.get(stage, float("-inf")):

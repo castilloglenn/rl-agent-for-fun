@@ -122,6 +122,6 @@ def time_level(seconds_left: float, hud: ConfigDict) -> int:
     return NORMAL
 
 
-def checkpoint_level(distance: float, hud: ConfigDict) -> int:
-    """Green when the checkpoint is close."""
-    return GOOD if distance < hud.checkpoint_near else NORMAL
+def fuel_near_level(distance: float, hud: ConfigDict) -> int:
+    """Green when the fuel is close."""
+    return GOOD if distance < hud.fuel_near else NORMAL

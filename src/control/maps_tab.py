@@ -480,9 +480,9 @@ class MapsTab:
         )
         draw_stage_preview(surface, self.preview_rect, info.data)
         width, height = info.size
-        checkpoints = info.checkpoints
-        if checkpoints.get("mode") == "scripted":
-            count = len(checkpoints.get("points", []))
+        fuel = info.fuel
+        if fuel.get("mode") == "scripted":
+            count = len(fuel.get("points", []))
             cps = f"in order, {count}"
         else:
             cps = "random"
@@ -490,7 +490,7 @@ class MapsTab:
         rows = [
             ("Size", f"{width:g} × {height:g}"),
             ("Walls", str(info.walls)),
-            ("Checkpoints", cps),
+            ("Fuel", cps),
             ("Spawn", f"{spawn.get('x', 0):g}, {spawn.get('y', 0):g}"),
             ("Heading", f"{spawn.get('angle', 0):g}°"),
             ("View", "followed, map card" if info.big else "1:1"),

@@ -9,7 +9,7 @@
     [540, 290, 60, 60]
   ],
   "spawns": [{"x": 150, "y": 240, "angle": 0}],
-  "checkpoints": {
+  "fuel": {
     "mode": "random",
     "radius": 15,
     "border_margin": 40,

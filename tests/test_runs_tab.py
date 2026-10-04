@@ -507,7 +507,7 @@ def test_a_training_run_charts_each_reward_term(tmp_path):
     chart = data.second_chart(runs.TERMS_CHART)
     labels = [s.label for s in chart.series]
     assert labels == [
-        "progress", "checkpoints", "contact", "damage", "wrecked", "stopped",
+        "progress", "fuels", "contact", "damage", "wrecked", "stopped",
         "stuck",
     ]  # the default profile's terms, in its order
     xs = [x for x, _ in chart.series[0].points]

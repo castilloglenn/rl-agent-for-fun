@@ -28,8 +28,8 @@ class RewardProfileError(ValueError):
 class StepEvents:
     """What happened to the agent's car during one step."""
 
-    points: float  # game points gained (distance and checkpoints)
-    checkpoints: int  # checkpoints reached
+    points: float  # game points gained (distance and fuels)
+    fuels: int  # fuels reached
     damage: float  # share of full health lost this step (0 to 1)
     wrecked: bool  # health reached 0 this step
     contacts: int  # new wall contacts this step (bumps and hits)
@@ -39,10 +39,10 @@ class StepEvents:
     speed: float  # speed as a fraction of max speed (negative reversing)
     steering_change: float  # how far the steering wheel moved (0 to 2)
     closest_wall: float  # shortest ray, as a fraction of DISTANCE_SCALE
-    # Seconds each checkpoint reached this step had been on the field.
-    checkpoint_seconds: tuple[float, ...] = ()
+    # Seconds each fuel reached this step had been on the field.
+    fuel_seconds: tuple[float, ...] = ()
     distance_points: float = 0.0  # game points from driving only
-    # px closer to the checkpoint along a drivable path this step (7e:
+    # px closer to the fuel along a drivable path this step (7e:
     # negative when farther), and whether the car was reversing.
     progress: float = 0.0
     reversing: bool = False
@@ -51,7 +51,7 @@ class StepEvents:
     # contact only after a real gap, not a wiggle against the wall.
     clear_seconds: float = math.inf
     # Seconds since the car last got closer along the route than its best
-    # to this checkpoint (the stuck input, 7f7), for the stuck cost.
+    # to this fuel (the stuck input, 7f7), for the stuck cost.
     stuck_seconds: float = 0.0
 
 
@@ -103,12 +103,12 @@ def _stuck(events: StepEvents, params: Mapping) -> float:
     return min(over / max(params["full"] - params["grace"], 1e-6), 1.0)
 
 
-def _checkpoint_speed(events: StepEvents, params: Mapping) -> float:
-    """1 for a checkpoint reached instantly, down to 0 at `window` s."""
+def _fuel_speed(events: StepEvents, params: Mapping) -> float:
+    """1 for a fuel reached instantly, down to 0 at `window` s."""
     window = params["window"]
     return sum(
         max(0.0, 1.0 - seconds / window)
-        for seconds in events.checkpoint_seconds
+        for seconds in events.fuel_seconds
     )
 
 
@@ -117,9 +117,9 @@ TERMS: Mapping[str, Term] = MappingProxyType(
     {
         "points": Term(lambda e, p: e.points),
         "distance_points": Term(lambda e, p: e.distance_points),
-        "checkpoints": Term(lambda e, p: e.checkpoints),
-        "checkpoint_speed": Term(
-            _checkpoint_speed, MappingProxyType({"window": 10.0})
+        "fuels": Term(lambda e, p: e.fuels),
+        "fuel_speed": Term(
+            _fuel_speed, MappingProxyType({"window": 10.0})
         ),
         "damage": Term(lambda e, p: e.damage),
         "wrecked": Term(lambda e, p: float(e.wrecked)),
@@ -170,7 +170,7 @@ class RewardProfile:
     @staticmethod
     def from_dict(data: dict) -> "RewardProfile":
         """Terms are a weight (`"points": 1.0`), or a weight plus
-        parameters (`"checkpoint_speed": {"weight": 100, "window": 10}`).
+        parameters (`"fuel_speed": {"weight": 100, "window": 10}`).
         """
         if data.get("format") != PROFILE_FORMAT:
             raise RewardProfileError(

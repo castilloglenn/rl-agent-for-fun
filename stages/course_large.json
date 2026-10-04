@@ -27,7 +27,7 @@
     [200, 880, 1400, 20]
   ],
   "spawns": [{"x": 600, "y": 790, "angle": 90}],
-  "checkpoints": {
+  "fuel": {
     "mode": "scripted",
     "radius": 15,
     "start": "seeded",

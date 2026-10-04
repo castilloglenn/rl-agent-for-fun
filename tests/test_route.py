@@ -29,17 +29,17 @@ def _value(env, name):
     return float(env.last_observation[OBSERVATION_NAMES.index(name)])
 
 
-def test_in_plain_sight_the_waypoint_is_the_checkpoint():
+def test_in_plain_sight_the_waypoint_is_the_fuel():
     env = _env("box")
     sense = route.sense(env.world, env.car)
     assert sense.waypoint == sense.goal
     assert _value(env, "route_sin") == pytest.approx(
-        _value(env, "checkpoint_sin"), abs=1e-6
+        _value(env, "fuel_sin"), abs=1e-6
     )
 
 
 def test_a_wall_in_between_points_the_way_around():
-    """skill_detour: the checkpoint sits inside a U whose back wall faces
+    """skill_detour: the fuel sits inside a U whose back wall faces
     the car. The compass points through it; the route goes around.
     """
     env = _env()
@@ -54,7 +54,7 @@ def test_a_wall_in_between_points_the_way_around():
     straight = math.dist((car.x, car.y), sense.goal)
     assert sense.distance > straight + 100  # the route is longer
     assert abs(_value(env, "route_sin")) > 0.3  # it points to a side
-    assert _value(env, "checkpoint_cos") > 0.99  # the compass: dead ahead
+    assert _value(env, "fuel_cos") > 0.99  # the compass: dead ahead
 
 
 def test_the_stuck_timer_counts_and_resets_with_progress():
@@ -65,7 +65,7 @@ def test_the_stuck_timer_counts_and_resets_with_progress():
     assert _value(env, "stuck") == pytest.approx(stuck, abs=0.02)
     from src.drivers.registry import make_driver
 
-    driver = make_driver("heuristic")  # then drive at the checkpoint
+    driver = make_driver("heuristic")  # then drive at the fuel
     for _ in range(120):
         env.step(driver.act(env.last_observation))
     assert _value(env, "stuck") < 0.05  # it got closer: reset
@@ -94,7 +94,7 @@ def test_the_reward_and_the_sense_share_one_route_field():
 
 
 def test_an_env_keeps_its_route_fields_across_games():
-    """A course meets the same checkpoints every round: built once."""
+    """A course meets the same fuels every round: built once."""
     env = _env()
     first = route.route_fields(env.world).field(env.world, (540, 240))
     env.reset(seed=1)
@@ -129,7 +129,7 @@ def test_a_gap_too_narrow_for_the_padding_uses_the_exact_route():
 # and an agent's MIND.
 
 
-def test_the_route_runs_from_a_point_to_the_checkpoint():
+def test_the_route_runs_from_a_point_to_the_fuel():
     env = _env()
     sense = route.sense(env.world, env.car)
     points = route.route_points(env.world, sense.waypoint, sense.goal)
@@ -178,7 +178,7 @@ def test_an_agents_mind_comes_from_its_latest_decision():
 def test_a_training_replay_has_no_mind():
     from src.replay.viewer import _mind_driver
 
-    header = {"slots": {"1": {"type": "agent", "id": "a", "checkpoint": None,
+    header = {"slots": {"1": {"type": "agent", "id": "a", "fuel": None,
                               "training": {"run": "r", "decisions": 1}}}}
     assert _mind_driver(header) is None
     assert _mind_driver({"slots": {"1": {"type": "human"}}}) is None

@@ -43,7 +43,7 @@ def _profile(**terms) -> RewardProfile:
 def _events(**overrides) -> StepEvents:
     values = dict(
         points=0.0,
-        checkpoints=0,
+        fuels=0,
         damage=0.0,
         wrecked=False,
         contacts=0,
@@ -60,15 +60,15 @@ def _events(**overrides) -> StepEvents:
 # Profiles
 
 
-def test_default_profile_is_progress_checkpoints_and_wall_penalties():
+def test_default_profile_is_progress_fuels_and_wall_penalties():
     """7e (decision 041): progress along the path, a big prize per
-    checkpoint, and wall costs by how bad. Game points don't count.
+    fuel, and wall costs by how bad. Game points don't count.
     """
     profile = load_reward_profile("default")
     assert profile.name == "default"
     assert dict(profile.terms) == {
         "progress": 1.0,  # 7f11: was 0.1, outweighed by the wall costs
-        "checkpoints": 500.0,
+        "fuels": 500.0,
         "contact": -100.0,
         "damage": -1000.0,
         "wrecked": -3000.0,
@@ -84,7 +84,7 @@ def test_default_profile_is_progress_checkpoints_and_wall_penalties():
         -3.0
     )
     assert profile(_events(progress=-3.0)) == pytest.approx(-3.0)
-    assert profile(_events(checkpoints=1)) == 500
+    assert profile(_events(fuels=1)) == 500
     assert profile(_events(stopped=True)) == -0.25  # idle or pinned
     assert profile(_events(contacts=1)) == -100  # a harmless bump
     assert profile(_events(contacts=1, damage=0.25)) == -100 - 250
@@ -111,7 +111,7 @@ def test_load_by_path():
     [
         ("points", _events(points=7), 7),
         ("distance_points", _events(points=107, distance_points=7), 7),
-        ("checkpoints", _events(checkpoints=1), 1),
+        ("fuels", _events(fuels=1), 1),
         ("damage", _events(damage=0.4), 0.4),
         ("wrecked", _events(wrecked=True), 1),
         ("contact", _events(contacts=1), 1),
@@ -265,7 +265,7 @@ def test_step_returns_the_same_reward_the_hud_shows():
     assert total == pytest.approx(env.reward_status().total)
 
 
-# Parameterized terms and the checkpoint time bonus
+# Parameterized terms and the fuel time bonus
 
 
 def test_terms_can_be_a_weight_or_a_weight_with_parameters():
@@ -275,14 +275,14 @@ def test_terms_can_be_a_weight_or_a_weight_with_parameters():
             "name": "fast",
             "terms": {
                 "points": 1.0,
-                "checkpoint_speed": {"weight": 100, "window": 4},
+                "fuel_speed": {"weight": 100, "window": 4},
             },
         }
     )
-    assert dict(profile.terms) == {"points": 1.0, "checkpoint_speed": 100.0}
-    assert dict(profile.params["checkpoint_speed"]) == {"window": 4.0}
+    assert dict(profile.terms) == {"points": 1.0, "fuel_speed": 100.0}
+    assert dict(profile.params["fuel_speed"]) == {"window": 4.0}
     assert RewardProfile.from_dict(profile.to_dict()) == profile
-    assert profile.to_dict()["terms"]["checkpoint_speed"] == {
+    assert profile.to_dict()["terms"]["fuel_speed"] == {
         "weight": 100.0,
         "window": 4.0,
     }
@@ -299,7 +299,7 @@ def test_terms_can_be_a_weight_or_a_weight_with_parameters():
     ],
 )
 def test_invalid_term_parameters(spec, message):
-    data = {"format": 1, "name": "x", "terms": {"checkpoint_speed": spec}}
+    data = {"format": 1, "name": "x", "terms": {"fuel_speed": spec}}
     with pytest.raises(RewardProfileError, match=message):
         RewardProfile.from_dict(data)
 
@@ -315,58 +315,58 @@ def test_parameters_on_a_term_without_any():
     "seconds, expected",
     [((1.0,), 0.9), ((5.0,), 0.5), ((10.0,), 0.0), ((12.0,), 0.0), ((), 0.0)],
 )
-def test_checkpoint_speed_pays_more_for_faster_pickups(seconds, expected):
-    events = _events(checkpoint_seconds=seconds, checkpoints=len(seconds))
-    assert TERMS["checkpoint_speed"](events) == pytest.approx(expected)
+def test_fuel_speed_pays_more_for_faster_pickups(seconds, expected):
+    events = _events(fuel_seconds=seconds, fuels=len(seconds))
+    assert TERMS["fuel_speed"](events) == pytest.approx(expected)
 
 
-def test_checkpoint_speed_window_is_tunable():
-    events = _events(checkpoint_seconds=(1.0,), checkpoints=1)
-    assert TERMS["checkpoint_speed"](events, {"window": 4}) == pytest.approx(
+def test_fuel_speed_window_is_tunable():
+    events = _events(fuel_seconds=(1.0,), fuels=1)
+    assert TERMS["fuel_speed"](events, {"window": 4}) == pytest.approx(
         0.75
     )
 
 
-def _collect_one_checkpoint(env, distance_ahead):
-    """Drives straight at a checkpoint placed ahead, and returns the reward
+def _collect_one_fuel(env, distance_ahead):
+    """Drives straight at a fuel placed ahead, and returns the reward
     of the step that reached it and how many steps that took.
     """
-    from src.sim.components import Checkpoint, Transform
+    from src.sim.components import Fuel, Transform
 
     env.reset(seed=1)
     car = env.world.component(env.car, Transform)
-    spot = env.world.query(Transform, Checkpoint)[0][1][0]
+    spot = env.world.query(Transform, Fuel)[0][1][0]
     spot.x, spot.y = car.x + distance_ahead, car.y
     for steps in range(1, 600):
         _, reward, *_ = env.step(GAS)
-        if env.world.component(env.car, Score).checkpoints:
+        if env.world.component(env.car, Score).fuels:
             return reward, steps
-    raise AssertionError("never reached the checkpoint")
+    raise AssertionError("never reached the fuel")
 
 
-def test_faster_checkpoints_earn_a_bigger_bonus_and_the_score_stays_put():
-    speedy = _profile(checkpoint_speed=100.0)  # default window: 10 s
-    near_reward, near_steps = _collect_one_checkpoint(_env(reward=speedy), 60)
-    far_reward, far_steps = _collect_one_checkpoint(_env(reward=speedy), 300)
+def test_faster_fuels_earn_a_bigger_bonus_and_the_score_stays_put():
+    speedy = _profile(fuel_speed=100.0)  # default window: 10 s
+    near_reward, near_steps = _collect_one_fuel(_env(reward=speedy), 60)
+    far_reward, far_steps = _collect_one_fuel(_env(reward=speedy), 300)
 
     assert near_steps < far_steps
     assert near_reward > far_reward > 0
     assert near_reward == pytest.approx(100 * (1 - near_steps / 120 / 10))
 
     plain = _env()
-    _collect_one_checkpoint(plain, 60)
+    _collect_one_fuel(plain, 60)
     game = _env(reward=speedy)
-    _collect_one_checkpoint(game, 60)
+    _collect_one_fuel(game, 60)
     assert game.score == plain.score  # the game score is untouched
 
 
-def test_age_restarts_when_the_checkpoint_respawns():
-    from src.sim.components import Checkpoint, SpawnedAt
+def test_age_restarts_when_the_fuel_respawns():
+    from src.sim.components import Fuel, SpawnedAt
 
-    env = _env(reward=_profile(checkpoint_speed=100.0))
-    _, steps = _collect_one_checkpoint(env, 60)
-    checkpoint = env.world.query(Checkpoint)[0][0]
-    assert env.world.component(checkpoint, SpawnedAt).step == steps
+    env = _env(reward=_profile(fuel_speed=100.0))
+    _, steps = _collect_one_fuel(env, 60)
+    fuel = env.world.query(Fuel)[0][0]
+    assert env.world.component(fuel, SpawnedAt).step == steps
 
 
 def test_every_profile_file_loads_and_round_trips():
@@ -375,11 +375,11 @@ def test_every_profile_file_loads_and_round_trips():
         assert profile.to_dict() == json.loads(path.read_text()), path.name
 
 
-def test_a_speed_bonus_pays_nothing_for_a_slow_checkpoint():
-    """The checkpoint's worth comes only from the speed bonus: the game's
+def test_a_speed_bonus_pays_nothing_for_a_slow_fuel():
+    """The fuel's worth comes only from the speed bonus: the game's
     own +100 isn't part of this profile (regression: it used to be).
     """
-    from src.sim.components import Checkpoint, Transform
+    from src.sim.components import Fuel, Transform
 
     speed_bonus = RewardProfile.from_dict(
         {
@@ -387,7 +387,7 @@ def test_a_speed_bonus_pays_nothing_for_a_slow_checkpoint():
             "name": "speed_bonus",
             "terms": {
                 "distance_points": 1.0,
-                "checkpoint_speed": {"weight": 100, "window": 10},
+                "fuel_speed": {"weight": 100, "window": 10},
             },
         }
     )
@@ -396,12 +396,12 @@ def test_a_speed_bonus_pays_nothing_for_a_slow_checkpoint():
         env = _env(reward=speed_bonus)
         env.reset(seed=1)
         car = env.world.component(env.car, Transform)
-        spot = env.world.query(Transform, Checkpoint)[0][1][0]
+        spot = env.world.query(Transform, Fuel)[0][1][0]
         spot.x, spot.y = car.x + 60, car.y
         for _ in range(wait_steps):
             env.step(NONE)
         score = env.world.component(env.car, Score)
-        while not score.checkpoints:
+        while not score.fuels:
             _, reward, *_ = env.step(GAS)
         rewards.append(reward)
         assert score.last_step == 100  # the game still pays its +100
@@ -426,7 +426,7 @@ def test_a_share_parameter_goes_from_0_to_1():
     with pytest.raises(RewardProfileError, match="must be positive"):
         RewardProfile.from_dict(  # a window of 0 s: still refused
             {"format": 1, "name": "t",
-             "terms": {"checkpoint_speed": {"weight": 1, "window": 0}}}
+             "terms": {"fuel_speed": {"weight": 1, "window": 0}}}
         )
 
 

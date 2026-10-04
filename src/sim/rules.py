@@ -22,7 +22,7 @@ class RulesError(ValueError):
 @dataclass(frozen=True)
 class Scoring:
     distance_step: float = 10.0  # px driven forward per +1 point
-    checkpoint: float = 100.0  # points per checkpoint
+    fuel: float = 100.0  # points per fuel
 
 
 @dataclass(frozen=True)

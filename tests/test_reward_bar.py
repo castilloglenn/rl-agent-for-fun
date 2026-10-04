@@ -23,7 +23,7 @@ from src.render.panels import RewardStatus, reward_groups, signed  # noqa
 
 EVENTS = StepEvents(
     points=3.0,
-    checkpoints=1,
+    fuels=1,
     damage=0.25,
     wrecked=False,
     contacts=1,
@@ -33,7 +33,7 @@ EVENTS = StepEvents(
     speed=-0.5,
     steering_change=0.3,
     closest_wall=0.1,
-    checkpoint_seconds=(4.0,),
+    fuel_seconds=(4.0,),
     distance_points=1.0,
 )
 
@@ -43,7 +43,7 @@ SPEED_BONUS = {
     "name": "speed_bonus",
     "terms": {
         "distance_points": 1.0,
-        "checkpoint_speed": {"weight": 100, "window": 10},
+        "fuel_speed": {"weight": 100, "window": 10},
     },
 }
 

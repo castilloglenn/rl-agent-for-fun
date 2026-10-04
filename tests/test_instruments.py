@@ -54,20 +54,20 @@ def test_the_radar_finds_the_closest_ray():
     assert closest == ("left", 42.0)
 
 
-def test_the_checkpoint_angle_is_relative_and_left_positive():
-    from src.render.panels import CarInfo, nearest_checkpoint
-    from src.sim.components import ActionInput, Checkpoint, Score, Transform
+def test_the_fuel_angle_is_relative_and_left_positive():
+    from src.render.panels import CarInfo, nearest_fuel
+    from src.sim.components import ActionInput, Fuel, Score, Transform
     from src.ecs import World
 
     world = World()
     spot = world.create_entity()
     world.add_component(spot, Transform(100.0, 0.0))  # straight up
-    world.add_component(spot, Checkpoint())
+    world.add_component(spot, Fuel())
     car = CarInfo(
         "c", 0.0, "Idle", 0.0, 0.0, (100.0, 100.0), ActionInput(), [],
         False, Score(), 1.0,
     )  # heading 0: facing east, so "up" is to its left
-    distance, relative = nearest_checkpoint(world, car)
+    distance, relative = nearest_fuel(world, car)
     assert distance == 100.0 and round(relative) == 90
 
 

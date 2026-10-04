@@ -42,8 +42,8 @@ class MapInfo:
         return len(self.data.get("walls", []))
 
     @property
-    def checkpoints(self) -> dict:
-        return self.data.get("checkpoints", {})
+    def fuel(self) -> dict:
+        return self.data.get("fuel", {})
 
     @property
     def big(self) -> bool:

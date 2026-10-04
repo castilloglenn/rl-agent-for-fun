@@ -1,6 +1,6 @@
 {
   "format": 1,
   "name": "skill_training_easy",
-  "description": "The first level of the training curriculum: skill_training with course_small_easy (wider gaps and lanes, a breadcrumb checkpoint in sight at every turn) in place of course_small. Train here first, then on skill_training.",
+  "description": "The first level of the training curriculum: skill_training with course_small_easy (wider gaps and lanes, a breadcrumb fuel in sight at every turn) in place of course_small. Train here first, then on skill_training.",
   "stages": ["box", "arena", "course_small_easy", "course_large"]
 }

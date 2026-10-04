@@ -4,7 +4,7 @@ from src.ecs import World
 from src.sim.components import (
     ActionInput,
     CarSpec,
-    Checkpoint,
+    Fuel,
     Health,
     Hitbox,
     Motion,
@@ -47,11 +47,11 @@ def create_game(
     rules: Rules | None = None,
 ) -> tuple[World, int]:
     """The first-goal game: one car at the stage's spawn, plus a
-    checkpoint. Returns the world and the car.
+    fuel. Returns the world and the car.
     """
     world = create_world(config, seed, stage, rules)
     car = create_start_car(world, label=label)
-    create_checkpoint(world)
+    create_fuel(world)
     return world, car
 
 
@@ -79,10 +79,13 @@ def create_world(
     world.add_resource(
         SpawnSchedules(
             {
+                # The fuel's spawner. Its name seeds its random stream, so
+                # it stays "checkpoints" until 9a2 changes the spawning
+                # anyway: renamed now, every random fuel would move.
                 "checkpoints": SpawnSchedule(
                     "checkpoints",
                     seed,
-                    stage.checkpoints,
+                    stage.fuel,
                     stage.width,
                     stage.height,
                     walls=walls.boxes,
@@ -171,19 +174,19 @@ def create_start_car(
     )
 
 
-def create_checkpoint(world: World) -> int:
-    """A checkpoint at the first spot of the checkpoint schedule."""
+def create_fuel(world: World) -> int:
+    """A fuel at the first spot of the fuel schedule."""
     x, y = next_spawn(world, "checkpoints")
     return world.create_entity(
         Transform(x=x, y=y),
-        Trigger(radius=world.resource(Stage).checkpoints.radius),
+        Trigger(radius=world.resource(Stage).fuel.radius),
         ScoreReward(
-            points=world.resource(Rules).scoring.checkpoint,
-            label="checkpoint",
+            points=world.resource(Rules).scoring.fuel,
+            label="fuel",
         ),
         Respawn(spawner="checkpoints"),
         SpawnedAt(step=world.resource(SimClock).step),
-        Checkpoint(),
+        Fuel(),
     )
 
 

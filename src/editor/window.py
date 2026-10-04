@@ -6,7 +6,7 @@ turns the mouse and keys into edits.
 
     ┌ TOOLS / SELECTED ┐┌ MAP EDITOR · name · unsaved ┐┌ HELP ┐
     │ STAGE            ││ the field: grid, walls,     ││ keys │
-    │                  ││ spawn, checkpoints          ││      │
+    │                  ││ spawn, fuel          ││      │
     └──────────────────┘└─────────────────────────────┘└──────┘
 """
 
@@ -31,13 +31,13 @@ TOOL_KEYS = {
     pygame.K_v: "select",
     pygame.K_w: "wall",
     pygame.K_p: "spawn",
-    pygame.K_c: "checkpoint",
+    pygame.K_c: "fuel",
 }
 TOOL_ROWS = (
     ("select", "Select, move", "V"),
     ("wall", "Wall", "W"),
     ("spawn", "Spawn", "P"),
-    ("checkpoint", "Checkpoint", "C"),
+    ("fuel", "Fuel", "C"),
 )
 HELP = (
     ("T", "test drive (Shift+T: heuristic)"),
@@ -46,7 +46,7 @@ HELP = (
     ("drag the edge", "resize the stage"),
     ("Del", "delete"),
     ("Q E / wheel", "turn the spawn"),
-    ("M", "checkpoints: random / in order"),
+    ("M", "fuel: random / in order"),
     ("G", "snap to the grid"),
     ("F", "fit / 1:1 (arrows pan)"),
     ("Ctrl+Z  Ctrl+Y", "undo, redo"),
@@ -143,7 +143,7 @@ class EditorWindow:
         elif key == pygame.K_f:
             self.camera.mode = FOLLOW if self.camera.mode == FIT else FIT
         elif key == pygame.K_m:
-            model.toggle_checkpoint_mode()
+            model.toggle_fuel_mode()
             model.commit()
         elif key in (pygame.K_q, pygame.K_e):
             model.turn_spawn(SPAWN_TURN if key == pygame.K_q else -SPAWN_TURN)
@@ -229,8 +229,8 @@ class EditorWindow:
                 self.drag = ("stage", edge)
                 return
             found = model.pick(x, y, self._slack() / 2)
-            if found is None and model.tool == "checkpoint":
-                model.add_checkpoint(x, y)
+            if found is None and model.tool == "fuel":
+                model.add_fuel(x, y)
                 model.commit()
                 found = model.selection
             model.selection = found
@@ -240,7 +240,7 @@ class EditorWindow:
 
     def _anchor(self, found) -> tuple[float, float]:
         """The point that moves with a drag: a wall's top left, the spawn,
-        or the checkpoint.
+        or the fuel.
         """
         kind, index = found
         if kind == "wall":
@@ -265,7 +265,7 @@ class EditorWindow:
             elif kind == "spawn":
                 model.move_spawn(x + dx, y + dy)
             else:
-                model.move_checkpoint(index, x + dx, y + dy)
+                model.move_fuel(index, x + dx, y + dy)
         elif drag[0] == "resize":
             model.resize_wall(drag[1], drag[2], x, y)
         elif drag[0] == "stage":
@@ -380,9 +380,9 @@ class EditorWindow:
                 start, end = cam.to_screen(0, gy), cam.to_screen(width, gy)
                 pygame.draw.line(screen, GRID_COLOR, start, end)
         stage = self._box(0, 0, width, height, None, theme.FIELD_BORDER)
-        checkpoints = model.checkpoints
-        if checkpoints.get("mode") == "random":
-            margin = checkpoints.get("border_margin", 40)
+        fuel = model.fuel
+        if fuel.get("mode") == "random":
+            margin = fuel.get("border_margin", 40)
             inner = (margin, margin, width - 2 * margin, height - 2 * margin)
             self._box(*inner, None, MARGIN_COLOR)
         for i, wall in enumerate(model.walls):
@@ -400,7 +400,7 @@ class EditorWindow:
                     handle = Rect(0, 0, HANDLE + 2, HANDLE + 2)
                     handle.center = corner
                     pygame.draw.rect(screen, theme.ACCENT, handle)
-        self._draw_checkpoints()
+        self._draw_fuel()
         self._draw_spawn()
         if self.drag and self.drag[0] == "wall":
             x0, y0 = self.drag[1], self.drag[2]
@@ -429,19 +429,19 @@ class EditorWindow:
             pygame.draw.rect(self.screen, outline, rect, 1)
         return rect
 
-    def _draw_checkpoints(self) -> None:
+    def _draw_fuel(self) -> None:
         model, cam = self.model, self.camera
-        if model.checkpoints.get("mode") != "scripted":
+        if model.fuel.get("mode") != "scripted":
             return
-        radius = model.checkpoints.get("radius", 15)
+        radius = model.fuel.get("radius", 15)
         spots = [cam.to_screen(x, y) for x, y in model.points]
         if len(spots) > 1:
             pygame.draw.lines(self.screen, theme.GUIDE, True, spots)
         for i, spot in enumerate(spots):
-            chosen = model.selection == ("checkpoint", i)
+            chosen = model.selection == ("fuel", i)
             pygame.draw.circle(
                 self.screen,
-                theme.ACCENT if chosen else theme.CHECKPOINT,
+                theme.ACCENT if chosen else theme.FUEL,
                 spot,
                 max(radius * cam.scale, 3),
                 width=2,
@@ -534,11 +534,11 @@ class EditorWindow:
         width, height = model.size
         column.row("Size", f"{width:g} × {height:g}")
         column.row("Walls", str(len(model.walls)))
-        checkpoints = model.checkpoints
-        if checkpoints.get("mode") == "scripted":
-            column.row("Checkpoints", f"in order, {len(model.points)}")
+        fuel = model.fuel
+        if fuel.get("mode") == "scripted":
+            column.row("Fuels", f"in order, {len(model.points)}")
         else:
-            column.row("Checkpoints", "random")
+            column.row("Fuels", "random")
         column.row("Snap", f"{GRID} px" if model.snapping else "off")
         scale = self.camera.scale
         column.row("Camera", "1:1" if scale == 1 else f"fit {scale:.0%}")
@@ -572,7 +572,7 @@ class EditorWindow:
             ]
         x, y = model.points[index]
         return [
-            ("Checkpoint", f"{index + 1} of {len(model.points)}"),
+            ("Fuel", f"{index + 1} of {len(model.points)}"),
             ("Position", f"{x:g}, {y:g}"),
         ]
 

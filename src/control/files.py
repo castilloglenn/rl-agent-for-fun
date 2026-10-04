@@ -2,7 +2,7 @@
 trainers, models, datasets, and suites.
 
 A file becomes a list of fields, one per value, by its path in the file
-(`scoring.checkpoint`, `scenarios.1.episodes`), and the edited fields
+(`scoring.fuel`, `scenarios.1.episodes`), and the edited fields
 become the file again. Every edit is checked with the same `from_dict`
 the commands use, and saving writes the file laid out the way the files
 in the repo are: small flat objects inline near the top, the rest one
@@ -138,7 +138,7 @@ def check(kind: Kind, data: dict) -> str | None:
 
 @dataclass(frozen=True)
 class Item:
-    path: str  # "scoring.checkpoint", "terms.points", "scenarios.1.name"
+    path: str  # "scoring.fuel", "terms.points", "scenarios.1.name"
     text: str  # the value as typed
     type: str  # "number", "text", "list", "bool", "choice", "readonly"
     options: tuple[str, ...] = ()  # for "bool" and "choice"

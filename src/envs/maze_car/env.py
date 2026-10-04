@@ -16,7 +16,7 @@ from src.render.panels import RewardStatus
 from src.render.renderer import Command, Renderer
 from src.sim.components import (
     ActionInput,
-    Checkpoint,
+    Fuel,
     Eliminated,
     Health,
     Motion,
@@ -140,11 +140,11 @@ class MazeCarEnv(Environment):
     # Progress along the path (7e)
 
     def _goal(self) -> tuple[float, float] | None:
-        """The checkpoint the agent's compass points at: the nearest."""
+        """The fuel the agent's compass points at: the nearest."""
         car = self.world.component(self.car, Transform)
         spots = [
             (spot.x, spot.y)
-            for _, (spot, _) in self.world.query(Transform, Checkpoint)
+            for _, (spot, _) in self.world.query(Transform, Fuel)
         ]
         if not spots:
             return None
@@ -161,13 +161,13 @@ class MazeCarEnv(Environment):
         """The car's path length to `goal` around the walls (inf: none)."""
         if goal is None:
             return math.inf
-        # One route field per checkpoint, shared with the route sense (7f7).
+        # One route field per fuel, shared with the route sense (7f7).
         path = route_fields(self.world).field(self.world, goal)
         car = self.world.component(self.car, Transform)
         return path.distance(car.x, car.y)
 
     def _progress(self, goal, before: float, round_before: int) -> float:
-        """px closer to the same checkpoint as before the step (reaching
+        """px closer to the same fuel as before the step (reaching
         it spawns the next one, which isn't a step away). 0 across rounds
         or where there's no path.
         """
@@ -194,7 +194,7 @@ class MazeCarEnv(Environment):
         eliminated = self.world.try_component(self.car, Eliminated)
         return {
             "score": score.total,
-            "checkpoints": score.checkpoints,
+            "fuels": score.fuels,
             "step": self.world.resource(SimClock).step,
             "health": self.world.component(self.car, Health).current,
             "eliminated": eliminated.reason if eliminated else None,
@@ -233,7 +233,7 @@ class MazeCarEnv(Environment):
             return (0, True, self.score)
         score = self.world.component(self.car, CarScore)
         motion = self.world.component(self.car, Motion)
-        checkpoints_before = score.checkpoints
+        fuels_before = score.fuels
         distance_points_before = score.distance_points
         steering_before = motion.steering
         health = self.world.component(self.car, Health)
@@ -259,7 +259,7 @@ class MazeCarEnv(Environment):
         sim = self.world.resource(SimConfig)
         events = StepEvents(
             points=points,
-            checkpoints=score.checkpoints - checkpoints_before,
+            fuels=score.fuels - fuels_before,
             damage=(health_before - health.current) / health.maximum,
             wrecked=self._is_out() and not was_out,
             contacts=health.contacts - contacts_before,
@@ -273,8 +273,8 @@ class MazeCarEnv(Environment):
             speed=motion.speed * sim.steps_per_second / sim.max_speed,
             steering_change=abs(motion.steering - steering_before),
             closest_wall=float(min(self.last_observation[:RAY_COUNT])),
-            checkpoint_seconds=tuple(
-                age / sim.steps_per_second for age in score.checkpoint_ages
+            fuel_seconds=tuple(
+                age / sim.steps_per_second for age in score.fuel_ages
             ),
             distance_points=score.distance_points - distance_points_before,
             progress=(

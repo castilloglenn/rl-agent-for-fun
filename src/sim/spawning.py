@@ -14,7 +14,7 @@ import math
 import random
 from dataclasses import dataclass
 
-from src.sim.stage import CheckpointRules
+from src.sim.stage import FuelRules
 
 CANDIDATES_PER_SLOT = 8
 MAX_CANDIDATES = 64  # when walls reject the first ones
@@ -24,9 +24,9 @@ Point = tuple[float, float]
 
 @dataclass
 class SpawnSchedule:
-    name: str  # also the random stream name, e.g. "checkpoints"
+    name: str  # also the random stream name, e.g. "fuel"
     seed: int
-    rules: CheckpointRules
+    rules: FuelRules
     width: float
     height: float
     next_slot: int = 0

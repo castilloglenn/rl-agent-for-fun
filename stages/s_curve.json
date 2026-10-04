@@ -7,7 +7,7 @@
     [570, 160, 20, 320]
   ],
   "spawns": [{"x": 140, "y": 400, "angle": 90}],
-  "checkpoints": {
+  "fuel": {
     "mode": "scripted",
     "radius": 15,
     "points": [[140, 80], [430, 400], [720, 80]]

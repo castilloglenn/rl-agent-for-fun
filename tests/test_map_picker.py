@@ -91,7 +91,7 @@ def test_the_caption_and_the_scrolling_list():
     stage = {
         "size": [1300, 700],
         "walls": [[0, 0, 10, 10]] * 3,
-        "checkpoints": {
+        "fuel": {
             "mode": "scripted",
             "points": [[1, 1]] * 9,
             "start": "seeded",
@@ -99,9 +99,9 @@ def test_the_caption_and_the_scrolling_list():
     }
     text = describe(stage)
     assert text == (
-        "1300 × 700 · 3 walls · scripted, 9 checkpoints, any start"
+        "1300 × 700 · 3 walls · scripted, 9 fuels, any start"
     )
-    assert "random checkpoints" in describe({"size": [855, 480]})
+    assert "random fuel" in describe({"size": [855, 480]})
     assert visible(5, 2, 10) == range(5)  # all fit
     assert visible(30, 0, 10) == range(0, 10)
     assert 25 in visible(30, 25, 10) and visible(30, 29, 10)[-1] == 29

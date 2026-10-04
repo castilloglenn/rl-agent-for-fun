@@ -1,7 +1,7 @@
 """The evaluation suite: fixed scenarios that score any driver the same
 way (roadmap step 5a5, suites/<name>.json).
 
-    round    full rounds on fixed seeds: score, survival, checkpoints
+    round    full rounds on fixed seeds: score, survival, fuels
     braking  starts at speed, aimed at a wall: damage-free share
 
 Agents play deterministically, so a checkpoint always gets the same
@@ -54,7 +54,7 @@ COLUMNS = (
     "decisions",
     "score_mean",
     "score_min",
-    "checkpoints_per_min",
+    "fuels_per_min",
     "survival",  # share of the round survived
     "wreck_rate",
     "contacts",  # per round
@@ -181,8 +181,8 @@ def evaluate(
         {
             "score_mean": statistics.mean(means) if means else 0.0,
             "score_min": min((g["score"] for g in games), default=0.0),
-            "checkpoints_per_min": (
-                sum(g["checkpoints"] for g in games) / minutes
+            "fuels_per_min": (
+                sum(g["fuels"] for g in games) / minutes
                 if minutes
                 else 0.0
             ),
@@ -248,7 +248,7 @@ def _play(env: MazeCarEnv, driver: Driver, seed: int, setup=None) -> dict:
     return {
         "steps": steps,
         "score": info["score"],
-        "checkpoints": info["checkpoints"],
+        "fuels": info["fuels"],
         "wrecked": terminated,
         "contacts": health.contacts,
         "damage": health.maximum - health.current,
@@ -574,7 +574,7 @@ def format_results(
     def line(name, decisions, r, mark=" "):
         return (
             f"{mark} {name:12s} {decisions:>10s} {r['score_mean']:>7,.0f} "
-            f"{r['score_min']:>7,.0f} {r['checkpoints_per_min']:>6.1f} "
+            f"{r['score_min']:>7,.0f} {r['fuels_per_min']:>6.1f} "
             f"{r['survival']:>5.0%} {r['wreck_rate']:>6.0%} "
             f"{r['contacts']:>5.1f} {r['braking']:>5.0%} "
             f"{r['share']:>5.2f}"

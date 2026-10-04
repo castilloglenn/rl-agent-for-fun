@@ -9,7 +9,7 @@ levels, easy to hard, keeping earlier maps in the mix against forgetting.
                                         "max_decisions": 1500000}, ...]}
 
 A level is a mix (or one stage). It's judged on its own training maps,
-never the skills suite's test maps: on each map, the agent's checkpoints
+never the skills suite's test maps: on each map, the agent's fuels
 per minute over its last `window` episodes there, as a share of the
 heuristic's on that map (at least FLOOR a minute, so a map the heuristic
 can't do doesn't divide by about 0). It moves up when every map reaches
@@ -33,7 +33,7 @@ from src.utils import mixes, named_files
 
 CURRICULUM_FORMAT = 1
 KIND = "curricula"
-FLOOR = 1.0  # checkpoints a minute: the least the heuristic counts as
+FLOOR = 1.0  # fuels a minute: the least the heuristic counts as
 PLATEAU = 1.02  # no more than 2 % better than the window before: leveled
 
 
@@ -159,7 +159,7 @@ def load_curriculum(name: str, root: Path = named_files.REPO) -> Curriculum:
 class CurriculumState:
     """Where a training is in its curriculum: the level (0-based), when
     it started (the phase's learned decisions), each map's episodes in
-    this level, and each map's recent rates (checkpoints a minute).
+    this level, and each map's recent rates (fuels a minute).
     """
 
     level: int = 0
@@ -187,7 +187,7 @@ class CurriculumState:
 
 class Teacher:
     """Runs a curriculum: which map each episode plays, what it scored,
-    and when to move up. `heuristic`: the heuristic's checkpoints a
+    and when to move up. `heuristic`: the heuristic's fuels a
     minute on each map (under the phase's rules).
     """
 
@@ -244,10 +244,10 @@ class Teacher:
         """
         self.state.counts[stage] = self.state.counts.get(stage, 0) + 1
 
-    def played(self, stage: str, checkpoints: int, minutes: float) -> None:
+    def played(self, stage: str, fuels: int, minutes: float) -> None:
         """An episode on `stage` ended."""
         rates = self.state.rates.setdefault(stage, [])
-        rates.append(checkpoints / max(minutes, 1e-6))
+        rates.append(fuels / max(minutes, 1e-6))
         del rates[: -2 * self.curriculum.window]  # two windows kept
 
     def progress(self) -> dict[str, float | None]:

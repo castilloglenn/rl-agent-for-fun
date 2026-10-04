@@ -12,7 +12,7 @@ import numpy as np
 
 from src.ecs import World
 from src.sim.components import (
-    Checkpoint,
+    Fuel,
     Health,
     Motion,
     Sensors,
@@ -23,7 +23,7 @@ from src.sim.resources import RoundState, SimConfig
 from src.sim.systems.sensors import RAY_LAYOUT
 
 OBSERVATION_VERSION = 1
-# Rays and the checkpoint distance are divided by this on every map (7d2,
+# Rays and the fuel distance are divided by this on every map (7d2,
 # decision 042): the box's diagonal, so a number means the same distance
 # everywhere, and farther than this reads 1 ("far"). On a box-sized map
 # it's what the field's diagonal gave before, to the bit.
@@ -33,9 +33,9 @@ OBSERVATION_NAMES = (
     *(f"ray_{name}" for name, _ in RAY_LAYOUT),  # 0..1, of DISTANCE_SCALE
     "speed",  # -1/3 (full reverse) .. 1 (max speed)
     "steering",  # -1 (full right) .. 1 (full left)
-    "checkpoint_distance",  # 0..1, of DISTANCE_SCALE
-    "checkpoint_sin",  # relative angle: + is to the left
-    "checkpoint_cos",  # relative angle: + is ahead
+    "fuel_distance",  # 0..1, of DISTANCE_SCALE
+    "fuel_sin",  # relative angle: + is to the left
+    "fuel_cos",  # relative angle: + is ahead
     # The remembered route (7f7): its distance, and the direction of a
     # waypoint about one corner ahead along it, relative to the heading.
     "route_distance",  # 0..1, of DISTANCE_SCALE
@@ -60,7 +60,7 @@ def observe(world: World, car: int) -> np.ndarray:
     values = [min(rays[name] / scale, 1.0) for name, _ in RAY_LAYOUT]
     values.append(motion.speed * sim.steps_per_second / sim.max_speed)
     values.append(motion.steering)
-    values.extend(_checkpoint_compass(world, transform, scale))
+    values.extend(_fuel_compass(world, transform, scale))
     values.extend(_route(world, car, transform, scale))
     values.append(state.steps_left / state.steps_total)
     values.append(world.component(car, Health).share)
@@ -71,7 +71,7 @@ def _route(
     world: World, car: int, transform: Transform, scale: float
 ) -> tuple[float, float, float, float]:
     """The remembered route's distance and waypoint direction, relative to
-    the heading, and the stuck timer. With no checkpoint: (1, 0, 0, 0).
+    the heading, and the stuck timer. With no fuel: (1, 0, 0, 0).
     """
     sense = route.sense(world, car)
     if sense.goal is None or sense.waypoint is None:
@@ -88,13 +88,13 @@ def _route(
     )
 
 
-def _checkpoint_compass(
+def _fuel_compass(
     world: World, transform: Transform, scale: float
 ) -> tuple[float, float, float]:
-    """Distance, sin and cos of the nearest checkpoint, relative to the
-    car's heading. With no checkpoint: (1, 0, 0).
+    """Distance, sin and cos of the nearest fuel, relative to the
+    car's heading. With no fuel: (1, 0, 0).
     """
-    spots = [spot for _, (spot, _) in world.query(Transform, Checkpoint)]
+    spots = [spot for _, (spot, _) in world.query(Transform, Fuel)]
     if not spots:
         return 1.0, 0.0, 0.0
     here = (transform.x, transform.y)

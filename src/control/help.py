@@ -25,8 +25,7 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
                    "(multiple rounds come later)."),
         "scoring.distance_step": ("px per point", "Driving forward this far "
                                   "earns +1 game point."),
-        "scoring.checkpoint": ("points", "Game points for reaching a "
-                               "checkpoint."),
+        "scoring.fuel": ("points", "Game points for each fuel taken."),
         "collisions.health": ("health", "A car's full health. At 0 it's "
                               "wrecked and the round ends for it."),
         "collisions.safe_speed": ("px/s", "Hits at or below this speed into "
@@ -93,7 +92,7 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
                        "bounded) or relu."),
         "observation_version": ("", "Which inputs the network reads "
                                 "(sensor rays, speed, heading, health, the "
-                                "checkpoint's direction). Fixed by the "
+                                "fuel's direction). Fixed by the "
                                 "code."),
         "actions": ("", "The action set: canonical12 is 12 combinations of "
                     "gas, brake, reverse, and steering. Fixed by the "
@@ -129,7 +128,7 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
                    "its smoothed rate."),
         "levels.*.mix": ("", "The level's maps: a mix, or one stage."),
         "levels.*.goal": ("share", "On every map of the level, its "
-                          "checkpoints a minute over the heuristic's there "
+                          "fuels a minute over the heuristic's there "
                           "(1.0: as good). Reached and leveled off: up."),
         "levels.*.min_decisions": ("decisions", "The least it stays in the "
                                    "level, so luck doesn't move it up."),
@@ -193,11 +192,11 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
 # weight. (unit of one, text).
 TERMS: dict[str, tuple[str, str]] = {
     "points": ("per game point", "Game points gained: distance and "
-               "checkpoints, as the rules score them."),
+               "fuel, as the rules score them."),
     "distance_points": ("per game point", "Game points from driving only "
-                        "(no checkpoints)."),
-    "checkpoints": ("per checkpoint", "Checkpoints reached."),
-    "checkpoint_speed": ("per quick checkpoint", "1 for a checkpoint "
+                        "(no fuel)."),
+    "fuels": ("per fuel", "Fuels taken."),
+    "fuel_speed": ("per quick fuel", "1 for a fuel "
                          "reached at once, down to 0 when it took window "
                          "seconds."),
     "damage": ("per full health", "Health lost, as a share of full health: "
@@ -217,7 +216,7 @@ TERMS: dict[str, tuple[str, str]] = {
                  "negative weight is a time cost."),
     "distance": ("per px", "Px moved forward (0 when stopped or "
                  "reversing)."),
-    "progress": ("per px closer", "Px closer to the checkpoint along a "
+    "progress": ("per px closer", "Px closer to the fuel along a "
                  "drivable path around the walls (negative when farther). "
                  "It can't be farmed: circling or rocking nets 0 or less."),
     "speed": ("per max speed", "Speed as a share of max speed, negative "
@@ -232,7 +231,7 @@ TERM_PARAMS: dict[str, tuple[str, str]] = {
     "progress.reverse": ("share", "What a gain while reversing counts, 0 "
                          "to 1 (0: nothing, 0.5: half); a loss always counts "
                          "in full."),
-    "checkpoint_speed.window": ("s", "After this long, a checkpoint is "
+    "fuel_speed.window": ("s", "After this long, a fuel is "
                                 "worth 0 of this term."),
     "contact.clear": ("s", "How long the car must be clear of walls before "
                       "a touch counts as a new contact: wiggling against a "
@@ -287,7 +286,7 @@ TOPICS: dict[str, str] = {
     "keep hitting the cap.",
     "chart:Loss": "How far the clone's choices are from yours: lower is "
     "closer. Held-out rising while train falls means overfitting.",
-    "chart:Checkpoints": "Checkpoints reached in each episode.",
+    "chart:Fuels": "Fuels taken in each episode.",
     "chart:Distance points": "Game points from driving only, per episode.",
     "chart:Steps": f"How long each episode lasted, in steps "
     f"({STEPS_PER_SECOND}/s).",
@@ -320,16 +319,16 @@ TOPICS: dict[str, str] = {
     "skill:Braking": "Starts at 300 px/s aimed at a wall 80 to 140 px away, "
     "on the box: the share of stops with no damage.",
     "skill:Threading": "skill_gaps: three wall columns, each with one gap "
-    "about 2.5 cars wide, checkpoints in order through them.",
-    "skill:Open field": "The box: checkpoints anywhere, no walls. Fast "
+    "about 2.5 cars wide, fuels in order through them.",
+    "skill:Open field": "The box: fuels anywhere, no walls. Fast "
     "hunting.",
     "skill:Long range": "skill_long: a big empty map (1600 x 1200), "
-    "checkpoints far away.",
-    "skill:Obstacles": "skill_pillars: twelve scattered pillars, checkpoints "
+    "fuels far away.",
+    "skill:Obstacles": "skill_pillars: twelve scattered pillars, fuels "
     "anywhere.",
-    "skill:Corridor": "skill_corridor: a winding lane, checkpoints in order "
+    "skill:Corridor": "skill_corridor: a winding lane, fuels in order "
     "along it.",
-    "skill:Detour": "skill_detour: a checkpoint inside a U that opens away "
+    "skill:Detour": "skill_detour: a fuel inside a U that opens away "
     "from the start: the straight line hits its back wall.",
     "column:#": "Its place by share of the heuristic's score. Baselines "
     "aren't ranked.",
@@ -339,7 +338,7 @@ TOPICS: dict[str, str] = {
     "rounds.",
     "column:survive": "The share of each round survived.",
     "column:wrecks": "The share of rounds that ended wrecked.",
-    "column:cp/min": "Checkpoints collected per minute.",
+    "column:fuel/min": "Fuels taken per minute.",
     "column:brake": "The share of braking tests passed without damage.",
     "column:best": "Its best checkpoint on the suite.",
     "high scores": "The best single rounds, from runs and your recordings. "
@@ -358,7 +357,7 @@ TOPICS: dict[str, str] = {
     # Recordings browser
     "recording:when": "When the round was recorded.",
     "recording:seed": "The round's seed: the same seed gives the same "
-    "spawns and checkpoints.",
+    "spawns and fuel.",
     "recording:score": "The round's game points.",
     "recording:ended": "time: the timer ran out. all out: the car was "
     "wrecked. stopped: you restarted or quit mid-round.",

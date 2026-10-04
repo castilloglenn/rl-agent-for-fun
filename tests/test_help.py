@@ -68,7 +68,7 @@ def test_units_where_they_belong():
     assert help.field("rules", "collisions.safe_speed")[0] == "px/s"
     assert help.field("suites", "scenarios.1.start.max_angle")[0] == "°"
     assert help.field("rewards", "terms.contact")[0] == "per contact"
-    assert help.field("rewards", "terms.checkpoint_speed.window")[0] == "s"
+    assert help.field("rewards", "terms.fuel_speed.window")[0] == "s"
     assert help.field("rules", "name")[0] == ""
     assert help.form("Round seconds")[0] == "s"
 
@@ -88,7 +88,7 @@ def test_every_topic_the_tabs_ask_for_exists():
     keys += [f"status:{s}" for s in STATUS_COLORS]
     keys += [f"skill:{s.label}" for s in skills.load()]
     keys += [f"column:{c}" for c in ("#", "score", "survive", "wrecks")]
-    keys += [f"column:{c}" for c in ("cp/min", "brake", "best")]
+    keys += [f"column:{c}" for c in ("fuel/min", "brake", "best")]
     keys += [f"badge:{b}" for b in ("TRAINING", "MILESTONE", "BRANCHED")]
     keys += ["badge:FROM YOUR DRIVING", "skills", "history", "estimate"]
     keys += [f"stat:{s}" for s in ("CPU", "MEMORY", "BATTERY", "DISK")]

@@ -84,7 +84,7 @@ COLUMNS = (
     ("score", 64, lambda r: _num(r.metrics.get("score_mean"))),
     ("survive", 62, lambda r: _pct(r.metrics.get("survival"))),
     ("wrecks", 58, lambda r: _pct(r.metrics.get("wreck_rate"))),
-    ("cp/min", 56, lambda r: _num(r.metrics.get("checkpoints_per_min"), 1)),
+    ("fuel/min", 56, lambda r: _num(r.metrics.get("fuels_per_min"), 1)),
     ("brake", 52, lambda r: _pct(r.metrics.get("braking"))),
     ("best", 80, lambda r: r.checkpoint),
 )
@@ -801,7 +801,7 @@ class AgentsTab:
             ("game score", f"{best['score_mean']:,.0f}"),
             ("survival", f"{best['survival']:.0%}"),
             ("wrecks", f"{best['wreck_rate']:.0%}"),
-            ("checkpoints / min", f"{best['checkpoints_per_min']:.1f}"),
+            ("fuels / min", f"{best['fuels_per_min']:.1f}"),
             ("best checkpoint", agent.best_checkpoint or ""),
         )
         column = width // 3

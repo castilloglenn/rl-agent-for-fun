@@ -100,13 +100,13 @@ def test_reward_terms_can_be_added_and_dropped(repo):
     edited = files.rebuild("rewards", reward, values)
     assert "stopped" not in edited["terms"]
     assert edited["terms"]["time_up"] == -50
-    assert list(edited["terms"])[:3] == ["progress", "checkpoints", "contact"]
-    values["terms.checkpoint_speed.window"] = "5"  # a parameter, no weight
+    assert list(edited["terms"])[:3] == ["progress", "fuels", "contact"]
+    values["terms.fuel_speed.window"] = "5"  # a parameter, no weight
     with pytest.raises(FileError, match="needs a weight"):
         files.rebuild("rewards", reward, values)
-    values["terms.checkpoint_speed"] = "100"
+    values["terms.fuel_speed"] = "100"
     edited = files.rebuild("rewards", reward, values)
-    assert edited["terms"]["checkpoint_speed"] == {"weight": 100, "window": 5}
+    assert edited["terms"]["fuel_speed"] == {"weight": 100, "window": 5}
 
 
 def test_saving_a_changed_suite_makes_the_next_version(repo):

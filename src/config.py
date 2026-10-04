@@ -194,7 +194,7 @@ def get_maze_car_config() -> ConfigDict:
     config.window.settings_file = ""
 
     # The playing area: a stage file in stages/, by name or path. It holds
-    # the size, spawns, and checkpoint rules. See docs/decisions/009.
+    # the size, spawns, and fuel rules. See docs/decisions/009.
     config.stage = "box"
 
     # The simulation runs at a fixed rate, independent of the display.
@@ -225,7 +225,7 @@ def get_maze_car_config() -> ConfigDict:
     config.hud.fps_danger = 0.5  # red below this share of the target
     config.hud.time_caution = 10.0  # seconds left: amber
     config.hud.time_danger = 5.0  # seconds left: red
-    config.hud.checkpoint_near = 80.0  # px: checkpoint distance turns green
+    config.hud.fuel_near = 80.0  # px: a fuel this close turns green
     config.hud.hit_flash_seconds = 0.5  # a car blinks red this long after a hit
     config.hud.hit_blink_seconds = 0.1  # on or off this long, while blinking
 

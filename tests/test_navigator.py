@@ -16,7 +16,7 @@ def _rate(driver_class, stage, seeds=range(80_000, 80_003)):
     config.show_gui = False
     env = MazeCarEnv(config, stage=load_stage(stage))
     results = [run_episode(env, driver_class(), seed) for seed in seeds]
-    return sum(r.checkpoints for r in results)
+    return sum(r.fuels for r in results)
 
 
 def test_it_goes_around_walls_where_the_heuristic_cant():

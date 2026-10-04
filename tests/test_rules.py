@@ -25,7 +25,7 @@ def _config():
 def test_standard_rules_are_todays_values():
     rules = load_rules("standard")
     assert (rules.round_seconds, rules.rounds) == (60, 1)
-    assert (rules.scoring.distance_step, rules.scoring.checkpoint) == (10, 100)
+    assert (rules.scoring.distance_step, rules.scoring.fuel) == (10, 100)
 
 
 @pytest.mark.parametrize("name, seconds", [("sprint", 30), ("marathon", 120)])
@@ -69,7 +69,7 @@ def test_scoring_comes_from_the_rules():
         {
             **load_rules("standard").to_dict(),
             "name": "double",
-            "scoring": {"distance_step": 5, "checkpoint": 200},
+            "scoring": {"distance_step": 5, "fuel": 200},
         }
     )
     totals = []

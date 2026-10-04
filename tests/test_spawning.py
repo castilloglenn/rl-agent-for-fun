@@ -3,9 +3,9 @@
 import math
 
 from src.sim.spawning import SpawnSchedule
-from src.sim.stage import CheckpointRules
+from src.sim.stage import FuelRules
 
-RULES = CheckpointRules(radius=15, border_margin=40, min_car_distance=100)
+RULES = FuelRules(radius=15, border_margin=40, min_car_distance=100)
 
 
 def _schedule(seed=0, name="checkpoints", rules=RULES):
@@ -57,7 +57,7 @@ def test_seeds_and_spawners_have_their_own_streams():
 
 
 def test_scripted_points_in_order_then_loop():
-    rules = CheckpointRules(mode="scripted", points=((100, 100), (700, 400)))
+    rules = FuelRules(mode="scripted", points=((100, 100), (700, 400)))
     schedule = _schedule(rules=rules)
     spots = [schedule.next_spot([(100, 100)]) for _ in range(5)]
     assert spots == [(100, 100), (700, 400), (100, 100), (700, 400), (100, 100)]
@@ -70,7 +70,7 @@ def test_crowded_stage_picks_the_least_crowded_candidate():
     tiny = SpawnSchedule(
         "checkpoints",
         3,
-        CheckpointRules(border_margin=40, min_car_distance=10_000),
+        FuelRules(border_margin=40, min_car_distance=10_000),
         width=855,
         height=480,
     )
@@ -83,8 +83,8 @@ def test_crowded_stage_picks_the_least_crowded_candidate():
 POINTS = ((100.0, 100.0), (300.0, 100.0), (500.0, 100.0), (700.0, 100.0))
 
 
-def test_scripted_checkpoints_start_at_the_first_by_default():
-    rules = CheckpointRules(mode="scripted", points=POINTS)
+def test_scripted_fuels_start_at_the_first_by_default():
+    rules = FuelRules(mode="scripted", points=POINTS)
     for seed in range(5):
         schedule = _schedule(seed, rules=rules)
         spots = [schedule.next_spot([]) for _ in range(5)]
@@ -92,7 +92,7 @@ def test_scripted_checkpoints_start_at_the_first_by_default():
 
 
 def test_a_seeded_start_picks_the_first_from_the_seed():
-    rules = CheckpointRules(mode="scripted", points=POINTS, start="seeded")
+    rules = FuelRules(mode="scripted", points=POINTS, start="seeded")
     firsts = set()
     for seed in range(20):
         schedule = _schedule(seed, rules=rules)

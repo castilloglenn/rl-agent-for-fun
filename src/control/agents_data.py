@@ -29,7 +29,7 @@ RADAR_RIM = 1.5  # the radar's rim, as a share of the heuristic's (7d4)
 HISTORY = (
     ("Game score", "score_mean"),
     ("Survival", "survival"),
-    ("Checkpoints per min", "checkpoints_per_min"),
+    ("Fuels per min", "fuels_per_min"),
     ("Wreck rate", "wreck_rate"),
     ("Wall contacts", "contacts"),
     ("Lowest score", "score_min"),

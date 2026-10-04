@@ -26,16 +26,16 @@ class MapChoice:
 
 
 def describe(stage: dict) -> str:
-    """The preview's caption: "1300 × 700 · scripted, 9 checkpoints"."""
+    """The preview's caption: "1300 × 700 · scripted, 9 fuels"."""
     width, height = stage.get("size", (0, 0))
-    checkpoints = stage.get("checkpoints") or {}
-    if checkpoints.get("mode") == "scripted":
-        count = len(checkpoints.get("points", []))
-        kind = f"scripted, {count} checkpoints"
-        if checkpoints.get("start") == "seeded":
+    fuel = stage.get("fuel") or {}
+    if fuel.get("mode") == "scripted":
+        count = len(fuel.get("points", []))
+        kind = f"scripted, {count} fuels"
+        if fuel.get("start") == "seeded":
             kind += ", any start"
     else:
-        kind = "random checkpoints"
+        kind = "random fuel"
     walls = len(stage.get("walls", []))
     return f"{width:g} × {height:g} · {walls} walls · {kind}"
 

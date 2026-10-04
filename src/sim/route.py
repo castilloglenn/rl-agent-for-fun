@@ -1,21 +1,21 @@
 """A sense of direction and of being stuck (roadmap 7f7, decision 061).
 
 The straight-line compass points through walls, so with a wall between
-the car and the checkpoint an agent pushed into it until time ran out.
+the car and the fuel an agent pushed into it until time ran out.
 A driver without GPS still knows "the way around is over there", and
 notices being stuck. So the agent gets:
 
 - a **remembered waypoint** along the shortest drivable route to the
-  checkpoint (the last point of that route still in a straight, car-wide
+  fuel (the last point of that route still in a straight, car-wide
   line from the car: about one corner ahead), held, and refreshed when
   the car reaches it or every REFRESH_SECONDS (between, the car sees its
   direction relative to its own heading, every step);
 - the **remembered route distance**, refreshed with the waypoint;
 - a **stuck timer**: seconds since the car last got closer along the
-  route than it had been to this checkpoint.
+  route than it had been to this fuel.
 
 The route knows only the map's walls (they don't move), from the same
-route field as the progress reward (one per checkpoint, shared through
+route field as the progress reward (one per fuel, shared through
 RouteFields). Other cars, later, are for the rays. Deterministic: it
 reads only the world, so replays rebuild it.
 """
@@ -25,7 +25,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 from src.ecs import World
-from src.sim.components import Checkpoint, Transform
+from src.sim.components import Fuel, Transform
 from src.sim.paths import PathField
 from src.sim.resources import Field, SimClock, SimConfig, Walls
 
@@ -56,7 +56,7 @@ class RouteFields:
     """Route fields by goal, shared by the route sense and the progress
     reward. A field depends only on the map (its size and walls), the
     goal, and the clearance, so an env keeps one RouteFields across its
-    games (`MazeCarEnv.reset`): the scripted checkpoints of a course or a
+    games (`MazeCarEnv.reset`): the scripted fuels of a course or a
     route map are met every round, and built once.
     """
 
@@ -116,7 +116,7 @@ def route_fields(world: World) -> RouteFields:
 
 @dataclass
 class RouteSense:
-    """A car's remembered route to its checkpoint, and its stuck timer."""
+    """A car's remembered route to its fuel, and its stuck timer."""
 
     goal: tuple[float, float] | None = None
     waypoint: tuple[float, float] | None = None
@@ -133,8 +133,8 @@ class RouteSense:
     updated: int | None = None  # the step it was last updated
 
 
-def nearest_checkpoint(world: World, x: float, y: float):
-    spots = [(s.x, s.y) for _, (s, _) in world.query(Transform, Checkpoint)]
+def nearest_fuel(world: World, x: float, y: float):
+    spots = [(s.x, s.y) for _, (s, _) in world.query(Transform, Fuel)]
     if not spots:
         return None
     return min(spots, key=lambda spot: math.dist(spot, (x, y)))
@@ -152,12 +152,12 @@ def sense(world: World, car: int) -> RouteSense:
     route.updated = step
     transform = world.component(car, Transform)
     here = (transform.x, transform.y)
-    goal = nearest_checkpoint(world, *here)
+    goal = nearest_fuel(world, *here)
     if goal is None:
         route.goal = route.waypoint = None
         return route
     path = route_fields(world).field(world, goal)
-    if goal != route.goal:  # a new checkpoint: start over
+    if goal != route.goal:  # a new fuel: start over
         route.goal = goal
         route.best = path.distance(*here)
         route.progress = step

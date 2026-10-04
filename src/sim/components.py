@@ -103,13 +103,13 @@ class Score:
 
     total: float = 0.0
     distance_points: float = 0.0
-    checkpoint_points: float = 0.0
-    checkpoints: int = 0
+    fuel_points: float = 0.0
+    fuels: int = 0
     last_step: float = 0.0  # points earned in the latest step
     distance_carry: float = 0.0  # px driven toward the next distance point
-    # Steps each checkpoint reached in the latest step had been on the
+    # Steps each fuel reached in the latest step had been on the
     # field (for time-based reward terms). Reset every step.
-    checkpoint_ages: list[int] = field(default_factory=list)
+    fuel_ages: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -126,7 +126,7 @@ class ScoreReward:
     """Trigger effect: the car that touches it gains points."""
 
     points: float
-    label: str  # e.g. "checkpoint", for the event log
+    label: str  # e.g. "fuel", for the event log
 
 
 @dataclass
@@ -145,12 +145,12 @@ class Respawn:
     schedule (by spawner name).
     """
 
-    spawner: str = "checkpoints"
+    spawner: str = "checkpoints"  # the fuel's (its name until 9a2)
 
 
 @dataclass
-class Checkpoint:
-    """Tag for checkpoint entities (HUD, observation)."""
+class Fuel:
+    """Tag for fuel entities (HUD, observation)."""
 
 
 @dataclass

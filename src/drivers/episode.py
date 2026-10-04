@@ -9,7 +9,7 @@ class EpisodeResult:
     steps: int
     score: float
     distance_points: float
-    checkpoints: int
+    fuels: int
     reward: float  # agent reward total, from the env's reward profile
     ended_by: str | None  # "wrecked", "time", or None if cut short
     # Each reward term's weighted sum this game (6e): what the total is
@@ -51,7 +51,7 @@ def episode_result(
         steps=steps,
         score=score.total,
         distance_points=score.distance_points,
-        checkpoints=score.checkpoints,
+        fuels=score.fuels,
         reward=env.round_reward,
         ended_by=ended_by,
         terms=dict(getattr(env, "round_terms", {})),

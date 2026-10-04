@@ -17,7 +17,7 @@ from src.sim.resources import EventLog, SimClock, SpawnSchedules
 
 def trigger_system(world: World) -> None:
     """Fires every trigger a car touches, and applies its effects (score,
-    respawn). Checkpoints now; fuel and hazards later.
+    respawn). Fuels now; fuel and hazards later.
     """
     if not round_active(world):
         return
@@ -43,12 +43,12 @@ def _fire(world: World, trigger_id: int, car: int, score: Score) -> None:
     reward = world.try_component(trigger_id, ScoreReward)
     if reward:
         score.total += reward.points
-        score.checkpoint_points += reward.points
-        score.checkpoints += 1
+        score.fuel_points += reward.points
+        score.fuels += 1
         score.last_step += reward.points
         spawned = world.try_component(trigger_id, SpawnedAt)
         if spawned:
-            score.checkpoint_ages.append(_steps_done(world) - spawned.step)
+            score.fuel_ages.append(_steps_done(world) - spawned.step)
         renderable = world.try_component(car, Renderable)
         name = renderable.label if renderable else f"Car {car}"
         world.resource(EventLog).add(

@@ -138,7 +138,7 @@ def test_heuristic_beats_random_by_far():
     seeds = range(200, 205)
     heuristic = [run_episode(env, CompassDriver(), s) for s in seeds]
     random_ = [run_episode(env, RandomDriver(), s) for s in seeds]
-    assert sum(r.checkpoints for r in heuristic) >= 5 * len(seeds)
+    assert sum(r.fuels for r in heuristic) >= 5 * len(seeds)
     assert sum(r.score for r in heuristic) > 20 * sum(r.score for r in random_)
 
 

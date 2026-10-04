@@ -1,6 +1,6 @@
 """The side panel's instruments (7f3, decision 059): what changes every
 frame is drawn as a shape your eye reads at a glance (a speed bar, a
-steering slider, a heading dial, a sensor radar, a checkpoint arrow), and
+steering slider, a heading dial, a sensor radar, a fuel arrow), and
 the few numbers left are steady: each shows its mean over the last
 quarter second, redrawn 4 times a second. Display only: the simulation,
 the agent's observation, and replays never see any of it.
@@ -205,7 +205,7 @@ def draw_radar(
     """The car from above, facing up, a spoke per ray at its angle: as
     long as the way is clear (up to RADAR_RANGE px), colored by danger;
     the stopping distance as an arc in the direction of travel; and on
-    the rim, the straight compass to the checkpoint (a green arrow) and
+    the rim, the straight compass to the fuel (a green arrow) and
     the remembered route's waypoint (a violet diamond), each at its angle
     relative to the car (+ left). Together they say whether the way is
     clear: one direction, or a wall in between. Returns the closest ray.
