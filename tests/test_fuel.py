@@ -59,7 +59,7 @@ def _park_fuels(world, x=40.0, y=40.0) -> None:
         (ActionInput(brake=True), 99.0),  # braking burns nothing more
         (ActionInput(gas=True), 95.0),  # throttle: +4/s
         (ActionInput(reverse=True), 95.0),
-        (ActionInput(gas=True, turn_left=True), 94.0),  # steering: +1/s
+        (ActionInput(gas=True, turn_left=True), 93.5),  # steering: +1.5/s
     ],
 )
 def test_every_throttle_and_turn_burns_fuel(action, left):
@@ -74,11 +74,11 @@ def test_a_fuel_refills_up_to_the_full_tank():
     tank = world.component(car, Tank)
     car_at = world.component(car, Transform)
     (_, (spot, _)), *_ = world.query(Transform, Fuel)
-    for level in (90.0, 20.0):
+    for level in (90.0, 20.0):  # a fuel puts back 25
         tank.level = level
         spot.x, spot.y = car_at.x, car_at.y  # under the car
         world.step()  # the idle burn, then the refill
-        assert tank.level == pytest.approx(min(level - 1 / STEPS + 40, 100))
+        assert tank.level == pytest.approx(min(level - 1 / STEPS + 25, 100))
 
 
 def test_running_dry_kills_the_engine_then_the_car_coasts_out():
@@ -113,7 +113,7 @@ def test_coasting_into_a_fuel_restarts_the_engine():
     (_, (spot, _)), *_ = world.query(Transform, Fuel)
     spot.x, spot.y = car_at.x + 30, car_at.y  # just ahead
     _hold(world, car, ActionInput(), 30)
-    assert tank.level > 30 and not world.try_component(car, Eliminated)
+    assert tank.level > 20 and not world.try_component(car, Eliminated)
 
 
 def test_the_env_ends_on_out_of_fuel():

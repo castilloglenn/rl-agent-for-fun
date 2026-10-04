@@ -63,7 +63,7 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 
 ### Fuel
 
-The game's targets were called checkpoints until step 9a1 ([decision 075](decisions/075-checkpoints-are-fuel.md)); they're fuel now. Since 9a2 they work as fuel ([decision 076](decisions/076-fuel-rules.md)): a car's tank (100, full at the start) burns 1/s idle, +4/s with gas or reverse, +1/s while turning, nothing for braking; each fuel puts back 40, up to the full tank. Empty, the engine dies: the car coasts, and once it stops it's out of the round (coasting into a fuel restarts it). A fuel bar sits under the health bar above the car.
+The game's targets were called checkpoints until step 9a1 ([decision 075](decisions/075-checkpoints-are-fuel.md)); they're fuel now. Since 9a2 they work as fuel ([decision 076](decisions/076-fuel-rules.md)): a car's tank (100, full at the start) burns 1/s idle, +4/s with gas or reverse, +1.5/s while turning, nothing for braking; each fuel puts back 25, up to the full tank (tuned in 9a3). Empty, the engine dies: the car coasts, and once it stops it's out of the round (coasting into a fuel restarts it). A fuel bar sits under the health bar above the car.
 
 **Implemented in step 3g**, as generic triggers (see Hazards below): a `Trigger` circle plus `ScoreReward` and `Respawn` effects. The demo picks a fresh seed each round, shown in the bottom bar; agents and tests use `game.seed`.
 

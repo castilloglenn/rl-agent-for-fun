@@ -35,8 +35,8 @@ class Tank:
     capacity: float = 100.0  # full, at the start
     idle: float = 1.0  # always, while the engine runs
     throttle: float = 4.0  # more, with gas or reverse held
-    steering: float = 1.0  # more, while turning
-    refill: float = 40.0  # a fuel's, up to the full tank
+    steering: float = 1.5  # more, while turning (9a3)
+    refill: float = 25.0  # a fuel's, up to the full tank (9a3)
 
     def burn(self, throttle: bool, steering: bool) -> float:
         """Fuel a second with these controls (braking burns nothing)."""

@@ -27,7 +27,7 @@ def test_standard_rules_are_todays_values():
     assert (rules.round_seconds, rules.rounds) == (60, 1)
     # 9a2: no distance points, and a tank.
     assert (rules.scoring.distance_step, rules.scoring.fuel) == (0, 100)
-    assert rules.tank == Tank(100, idle=1, throttle=4, steering=1, refill=40)
+    assert rules.tank == Tank(100, idle=1, throttle=4, steering=1.5, refill=25)
 
 
 @pytest.mark.parametrize("name, seconds", [("sprint", 30), ("marathon", 120)])

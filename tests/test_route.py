@@ -3,6 +3,7 @@ along the drivable route, its distance, and a stuck timer.
 """
 
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -20,7 +21,7 @@ NONE = (False,) * 5
 def _env(stage="skill_detour", fuels=None):
     config = get_maze_car_config()
     config.show_gui = False
-    stage = load_stage(stage)
+    stage = load_stage(stage) if isinstance(stage, str) else stage
     if fuels:
         stage = stage.with_at_once(fuels)
     env = MazeCarEnv(config, stage=stage)
@@ -211,7 +212,10 @@ def test_a_passed_waypoint_is_dropped_at_once():
     """7f15: swept past the waypoint wider than REACH, the car would turn
     back for it until the 2 s refresh. Now it takes the next one.
     """
-    env = _env("route_spiral", fuels=1)  # one fuel: one goal
+    # The spiral's center as the one fuel: a long way round.
+    stage = load_stage("route_spiral")
+    stage = replace(stage, fuel=replace(stage.fuel, points=((500, 500),)))
+    env = _env(stage, fuels=1)
     sense = route.sense(env.world, env.car)
     first, goal = sense.waypoint, sense.goal
     path = route.route_fields(env.world).field(env.world, goal)
