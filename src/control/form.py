@@ -11,7 +11,7 @@ from typing import Callable
 
 import pygame
 from pygame import Rect
-from pygame_gui.elements import UIDropDownMenu, UITextEntryLine
+from pygame_gui.elements import UIButton, UIDropDownMenu, UITextEntryLine
 
 from src.control.actions import Field
 from src.control.text import fit
@@ -63,7 +63,9 @@ class Form:
             rect = Rect(view.x + label, view.y + y, width, ROW)
             value = values.get(field.name, field.default)
             options = field.options() if field.options else None
-            if field.readonly:
+            if field.button:
+                widget = UIButton(rect, field.default, self.gui)
+            elif field.readonly:
                 widget = UITextEntryLine(rect, self.gui)
                 widget.set_text(value)
                 widget.disable()
@@ -137,7 +139,7 @@ class Form:
     def values(self) -> dict[str, str]:
         """Every field's value, but read-only ones."""
         found = {}
-        readonly = {f.name for f in self.fields if f.readonly}
+        readonly = {f.name for f in self.fields if f.readonly or f.button}
         for name, widget in self.widgets.items():
             if name in readonly:
                 continue

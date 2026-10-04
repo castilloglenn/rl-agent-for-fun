@@ -56,6 +56,11 @@ class DatasetSpec:
     # How many times a corrected moment counts (7g): a few hundred would
     # be lost among the heuristic's hundred thousand.
     correction_weight: int = 10
+    # Only these of the player's rounds (file names), when you chose
+    # them (7g2: the Training tab's rounds picker, `--recordings`);
+    # empty: every round `include` allows. The `also` players' rounds
+    # are never filtered.
+    only: tuple[str, ...] = ()
 
     @staticmethod
     def from_dict(data: dict) -> "DatasetSpec":
@@ -63,7 +68,13 @@ class DatasetSpec:
             raise DatasetError(
                 f"unsupported dataset format {data.get('format')!r}"
             )
-        spec = DatasetSpec(**{**data, "also": tuple(data.get("also", ()))})
+        spec = DatasetSpec(
+            **{
+                **data,
+                "also": tuple(data.get("also", ())),
+                "only": tuple(data.get("only", ())),
+            }
+        )
         if spec.correction_weight < 1:
             raise DatasetError("correction_weight is a whole number, 1 up")
         if spec.include not in INCLUDE:
@@ -83,6 +94,7 @@ class DatasetSpec:
             "min_score": self.min_score,
             "also": list(self.also),
             "correction_weight": self.correction_weight,
+            **({"only": list(self.only)} if self.only else {}),
         }
 
 
@@ -129,12 +141,30 @@ class Dataset:
 def recording_paths(spec: DatasetSpec, root: Path | None = None) -> list[Path]:
     paths = []
     for player in (spec.player, *spec.also):
-        library = RecordingLibrary(player, root=root or RECORDINGS_DIR)
-        found = library.kept()
-        if spec.include == "all":
-            found = library.recent() + found
+        found = player_rounds(spec, player, root)
+        if player == spec.player and spec.only:
+            chosen = set(spec.only)
+            found = [path for path in found if path.name in chosen]
         paths += found
     return paths
+
+
+def player_rounds(
+    spec: DatasetSpec, player: str, root: Path | None = None
+) -> list[Path]:
+    """A player's rounds the dataset's `include` allows (before `only`)."""
+    library = RecordingLibrary(player, root=root or RECORDINGS_DIR)
+    found = library.kept()
+    if spec.include == "all":
+        found = library.recent() + found
+    return found
+
+
+def choose(spec: DatasetSpec, names: list[str]) -> DatasetSpec:
+    """The dataset with only these of its player's rounds (7g2)."""
+    from dataclasses import replace
+
+    return replace(spec, only=tuple(names))
 
 
 def build_dataset(

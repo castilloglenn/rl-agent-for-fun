@@ -421,7 +421,11 @@ def _imitate(cl_args, config) -> None:
 
     from src.agents.store import AgentError
     from src.agents.trainer import TrainerError, load_imitation_spec
-    from src.experiments.datasets import DatasetError, load_dataset_spec
+    from src.experiments.datasets import (
+        DatasetError,
+        choose,
+        load_dataset_spec,
+    )
     from src.experiments.imitation import imitate
 
     torch.set_num_threads(1)
@@ -440,9 +444,13 @@ def _imitate(cl_args, config) -> None:
     try:
         trainer = load_imitation_spec(cl_args.imitation_trainer)
         dataset = load_dataset_spec(cl_args.dataset)
+        chosen = [n for n in cl_args.recordings.split(",") if n.strip()]
+        if chosen:  # 7g2: the rounds you chose
+            dataset = choose(dataset, [n.strip() for n in chosen])
         print(
-            f"Cloning {dataset.player!r} (dataset {dataset.name!r}) into "
-            f"{cl_args.imitate!r} with trainer {trainer.name!r}"
+            f"Cloning {dataset.player!r} (dataset {dataset.name!r}"
+            + (f", {len(chosen)} chosen rounds" if chosen else "")
+            + f") into {cl_args.imitate!r} with trainer {trainer.name!r}"
         )
         summary = imitate(
             cl_args.imitate,

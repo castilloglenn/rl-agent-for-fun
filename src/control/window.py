@@ -773,7 +773,10 @@ class ControlCenter:
             self.ask_to_quit()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             # A tab's own box (the checkpoint box) closes first.
-            if not (self.tab == "Runs" and self.runs_tab.escape()):
+            if not (
+                (self.tab == "Runs" and self.runs_tab.escape())
+                or (self.tab == "Training" and self.training_tab.escape())
+            ):
                 self.ask_to_quit()
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for name, rect in self.tab_rects.items():

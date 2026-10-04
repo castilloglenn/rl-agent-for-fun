@@ -426,6 +426,12 @@ FORM_FIELDS: dict[str, tuple[str, str]] = {
     "Stage": ("", "The map it drives on (stages/)."),
     "Rules": ("", "Round length, scoring, and what wall hits do (rules/)."),
     "Round seconds": ("s", "A round length instead of the rules' own."),
+    "Rounds": ("", "Which of the dataset's rounds to teach (7g2): opens a "
+               "list to tick them. Ticked at first: all but rounds on a "
+               "test map and corrections of other agents."),
+    "Recordings": ("", "Only these of the dataset's rounds (file names, "
+                   "comma-separated). Blank: every round. The Training "
+                   "tab fills it from the rounds you tick."),
     "Games": ("", "The most games played at once, each in its own small "
                       "process (step 8). The run starts with as many as "
                       "fit and drops one while memory or the CPU is busy, "

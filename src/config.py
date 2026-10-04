@@ -40,6 +40,12 @@ flags.DEFINE_string("show_agent", "", "Print an agent's digest.")
 flags.DEFINE_string("imitate", "", "Clone a player's driving into an agent.")
 flags.DEFINE_string("dataset", "mine", "Imitation dataset: datasets/<name>.")
 flags.DEFINE_string(
+    "recordings",
+    "",
+    "Imitation: only these of the dataset player's rounds (file names, "
+    "comma-separated; blank: all).",
+)
+flags.DEFINE_string(
     "imitation_trainer", "imitate", "Imitation trainer: trainers/<name>."
 )
 flags.DEFINE_boolean("preview_dataset", False, "Show what a dataset uses.")

@@ -63,6 +63,8 @@ def problems(cl_args, config, root: Path = named_files.REPO) -> list[str]:
             found.append(f"--games {cl_args.games}: at least 1")
     if command == "imitate":
         found += _named("datasets", cl_args.dataset, "--dataset", root)
+        if not found and getattr(cl_args, "recordings", ""):
+            found += _chosen(cl_args.dataset, cl_args.recordings, root)
         found += _trainer(
             cl_args.imitation_trainer, "imitation", "--imitation_trainer",
             root,
@@ -142,6 +144,29 @@ def _driver(command: str, name: str) -> list[str]:
         return []
     known = ", ".join(["keyboard", *BASELINES, "agent:<id>"])
     return [f"--driver {name}: unknown (known: {known})"]
+
+
+def _chosen(dataset: str, names: str, root: Path) -> list[str]:
+    """--recordings: each a round of the dataset's player (7g2)."""
+    from src.experiments.datasets import load_dataset_spec, player_rounds
+
+    spec = load_dataset_spec(
+        str(named_files.path_of("datasets", dataset, root))
+    )
+    there = {
+        p.name
+        for p in player_rounds(spec, spec.player, root / "recordings")
+    }
+    missing = [
+        n.strip() for n in names.split(",")
+        if n.strip() and n.strip() not in there
+    ]
+    if not missing:
+        return []
+    return [
+        f"--recordings: {missing[0]} isn't one of {spec.player}'s rounds"
+        + (f" (and {len(missing) - 1} more)" if len(missing) > 1 else "")
+    ]
 
 
 def _skill(skill: str, suite: str, root: Path) -> list[str]:

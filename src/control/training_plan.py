@@ -77,10 +77,14 @@ def make_plan(
     runs_dir: Path | None = None,
     recordings: int | None = None,
     on_battery: bool = False,
+    rounds: tuple[int, int, float] | None = None,
 ) -> Plan:
     """`values`: the form's fields. `agents`: the existing ones. `busy`:
     agent -> what's training it right now. `recordings`: how many the
-    dataset would read (None: not checked).
+    dataset would read (None: not checked). `rounds`: the dataset's own
+    rounds ticked, of how many, and your seconds in them (7g2; None: not
+    checked). `values["Recordings"]`: the ticked rounds' names, blank
+    for all.
     """
     plan = Plan()
     mode = values["Mode"]
@@ -134,15 +138,27 @@ def make_plan(
         dataset = values["Dataset"]
         trainer = _trainer(values["Imitation trainer"])
         epochs = trainer.get("epochs", 0)
+        which = f"dataset {dataset}"
+        if rounds is not None:  # 7g2: the rounds ticked
+            ticked, total, seconds = rounds
+            which = (
+                f"{ticked} of {total} rounds of dataset {dataset}, "
+                f"{seconds:,.1f} s of your driving"
+            )
+            if total and not ticked:
+                plan.blockers.append(
+                    f"No rounds of {dataset} ticked: choose some (Rounds)."
+                )
         plan.steps.append(
             Step(
-                f"Clone your driving (dataset {dataset}) into {shown}"
+                f"Clone your driving ({which}) into {shown}"
                 f": {epochs} epochs, trainer {values['Imitation trainer']}.",
                 "Clone your driving",
                 {
                     "Agent": agent,
                     "Dataset": dataset,
                     "Trainer": values["Imitation trainer"],
+                    "Recordings": values.get("Recordings", ""),
                 },
             )
         )

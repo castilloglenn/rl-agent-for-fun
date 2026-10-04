@@ -28,6 +28,13 @@ from src.control import actions, choices, help, runs
 from src.control.actions import GAMES, REWARD, RULES, SECONDS, Field
 from src.control.form import Form
 from src.control.jobs import JobManager
+from src.control.round_picks import (
+    FactsCache,
+    dataset_rounds,
+    default_picks,
+    lineage,
+)
+from src.control.rounds_picker import CANCEL, USE, RoundsPicker
 from src.control.text import PAD, fit, header, wrap
 from src.control.tooltips import Tooltips
 from src.control.training_plan import (
@@ -116,6 +123,8 @@ def form_fields(
     if uses_imitation(mode):
         fields += [
             Field("Dataset", actions._files("datasets"), "mine"),
+            # Which of the dataset's rounds (7g2): opens the picker.
+            Field("Rounds", None, "Choose…", button=True),
             Field(
                 "Imitation trainer",
                 actions._trainers("imitation"),
@@ -207,6 +216,12 @@ class TrainingTab:
             gui,
         )
         self.plan: Plan | None = None
+        # The rounds picker (7g2), its facts, and your ticks by (dataset,
+        # agent): (ticked, every round known when you chose).
+        self.area = area
+        self.picker: RoundsPicker | None = None
+        self.facts = FactsCache()
+        self.ticks: dict[tuple[str, str], tuple[set, set]] = {}
         self.message: tuple[str, tuple] | None = None
         self._refreshed = 0.0
         self.visible = True
@@ -221,6 +236,7 @@ class TrainingTab:
         self.refresh(force=True)
 
     def hide(self) -> None:
+        self.close_picker()
         self.visible = False
         self.form.hide()
         self.start_button.hide()
@@ -317,6 +333,15 @@ class TrainingTab:
             return
         rows = runs.scan(self.runs_dir, self.jobs.jobs)
         busy = {**busy_agents(rows), **self.busy()}
+        rounds = None
+        if uses_imitation(values.get("Mode", RL)):
+            found, _, ticked = self._rounds(values)
+            names = {r.name for r in found}
+            if ticked != names:  # a choice: only those (none: all)
+                values["Recordings"] = ",".join(sorted(ticked))
+            seconds = sum(r.yours for r in found if r.name in ticked)
+            rounds = (len(ticked), len(found), seconds)
+            self._label_rounds(rounds)
         self.plan = make_plan(
             values,
             _agents(self.agents_dir),
@@ -324,6 +349,7 @@ class TrainingTab:
             runs_dir=self.runs_dir,
             recordings=self._recordings(values),
             on_battery=self.on_battery(),
+            rounds=rounds,
         )
         button = self.start_button
         if self.plan.blockers and button.is_enabled:
@@ -343,7 +369,8 @@ class TrainingTab:
             values.get("Start", FRESH),
             self.agents_dir,
         )
-        return {f.name for f in wanted if not f.readonly} != set(values)
+        shown = {f.name for f in wanted if not (f.readonly or f.button)}
+        return shown != set(values)
 
     def _recordings(self, values: dict) -> int | None:
         """How many recordings the dataset would read (a cheap listing;
@@ -362,6 +389,110 @@ class TrainingTab:
         except (DatasetError, FileNotFoundError, KeyError):
             return None
         return len(recording_paths(spec, self.recordings_dir))
+
+    # The rounds picker (7g2)
+
+    def _agent_ref(self, values: dict) -> str:
+        """Whose line the corrections should fix: the agent, or the
+        checkpoint a new one branches from.
+        """
+        if values.get("Agent", NEW_AGENT) != NEW_AGENT:
+            return values["Agent"]
+        start = values.get("Start", FRESH)
+        return "" if start == FRESH else start
+
+    def _rounds(self, values: dict) -> tuple[list, set, set]:
+        """(the dataset's rounds, this agent's line, the ticked names):
+        your ticks for this dataset and agent, else the defaults. Rounds
+        recorded since you chose get their default; deleted ones drop.
+        """
+        found = dataset_rounds(
+            values.get("Dataset", ""), self.recordings_dir, self.facts
+        )
+        ref = self._agent_ref(values)
+        line = lineage(ref, self._agents_folder()) if ref else set()
+        defaults = default_picks(found, line)
+        names = {r.name for r in found}
+        kept = self.ticks.get((values.get("Dataset", ""), ref))
+        if kept is None:
+            return found, line, defaults
+        ticked, known = kept
+        new = {n for n in defaults if n not in known}
+        return found, line, (ticked & names) | new
+
+    def _label_rounds(self, rounds: tuple[int, int, float]) -> None:
+        button = self.form.widgets.get("Rounds")
+        if button is None:
+            return
+        ticked, total, seconds = rounds
+        text = (
+            f"{ticked} of {total} ticked ({seconds:,.1f} s) · Choose…"
+            if total
+            else "No rounds yet"
+        )
+        if button.text != text:
+            button.set_text(text)
+
+    def open_picker(self) -> None:
+        values = self.values()
+        found, line, ticked = self._rounds(values)
+        dataset = values.get("Dataset", "")
+        ref = self._agent_ref(values) or "a fresh agent"
+        self.form.hide()
+        self.start_button.hide()
+        self.picker = RoundsPicker(
+            self.gui,
+            self.area,
+            f"CHOOSE ROUNDS · dataset {dataset} · for {ref}",
+            found,
+            ticked,
+            line,
+            self._others(dataset),
+        )
+
+    def _others(self, dataset: str) -> str:
+        """The footer's note: the dataset's other players, always taught,
+        and the weight of your corrected moments.
+        """
+        from src.experiments.datasets import (
+            DatasetError,
+            load_dataset_spec,
+            player_rounds,
+        )
+
+        try:
+            spec = load_dataset_spec(dataset)
+        except (DatasetError, FileNotFoundError):
+            return ""
+        parts = [f"corrected moments count {spec.correction_weight} times"]
+        for player in spec.also:
+            count = len(player_rounds(spec, player, self.recordings_dir))
+            parts.append(f"plus {player}'s {count} rounds")
+        return " · ".join(parts)
+
+    def close_picker(self, use: bool = False) -> None:
+        picker = self.picker
+        if picker is None:
+            return
+        if use:
+            values = self.values()
+            key = (values.get("Dataset", ""), self._agent_ref(values))
+            self.ticks[key] = (
+                set(picker.picked), {r.name for r in picker.rounds}
+            )
+        picker.kill()
+        self.picker = None
+        if self.visible:
+            self.form.show()
+            self.start_button.show()
+        self.refresh(force=True)
+
+    def escape(self) -> bool:
+        """Esc closes the rounds picker first. True if it did."""
+        if self.picker is None:
+            return False
+        self.close_picker()
+        return True
 
     def start(self) -> None:
         self.refresh(force=True)
@@ -382,6 +513,11 @@ class TrainingTab:
     # Events
 
     def handle(self, event) -> None:
+        if self.picker is not None:
+            done = self.picker.handle(event)
+            if done in (USE, CANCEL):
+                self.close_picker(use=done == USE)
+            return
         if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if self.form.field_of(event.ui_element) in REBUILD:
                 self.rebuild()
@@ -392,6 +528,8 @@ class TrainingTab:
         elif event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element is self.start_button:
                 self.start()
+            elif self.form.field_of(event.ui_element) == "Rounds":
+                self.open_picker()
         elif event.type == pygame.MOUSEWHEEL:
             self.form.handle_wheel(event)
 
@@ -402,6 +540,9 @@ class TrainingTab:
 
     def draw(self, surface) -> None:
         """Before the GUI."""
+        if self.picker is not None:
+            self.picker.draw(surface)
+            return
         for rect in (self.form_box, self.plan_box):
             pygame.draw.rect(surface, theme.PANEL_BORDER, rect, 1)
         box = self.form_box
@@ -432,7 +573,8 @@ class TrainingTab:
 
     def draw_after(self, surface) -> None:
         """After the GUI: hints in blank fields."""
-        self.form.draw_hints(surface)
+        if self.picker is None:
+            self.form.draw_hints(surface)
 
     def _draw_plan(self, surface) -> None:
         box, plan = self.plan_box, self.plan

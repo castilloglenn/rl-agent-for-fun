@@ -35,6 +35,9 @@ class Field:
     default: str = ""
     hint: str = ""  # shown next to a typed field, for example "rules' own"
     readonly: bool = False  # shown, not edited (the Files tab, 6d1)
+    # A button showing `default` (7g2: the rounds picker opens from it):
+    # no value of its own; the tab handles its press.
+    button: bool = False
 
 
 @dataclass(frozen=True)
@@ -490,10 +493,18 @@ ACTIONS = (
             Field("Agent", None, "clone", "new or existing"),
             Field("Dataset", _files("datasets"), "mine"),
             Field("Trainer", _trainers("imitation"), "imitate"),
+            # The rounds to teach (7g2: ticked in the Training tab).
+            Field("Recordings", None, "", "blank: every round"),
         ),
         lambda v: [
             "-imitate", v["Agent"].strip(), "--dataset", v["Dataset"],
             "--imitation_trainer", v["Trainer"],
+            # The rounds ticked in the Training tab (7g2); none: all.
+            *(
+                ["--recordings", v["Recordings"].strip()]
+                if v.get("Recordings", "").strip()
+                else []
+            ),
         ],
     ),
     Action(
