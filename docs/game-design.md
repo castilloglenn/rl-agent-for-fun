@@ -36,7 +36,8 @@ These are the **game score** rules: the same for everyone, shown in the HUD and 
 
 | Event | Reward |
 |---|---|
-| Driving | Nothing since 9a2 (`distance_step` 0): points would pay for driving around instead of racing for fuel. A rules file can still give +1 per N px forward |
+| Driving forward | **+1 per 10 px** driven. The distance accumulates across frames, so slow driving still earns (off in 9a2, back in 9a4: a score of fuel alone was only hundreds) |
+| Stopped or reversing | 0 (so reversing back and forth can't farm points) |
 | Fuel collected | **+100** |
 | Wall hit | No game points lost, but a wreck ends the round, so all future points are lost. (The agent's default reward profile gives -100 per wall contact, even a harmless bump, -1000 per full loss of health, -3000 for a wreck, and -0.25 per step stopped; the game score doesn't) |
 

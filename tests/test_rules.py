@@ -25,8 +25,8 @@ def _config():
 def test_standard_rules_are_todays_values():
     rules = load_rules("standard")
     assert (rules.round_seconds, rules.rounds) == (60, 1)
-    # 9a2: no distance points, and a tank.
-    assert (rules.scoring.distance_step, rules.scoring.fuel) == (0, 100)
+    # Distance points (back since 9a2 took them away), and a tank (9a2).
+    assert (rules.scoring.distance_step, rules.scoring.fuel) == (10, 100)
     assert rules.tank == Tank(100, idle=1, throttle=4, steering=1.5, refill=25)
 
 

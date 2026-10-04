@@ -188,17 +188,19 @@ def test_a_short_sequence_never_shows_a_point_twice():
 # Scoring
 
 
-def test_points_come_from_fuel_only():
+def test_points_for_driving_and_for_fuel():
+    """Game points only: +1 per 10 px forward, and +100 a fuel."""
     world, car = _game()
     _park_fuels(world)
     _hold(world, car, ActionInput(gas=True), STEPS)
     score = world.component(car, Score)
-    assert score.total == 0 and score.distance_points == 0
+    assert score.distance_points > 0 and score.total == score.distance_points
+    driven = score.total
     car_at = world.component(car, Transform)
     (_, (spot, _)), *_ = world.query(Transform, Fuel)
     spot.x, spot.y = car_at.x, car_at.y
     world.step()
-    assert score.total == 100 and score.fuels == 1
+    assert score.fuels == 1 and score.total >= driven + 100
 
 
 def test_rounds_with_fuel_replay_exactly():
