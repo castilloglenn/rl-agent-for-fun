@@ -104,7 +104,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 7f17 | The Training tab keeps to what worked for the basic controls: the `finetune` trainer (not `default`) up the `skills` curriculum (no single stages or mixes); the Commands tab and make targets keep every choice ([decision 072](decisions/072-training-tab-keeps-what-worked.md)) | Done |
 | 7g | Expert labelling (human-gated DAgger: you label only where you take over): watching an agent's newest checkpoint, C turns REC corrections on (`make correct AGENT=id`), and each round you took over in is saved to `recordings/Corrections/` with your stretches marked; the `corrections` dataset keeps only your moments, each counted 10 times, with the heuristic's driving; a short, gentle imitation phase (`correct`: 10 epochs, a third of the learning rate; `make imitate_corrections AGENT=id`), then RL again ([decision 068](decisions/068-expert-labelling.md)) | Done |
 | 7h | Guard rails against features breaking each other: every command checks its arguments first (named files exist, its stage is a kind it plays: a curriculum only for training, a mix for training and recording; `app.py -check` checks and stops), and tests that every form default is one of its choices, every action with every choice its dropdowns offer passes the check, and every make target's command does; plus a consumer sweep in each step's report ([decision 065](decisions/065-guard-rails.md)) | Done |
-| 8 | Parallel environments for faster training, before the new features (each changes the observation, so every agent trains again): several games at once with one network, the same results and exact resume kept, about 4 envs first and measured (memory, [decision 038](decisions/038-jobs-share-the-machine.md)); then a live grid view and spectate mode | Next |
+| 8 | Parallel environments for faster training, before the new features (each changes the observation, so every agent trains again): one network drives several games at once in lockstep, about 4 first with memory measured ([decision 038](decisions/038-jobs-share-the-machine.md)); everything that reads rounds keeps working; the Training tab picks how many games, and the Runs tab shows it. No separate watching window: the Runs tab and replays already follow training | Next |
 | 9 | Fuel system: limited capacity, fuel spawns (its own spawn schedule and random stream), observation adds fuel level and the nearest K fuels by route, each slot with the straight compass and the route sensor (7f7); the agent learns whether fuel or the checkpoint comes first from the reward (checkpoints score, running dry costs). The car's fuel shows as a second thin bar under its health bar (7c4). Then train a driver for it | Planned |
 | 10 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills, grip and drift physics (see [below](#later-grip-and-drift-physics)), a **colosseum mode**: car-vs-car battles (last car standing, health as hit points, damage from rams and weapons) instead of only collecting points, with the event log as its match feed, clicking the mini map to move the view (replays of big stages, [decision 034](decisions/034-camera.md)), a **race to the finish**: scripted checkpoints that end the round after the last one (or after a set number) instead of looping, scored by time, a rules or stage option | Idea |
@@ -476,22 +476,18 @@ A map is a **stage file** in `stages/` (format from step 4b). This step fills in
 
 ### 8. Parallel environments
 
-One network (one set of weights) drives N copies of the environment at once, one per process. The agent doesn't learn N times over: it **collects N times more experience per second** and learns from all of it together.
+One network (one set of weights) drives N copies of the game at once, one per process. The agent doesn't learn N times over: it **collects N times more experience per second** and learns from all of it together.
 
-1. All envs send observations, and the network decides all actions **in one batched pass**.
-2. Each env steps its own car, in its own process.
-3. Results from every env go into one shared pool.
-4. The network updates its weights from the pooled experience.
-5. Every env uses the updated weights on its next step.
+1. All games send observations, and the network decides all actions **in one batched pass**.
+2. Each game steps its own car, in its own process. The games don't load torch: the network stays in the training process, saving memory.
+3. Results from every game go into one shared pool, and the network learns from it.
 
-- **Synchronous** (all envs step in lockstep): the choice here, since determinism matters for replays.
-- **Speed-up** as an ESTIMATE: about 5 to 8 times on the 10-core M5, not the full core count, because the learning update doesn't parallelize and inter-process messaging has overhead.
-- Mixed situations across envs (different seeds and checkpoint spawns) also make learning more stable.
-
-**Watching parallel training** (a toggle, since it adds a little overhead):
-- **Live grid:** a window with one small view per env. Workers send lightweight snapshots (car position and angle, checkpoint, score) every few steps, and the GUI process draws them. Workers never render. Cars look sped up, since training runs faster than real time.
-- **Spectate one:** click a tile to enlarge that env's game, with its full info panel.
-- The game leaderboard ranks the parallel games by score.
+- **Synchronous** (all games step in lockstep): the same seed and the same N always give the same run. A different N gives a different run (the agent sees different experience).
+- **About 4 games first,** with memory measured (decision 038).
+- **Everything that reads rounds keeps working:** metrics, Reward by term, the best replay per map, the curriculum's judging, and the Runs tab's charts.
+- **Measured, not promised:** decisions a second with 1 game and with 4, reported when it's built.
+- **The Training tab** gets a "Games at once" field, and its time estimate follows it. The Runs tab header shows the number of games.
+- **To decide before building:** exact resume (each game saves its unfinished round, or a resume starts fresh rounds), and how a mix and the curriculum spread over the games.
 
 ### 9. Fuel system
 
