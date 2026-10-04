@@ -1,6 +1,6 @@
 # 073: Several games at once, as many as the machine has room for
 
-**Date:** 2026-10-04. **Status:** Accepted. Built in roadmap 8a (`src/experiments/games.py`, `game_worker.py`, `game_count.py`, `training.py`, `src/agents/ppo.py`, `src/control/guard.py`); the Training tab and the Runs tab follow in 8b.
+**Date:** 2026-10-04. **Status:** Accepted. Built in roadmap 8a (`src/experiments/games.py`, `game_worker.py`, `game_count.py`, `training.py`, `src/agents/ppo.py`, `src/control/guard.py`) and 8b (the Training tab's and the Commands tab's "Games", the plan's estimate from runs with the same most, the Runs header's "3 of up to 4 games").
 
 ## Context
 

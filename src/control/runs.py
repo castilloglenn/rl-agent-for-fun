@@ -615,7 +615,11 @@ class RunData:
             branched = agent.get("branched_from")
             if branched:
                 start = f"{branched.get('agent')}@{branched.get('checkpoint')}"
-            return f"{self.who} from {start} · trainer {trainer} · {game}"
+            games = self.games_text()
+            return (
+                f"{self.who} from {start} · trainer {trainer}"
+                f"{' · ' + games if games else ''} · {game}"
+            )
         return f"driver {self.who} · {game}"
 
     def counts(self) -> tuple[float, float, str]:
@@ -678,6 +682,19 @@ class RunData:
             before = level
         label = f"level {int(marks[-1][1])}" if marks else "level up"
         return Series(label, marks, theme.ACCENT, MARKS, priority=1)
+
+    def games_text(self) -> str:
+        """"3 of up to 4 games": the last update's games, of the run's
+        most (step 8). Empty for one game.
+        """
+        most = self.config.get("games", 1)
+        if most <= 1:
+            return ""
+        rows = self.learning.rows
+        now = rows[-1].get("games") if rows else None
+        if isinstance(now, (int, float)):
+            return f"{int(now)} of up to {most} games"
+        return f"up to {most} games"
 
     def level_now(self) -> int | None:
         rows = self.learning.rows

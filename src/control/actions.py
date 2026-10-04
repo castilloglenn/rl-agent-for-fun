@@ -159,6 +159,26 @@ RECORD_STAGE = Field(
     "Stage", lambda: _stages_and_mixes(curricula=False), "box"
 )
 RULES = Field("Rules", _files("rules"), "standard")
+
+
+def _game_counts() -> list[str]:
+    """1 up to the cores a training may use (the 2 kept free and its own
+    process aside, step 8).
+    """
+    import os
+
+    from src.utils.resources import FREE_CORES
+
+    most = max((os.cpu_count() or 1) - FREE_CORES - 1, 1)
+    return [str(n) for n in range(1, most + 1)]
+
+
+GAMES = Field(
+    "Games",
+    _game_counts,
+    str(min(4, len(_game_counts()))),  # game_count.DEFAULT_GAMES
+    "fewer while the machine is busy",
+)
 SECONDS = Field("Round seconds", None, "", "blank: the rules' own")
 REWARD = Field("Reward profile", _files("rewards"), "default")
 
@@ -197,7 +217,7 @@ def _new_agent(v: dict) -> list[str]:
 def _train(v: dict) -> list[str]:
     return [
         "-train", v["Agent"], "--trainer", v["Trainer"],
-        "--seed", v["Seed"], *_game(v),
+        "--seed", v["Seed"], "--games", v["Games"], *_game(v),
     ]
 
 
@@ -446,6 +466,7 @@ ACTIONS = (
             Field("Agent", choices.agents),
             Field("Trainer", _trainers("rl"), "default"),
             Field("Seed", None, "0", "the first episode's seed"),
+            GAMES,
             TRAIN_STAGE,
             RULES,
             SECONDS,

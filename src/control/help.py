@@ -426,6 +426,10 @@ FORM_FIELDS: dict[str, tuple[str, str]] = {
     "Stage": ("", "The map it drives on (stages/)."),
     "Rules": ("", "Round length, scoring, and what wall hits do (rules/)."),
     "Round seconds": ("s", "A round length instead of the rules' own."),
+    "Games": ("", "The most games played at once, each in its own small "
+                      "process (step 8). The run starts with as many as "
+                      "fit and drops one while memory or the CPU is busy, "
+                      "so your other work comes first."),
     "Reward profile": ("", "What the agent is rewarded for, per step "
                        "(rewards/). Game points are the rules'; reward is "
                        "the agent's."),

@@ -29,6 +29,7 @@ from tests.test_runs_tab import _folder, _job  # noqa: E402
 
 GAME = {
     "Trainer": "default",
+    "Games": "1",
     "Stage": "box",
     "Rules": "standard",
     "Round seconds": "",
@@ -110,7 +111,7 @@ def test_the_estimate_comes_from_past_runs(tmp_path):
     plan = _plan(_values(), runs_dir=tmp_path)
     # 300 s per 1M decisions, and the default trainer runs 2M: 10 min.
     assert plan.estimate == "about 10 min"
-    assert plan.basis == "the pace of your last 2 training runs"
+    assert plan.basis == "the pace of your last 2 training runs with one game"
     # Imitation then RL, without a past imitation run: RL alone.
     plan = _plan(_values(BOTH), runs_dir=tmp_path)
     assert plan.estimate == "about 10 min"
@@ -371,3 +372,50 @@ def test_the_form_trains_with_finetune_up_the_curriculum_only():
     assert fields["Trainer"].default == "finetune"
     stages = [str(o) for o in fields["Stage"].options()]
     assert stages == ["skills"] and fields["Stage"].default == "skills"
+
+
+# Several games at once (step 8b)
+
+
+def _with_games(folder, games):
+    config = json.loads((folder / "config.json").read_text())
+    (folder / "config.json").write_text(json.dumps({**config, "games": games}))
+
+
+def test_the_form_picks_the_games_and_the_command_takes_them(tmp_path):
+    fields = {f.name: f for f in form_fields(RL, NEW_AGENT, FRESH)}
+    games = fields["Games"]
+    assert games.options()[0] == "1" and games.default in games.options()
+    plan = _plan(_values(**{"Games": "4"}), runs_dir=tmp_path)
+    train = plan.steps[-1]
+    assert "up to 4 games at once" in train.text
+    assert "--games 4" in " ".join(plan.command_lines())
+    one = _plan(_values(), runs_dir=tmp_path)
+    assert "one game" in one.steps[-1].text
+
+
+def test_the_estimate_prefers_runs_with_the_same_games(tmp_path):
+    one = _folder(tmp_path, "a", summary={"seconds": 300.0, "decisions": 1e6})
+    four = _folder(tmp_path, "b", summary={"seconds": 150.0, "decisions": 1e6})
+    _with_games(four, 4)
+    plan = _plan(_values(**{"Games": "4"}), runs_dir=tmp_path)
+    assert plan.estimate == "about 5 min"  # 150 s per 1M: the 4-games run
+    assert plan.basis.endswith("training run with up to 4 games")
+    plan = _plan(_values(**{"Games": "2"}), runs_dir=tmp_path)
+    assert plan.basis.endswith("(other numbers of games)")
+    assert one.exists()
+
+
+def test_the_runs_header_shows_the_games(tmp_path):
+    from src.control.runs import RunData
+
+    folder = _folder(
+        tmp_path, "r",
+        learning_csv="update,decisions,games\n1,2048,4\n2,4096,3\n",
+    )
+    _with_games(folder, 4)
+    data = RunData(folder, tmp_path)
+    assert data.games_text() == "3 of up to 4 games"
+    assert "trainer t · 3 of up to 4 games ·" in data.description()
+    single = _folder(tmp_path, "s", learning_csv="update,decisions\n1,2\n")
+    assert RunData(single, tmp_path).games_text() == ""

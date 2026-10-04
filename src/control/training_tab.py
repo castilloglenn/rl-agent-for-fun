@@ -25,7 +25,7 @@ from pygame import Rect
 from pygame_gui.elements import UIButton
 
 from src.control import actions, choices, help, runs
-from src.control.actions import REWARD, RULES, SECONDS, Field
+from src.control.actions import GAMES, REWARD, RULES, SECONDS, Field
 from src.control.form import Form
 from src.control.jobs import JobManager
 from src.control.text import PAD, fit, header, wrap
@@ -125,6 +125,7 @@ def form_fields(
     if uses_rl(mode):
         fields += [
             Field("Trainer", _trainers, "finetune"),
+            GAMES,
             TRAIN_STAGE,
             RULES,
             SECONDS,

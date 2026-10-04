@@ -169,16 +169,25 @@ def make_plan(
         game = f"{place} / {values['Rules']}"
         if seconds:
             game += f", {seconds} s rounds"
+        games = int(values["Games"])
+        at_once = (
+            f", up to {games} games at once (fewer while the machine is "
+            "busy)"
+            if games > 1
+            else ", one game"
+        )
         plan.steps.append(
             Step(
                 f"Train {shown} for {decisions:,} decisions (PPO, "
                 f"trainer {values['Trainer']}) on {game}, reward "
-                f"{values['Reward profile']}, from episode seed {seed}.",
+                f"{values['Reward profile']}, from episode seed {seed}"
+                f"{at_once}.",
                 "Train",
                 {
                     "Agent": agent,
                     "Trainer": values["Trainer"],
                     "Seed": seed,
+                    "Games": values["Games"],
                     "Stage": values["Stage"],
                     "Rules": values["Rules"],
                     "Round seconds": seconds,
@@ -186,10 +195,21 @@ def make_plan(
                 },
             )
         )
-        pace = _pace(runs_dir, runs.TRAINING)
+        same = f"up to {games} games" if games > 1 else "one game"
+        pace = _pace(runs_dir, runs.TRAINING, games)
+        if pace:
+            basis.append(
+                f"your last {_count(pace[1], 'training run')} with {same}"
+            )
+        else:  # none with these games yet: any, said so
+            pace = _pace(runs_dir, runs.TRAINING)
+            if pace:
+                basis.append(
+                    f"your last {_count(pace[1], 'training run')} "
+                    "(other numbers of games)"
+                )
         if pace:
             total += pace[0] * decisions
-            basis.append(f"your last {_count(pace[1], 'training run')}")
         elif total:
             total = 0.0  # half an estimate would mislead
             basis = []
@@ -228,9 +248,12 @@ def _trainer(name: str) -> dict:
         return {}
 
 
-def _pace(runs_dir: Path | None, kind: str) -> tuple[float, int] | None:
+def _pace(
+    runs_dir: Path | None, kind: str, games: int | None = None
+) -> tuple[float, int] | None:
     """(seconds per decision, or per epoch for imitation, runs used) from
-    the newest finished runs of `kind`.
+    the newest finished runs of `kind` (with `games` at most, if given:
+    step 8).
     """
     runs_dir = runs_dir or runs.RUNS_DIR
     seconds = units = 0.0
@@ -242,6 +265,8 @@ def _pace(runs_dir: Path | None, kind: str) -> tuple[float, int] | None:
         summary = runs.read_json(folder / "summary.json")
         if runs.run_kind(config) != kind or not summary.get("seconds"):
             continue
+        if games is not None and config.get("games", 1) != games:
+            continue  # before step 8, a training played one game
         if kind == runs.TRAINING:
             done = summary.get("decisions", 0)
         else:

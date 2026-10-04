@@ -271,7 +271,7 @@ def test_the_stage_dropdown_the_plan_and_the_warning_know_curricula():
     assert "curriculum: skills" in labels
     plan = make_plan(
         {"Mode": RL, "Agent": "a", "Seed": "0", "Trainer": "default",
-         "Stage": "skills", "Rules": "standard", "Round seconds": "",
+         "Games": "1", "Stage": "skills", "Rules": "standard", "Round seconds": "",
          "Reward profile": "default"},
         ["a"], {},
     )
