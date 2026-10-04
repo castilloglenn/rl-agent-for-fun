@@ -129,6 +129,13 @@ class ReplayViewer:
         path = self.bests[index]
         self._load(read_replay(path), path)
 
+    def seek(self, step: int) -> None:
+        """Plays on, unshown, to `step` (7g3: watching a correction from
+        just before your first takeover); the trail keeps the way there.
+        """
+        while self.replayer.step_index < step and self._step():
+            pass
+
     def tick(self, elapsed: float) -> None:
         """Advances playback by `elapsed` real seconds."""
         control = self.control

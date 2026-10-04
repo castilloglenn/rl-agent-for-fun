@@ -12,16 +12,25 @@ rounds an imitation teaches, ticked in a table over the Training tab.
   only hide: a hidden ticked round still counts, and the footer says so.
 - The footer: what's ticked, your seconds, and warnings (a ticked test
   map). Use (Enter) keeps the ticks; Cancel (Esc) drops them.
+- The details (7g3): the round's path on a mini map, your stretches in
+  orange, a timeline of them, and Watch, from 2 s before your first
+  takeover. The path is re-played in the background (a spinner till
+  then).
 """
+
+from pathlib import Path
+from typing import Callable
 
 import pygame
 import pygame_gui
 from pygame import Rect
 from pygame_gui.elements import UIButton
 
-from src.control.round_picks import RoundFacts, summary
+from src.control.round_picks import PathCache, RoundFacts, RoundPath, summary
 from src.control.text import PAD, fit, header, wrap
 from src.render import theme
+from src.render.spinner import draw_spinner
+from src.render.stage_preview import draw_stage_preview
 from src.utils.ui import draw_text
 
 LINE = 26  # a table row
@@ -38,6 +47,9 @@ COLUMNS = (
     ("score", 70, lambda r: f"{r.score:,.0f}"),
 )
 USE, CANCEL = "use", "cancel"
+MAP_HEIGHT = 170  # the details' mini map
+YOURS = (255, 140, 40)  # your stretches, on the path and the timeline
+LEAD_SECONDS = 2.0  # Watch starts this long before your first takeover
 
 
 class RoundsPicker:
@@ -50,10 +62,14 @@ class RoundsPicker:
         picked: set[str],
         line: set[str],
         extra: str = "",
+        paths: PathCache | None = None,
+        watch: Callable[[Path, int], object] | None = None,
     ) -> None:
         """`rounds`: the dataset's own rounds, newest first. `picked`:
         ticked now. `line`: this agent's line (whose corrections are
         "this agent's"). `extra`: a footer note (the other players).
+        `paths`: the rounds' paths, kept by the caller across openings.
+        `watch(recording, step)`: opens it in the replay window.
         """
         self.gui = gui
         self.area = area
@@ -95,6 +111,21 @@ class RoundsPicker:
             bottom - 76 - (top + BUTTON + 16),
         )
         self._hit: list[tuple[Rect, Rect, str]] = []  # (row, box, name)
+        self.paths = paths or PathCache()
+        self.watch = watch
+        self.details = Rect(
+            a.right - PAD - DETAILS, self.table.y, DETAILS, self.table.h
+        )
+        self.watch_button = UIButton(
+            Rect(
+                self.details.x + 12,
+                self.details.bottom - 12 - BUTTON,
+                self.details.w - 24,
+                BUTTON,
+            ),
+            "Watch",
+            gui,
+        )
         self._label_buttons()
 
     # What shows
@@ -122,6 +153,36 @@ class RoundsPicker:
         self.tests_button.set_text(
             "Test maps hidden" if self.hide_tests else "Test maps shown"
         )
+        self._label_watch()
+
+    def _label_watch(self) -> None:
+        row = self.focused
+        if row is None or self.watch is None:
+            self.watch_button.disable()
+            return
+        self.watch_button.enable()
+        text = (
+            "Watch from your first takeover"
+            if row.takeovers
+            else "Watch this round"
+        )
+        if self.watch_button.text != text:
+            self.watch_button.set_text(text)
+
+    @property
+    def focused(self) -> RoundFacts | None:
+        return next((r for r in self.rounds if r.name == self.focus), None)
+
+    def watch_from(self) -> int:
+        """Where Watch starts: 2 s before your first takeover (0 for a
+        round you drove, or a path not re-played yet).
+        """
+        row = self.focused
+        found = self.paths.get(row.path) if row else None
+        if not isinstance(found, RoundPath) or found.first_takeover is None:
+            return 0
+        lead = round(LEAD_SECONDS * found.steps_per_second)
+        return max(found.first_takeover - lead, 0)
 
     @property
     def hidden_picked(self) -> int:
@@ -138,6 +199,11 @@ class RoundsPicker:
                 return USE
             if element is self.cancel_button:
                 return CANCEL
+            if element is self.watch_button:
+                row = self.focused
+                if row and self.watch:
+                    self.watch(row.path, self.watch_from())
+                return None
             if element is self.mine_button:
                 self.mine_only = not self.mine_only
             elif element is self.tests_button:
@@ -155,6 +221,7 @@ class RoundsPicker:
                     self.focus = name
                 elif row.collidepoint(event.pos):
                     self.focus = name
+            self._label_watch()
         elif event.type == pygame.MOUSEWHEEL:
             if self.table.collidepoint(pygame.mouse.get_pos()):
                 self.scroll_by(-event.y * LINE * 2)
@@ -177,6 +244,7 @@ class RoundsPicker:
             step = 1 if key == pygame.K_DOWN else -1
             self.focus = shown[min(max(at + step, 0), len(shown) - 1)]
             self._scroll_to(shown.index(self.focus))
+            self._label_watch()
         return None
 
     def toggle(self, name: str) -> None:
@@ -201,6 +269,7 @@ class RoundsPicker:
         for button in (
             self.mine_button, self.tests_button, self.all_button,
             self.none_button, self.use_button, self.cancel_button,
+            self.watch_button,
         ):
             button.kill()
 
@@ -283,12 +352,9 @@ class RoundsPicker:
             x += width
 
     def _draw_details(self, surface) -> None:
-        a = self.area
-        box = Rect(
-            a.right - PAD - DETAILS, self.table.y, DETAILS, self.table.h
-        )
+        box = self.details
         pygame.draw.rect(surface, theme.PANEL_BORDER, box, 1)
-        row = next((r for r in self.rounds if r.name == self.focus), None)
+        row = self.focused
         x, y, width = box.x + 12, box.y + 12, box.w - 24
         if not row:
             draw_text(
@@ -296,18 +362,21 @@ class RoundsPicker:
                 theme.TEXT_SIZE, theme.TEXT_DIM,
             )
             return
-        lines = [
-            (row.stage, theme.TEXT, True),
-            (row.when, theme.TEXT_DIM, False),
-            ("", theme.TEXT, False),
-        ]
+        draw_text(surface, row.stage, (x, y), theme.TEXT_SIZE, theme.TEXT, True)
+        draw_text(
+            surface, row.when, (box.right - 12, y), theme.TEXT_SIZE,
+            theme.TEXT_DIM, anchor="topright",
+        )
+        y += 26
+        y = self._draw_path(surface, row, Rect(x, y, width, MAP_HEIGHT))
+        lines = []
         if row.correction:
             lines += [
                 (f"Watching {row.watched}", theme.TEXT, False),
                 (
                     f"{row.takeovers} takeovers, {row.yours:,.1f} s of "
                     "your driving",
-                    theme.TEXT,
+                    YOURS,
                     False,
                 ),
             ]
@@ -317,20 +386,15 @@ class RoundsPicker:
             (f"Score {row.score:,.0f}, {row.ended}", theme.TEXT, False)
         )
         if row.correction and row.watched_agent not in self.line:
-            lines += [
-                ("", theme.TEXT, False),
+            lines.append(
                 (
                     "It corrects another agent, not this one's line.",
                     theme.WARN,
                     False,
-                ),
-            ]
+                )
+            )
         if row.test_map:
-            lines += [
-                ("", theme.TEXT, False),
-                (f"{row.test_map}.", theme.WARN, False),
-            ]
-        lines.append(("", theme.TEXT, False))
+            lines.append((f"{row.test_map}.", theme.WARN, False))
         lines.append(
             (
                 "Ticked" if row.name in self.picked else "Not ticked",
@@ -338,12 +402,73 @@ class RoundsPicker:
                 True,
             )
         )
+        bottom = self.watch_button.rect.y - 8
         for text, color, bold in lines:
             for part in wrap(text, width) or [""]:
+                if y + 20 > bottom:
+                    return
                 draw_text(
                     surface, part, (x, y), theme.TEXT_SIZE, color, bold
                 )
                 y += 20
+            y += 4
+
+    def _draw_path(self, surface, row: RoundFacts, area: Rect) -> int:
+        """The mini map with the round's path, and the timeline under it.
+        Returns the y below them.
+        """
+        found = self.paths.get(row.path)
+        if not isinstance(found, RoundPath):
+            pygame.draw.rect(surface, theme.PANEL_BORDER, area, 1)
+            if found is None:
+                draw_spinner(surface, area.center, 16, shade=False)
+            else:
+                lines = wrap(found, area.w - 16)
+                for i, line in enumerate(lines[:4]):
+                    draw_text(
+                        surface, line, (area.x + 8, area.y + 8 + 20 * i),
+                        theme.TEXT_SIZE, theme.WARN,
+                    )
+            return area.bottom + 34
+        shown = draw_stage_preview(surface, area, found.stage)
+        width = found.stage.get("size", (1, 1))[0]
+        scale = shown.w / width
+        spots = [
+            (shown.x + px * scale, shown.y + py * scale, step)
+            for px, py, step in found.points
+        ]
+        for (ax, ay, _), (bx, by, step) in zip(spots, spots[1:]):
+            mine = found.yours(step)
+            pygame.draw.line(
+                surface,
+                YOURS if mine else theme.TRAIL_OLD,
+                (ax, ay),
+                (bx, by),
+                3 if mine else 1,
+            )
+        if spots:
+            pygame.draw.circle(surface, theme.TEXT, spots[0][:2], 3)
+        bar = Rect(area.x, shown.bottom + 10, area.w, 8)
+        pygame.draw.rect(surface, theme.BAR_EMPTY, bar)
+        total = max(found.total_steps, 1)
+        for low, high in found.takeovers:
+            left = bar.x + bar.w * low / total
+            right = bar.x + bar.w * high / total
+            pygame.draw.rect(
+                surface, YOURS,
+                Rect(round(left), bar.y, max(round(right - left), 2), bar.h),
+            )
+        seconds = found.total_steps / found.steps_per_second
+        for text, anchor, at in (
+            ("0:00", "topleft", bar.x),
+            (f"{int(seconds // 60)}:{int(seconds % 60):02d}", "topright",
+             bar.right),
+        ):
+            draw_text(
+                surface, text, (at, bar.bottom + 2), theme.HEADER_SIZE,
+                theme.TEXT_DIM, anchor=anchor,
+            )
+        return bar.bottom + 24
 
     def _draw_footer(self, surface) -> None:
         a = self.area

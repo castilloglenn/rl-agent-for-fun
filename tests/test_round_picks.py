@@ -235,3 +235,84 @@ def _button(element):
     return pygame.event.Event(
         pygame_gui.UI_BUTTON_PRESSED, ui_element=element
     )
+
+
+# The preview (7g3)
+
+
+@pytest.fixture(scope="module")
+def recorded(tmp_path_factory):
+    """A real correction: watching an agent, you took over once, after
+    more than 2 s (recorded once for these tests).
+    """
+    from src.replay.recordings import CORRECTIONS as FOLDER
+    from tests.test_corrections import _play, _watch
+
+    where = tmp_path_factory.mktemp("recorded")
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        demo, held = _watch(where, monkeypatch)
+        _play(demo, held, frames_mine=30, frames_its=200)
+    (path,) = (where / "recordings" / FOLDER).glob("*.jsonl.gz")
+    return path
+
+
+def test_a_rounds_path_marks_your_stretches(recorded):
+    from src.control.round_picks import PATH_EVERY, PathCache, RoundPath
+
+    found = PathCache().wait(recorded)
+    assert isinstance(found, RoundPath)
+    (low, high) = found.takeovers[0]
+    assert found.first_takeover == low
+    assert len(found.points) >= found.total_steps // PATH_EVERY
+    mine = [step for _, _, step in found.points if found.yours(step)]
+    assert mine and all(low <= s < high for s in mine)
+    assert found.stage["name"]
+
+
+def test_a_round_that_cant_be_replayed_says_why(tmp_path):
+    from src.control.round_picks import PathCache
+
+    broken = tmp_path / "broken.jsonl.gz"
+    broken.write_bytes(b"not a replay")
+    assert "can't be re-played" in PathCache().wait(broken)
+
+
+def test_watch_starts_two_seconds_before_your_first_takeover(
+    tmp_path, recorded
+):
+    import pygame_gui  # noqa: F401
+    from src.control.round_picks import RoundPath, read_facts
+    from src.control.rounds_picker import RoundsPicker
+
+    pygame.init()
+    gui = pygame_gui.UIManager((1280, 820))
+    asked = []
+    facts = read_facts(recorded)
+    picker = RoundsPicker(
+        gui, pygame.Rect(0, 0, 1240, 690), "T", [facts], set(), set(),
+        watch=lambda path, step: asked.append((path, step)),
+    )
+    picker.mine_only = False
+    picker._label_buttons()
+    assert isinstance(picker.paths.wait(recorded), RoundPath)
+    picker.handle(_button(picker.watch_button))
+    first = picker.paths.get(recorded).first_takeover
+    assert asked == [(recorded, max(first - 240, 0))]
+    assert picker.watch_button.text == "Watch from your first takeover"
+
+
+def test_the_replay_window_starts_at_a_step(recorded):
+    from src.config import get_maze_car_config
+    from src.control.actions import ACTIONS
+    from src.replay.viewer import ReplayViewer
+    from tests.test_guard_rails import _check
+
+    viewer = ReplayViewer.open(recorded, get_maze_car_config())
+    viewer.seek(150)
+    assert viewer.replayer.step_index == 150
+    assert len(viewer.trail) > 1  # the way there is drawn
+    watch = next(a for a in ACTIONS if a.name == "Watch a replay")
+    args = watch.build({"File": str(recorded), "From step": "150"})
+    assert args[-2:] == ["--replay_step", "150"]
+    assert _check(args) == []
+    assert watch.build({"File": "x", "From step": ""}) == ["-replay", "x"]

@@ -7,6 +7,9 @@ flags.DEFINE_boolean(
 )
 flags.DEFINE_string("demo", "", "Run games with human inputs.")
 flags.DEFINE_string("replay", "", "Play a replay file in the window.")
+flags.DEFINE_integer(
+    "replay_step", 0, "With -replay: start at this step (played on unshown)."
+)
 flags.DEFINE_string(
     "driver", "keyboard", "Who drives: keyboard, random, heuristic, agent:<id>."
 )

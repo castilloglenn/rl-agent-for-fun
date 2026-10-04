@@ -155,3 +155,103 @@ def summary(rounds: list[RoundFacts], picked: set[str]) -> str:
         f"{len(chosen)} of {len(rounds)} rounds · {seconds:,.1f} s of your "
         "driving"
     )
+
+
+# The preview (7g3): a round's path, re-played headless
+
+
+PATH_EVERY = 8  # steps between the path's points
+
+
+@dataclass(frozen=True)
+class RoundPath:
+    """Where the car went in a round, and which stretches were yours."""
+
+    stage: dict  # the stage's data, for the mini map
+    points: list[tuple[float, float, int]]  # (x, y, step), every PATH_EVERY
+    total_steps: int
+    takeovers: list[tuple[int, int]]  # [first step, last step + 1)
+    steps_per_second: int
+
+    def yours(self, step: int) -> bool:
+        return any(low <= step < high for low, high in self.takeovers)
+
+    @property
+    def first_takeover(self) -> int | None:
+        return self.takeovers[0][0] if self.takeovers else None
+
+
+def round_path(path: Path) -> RoundPath:
+    """Re-plays the round headless (about half a second for a minute)."""
+    from src.replay.replayer import Replayer
+    from src.sim.components import Transform
+
+    replay = read_replay(path)
+    replayer = Replayer(replay)
+    env = replayer.env
+    points = []
+
+    def note() -> None:
+        car = env.world.component(env.car, Transform)
+        points.append((car.x, car.y, replayer.step_index))
+
+    note()
+    while replayer.step():
+        if replayer.step_index % PATH_EVERY == 0:
+            note()
+    note()
+    end = replay.end or {}
+    return RoundPath(
+        stage=replay.header["stage"],
+        points=points,
+        total_steps=replayer.total_steps,
+        takeovers=[tuple(t) for t in end.get("takeovers") or []],
+        steps_per_second=replay.header.get("steps_per_second") or 120,
+    )
+
+
+class PathCache:
+    """Round paths, each re-played once in the background: `get` returns
+    it when ready, and starts it (None meanwhile). A round that can't be
+    re-played gives the reason instead.
+    """
+
+    def __init__(self) -> None:
+        import threading
+
+        self._lock = threading.Lock()
+        self._found: dict[Path, RoundPath | str] = {}
+        self._busy: set[Path] = set()
+
+    def get(self, path: Path) -> RoundPath | str | None:
+        import threading
+
+        with self._lock:
+            if path in self._found:
+                return self._found[path]
+            if path in self._busy:
+                return None
+            self._busy.add(path)
+        threading.Thread(target=self._make, args=(path,), daemon=True).start()
+        return None
+
+    def _make(self, path: Path) -> None:
+        try:
+            found: RoundPath | str = round_path(path)
+        except Exception as error:  # noqa: BLE001 - shown, not raised
+            found = f"it can't be re-played ({error})"
+        with self._lock:
+            self._found[path] = found
+            self._busy.discard(path)
+
+    def wait(self, path: Path, seconds: float = 30.0) -> RoundPath | str | None:
+        """Blocks until it's ready (tests)."""
+        import time
+
+        until = time.monotonic() + seconds
+        while time.monotonic() < until:
+            found = self.get(path)
+            if found is not None:
+                return found
+            time.sleep(0.02)
+        return None

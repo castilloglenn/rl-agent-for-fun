@@ -266,6 +266,7 @@ class ControlCenter:
             busy=self._chain_agents,
             runs_dir=runs_dir,
             agents_dir=agents_dir,
+            watch=self._watch_from,
         )
         self.training_tab.hide()
         self.agents_tab = AgentsTab(
@@ -527,6 +528,13 @@ class ControlCenter:
             if action.fields:
                 label += f": {values.get(action.fields[0].name, '')}"
         return self._start(label, action.argv(values), action.opens_window)
+
+    def _watch_from(self, path: Path, step: int):
+        """A recording in the replay window, from `step` (7g3)."""
+        return self.run_named(
+            "Watch a replay",
+            {"File": str(path), "From step": str(step) if step else ""},
+        )
 
     def run_named(self, name: str, values: dict, label: str = ""):
         """Runs the action called `name` (for the other tabs), with its

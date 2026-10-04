@@ -393,8 +393,18 @@ ACTIONS = (
         "Watch a replay",
         "Replays",
         "Play back a recording or a run's replay, verified as it loads.",
-        (Field("File", _replays),),
-        lambda v: ["-replay", v["File"]],
+        (
+            Field("File", _replays),
+            Field("From step", None, "", "blank: the start"),
+        ),
+        lambda v: [
+            "-replay", v["File"],
+            *(
+                ["--replay_step", v["From step"].strip()]
+                if v.get("From step", "").strip()
+                else []
+            ),
+        ],
         opens_window=True,
     ),
     Action(

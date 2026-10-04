@@ -224,7 +224,10 @@ def _dispatch(cl_args) -> None:
     elif cl_args.replay:
         from src.replay.viewer import ReplayViewer
 
-        ReplayViewer.open(cl_args.replay, config).run()
+        viewer = ReplayViewer.open(cl_args.replay, config)
+        if cl_args.replay_step > 0:
+            viewer.seek(cl_args.replay_step)
+        viewer.run()
     elif cl_args.run:
         _experiment_run(cl_args, config)
     elif cl_args.record_rounds:

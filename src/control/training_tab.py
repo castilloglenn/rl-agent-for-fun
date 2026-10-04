@@ -30,6 +30,7 @@ from src.control.form import Form
 from src.control.jobs import JobManager
 from src.control.round_picks import (
     FactsCache,
+    PathCache,
     dataset_rounds,
     default_picks,
     lineage,
@@ -175,6 +176,7 @@ class TrainingTab:
         start_plan: Callable[[Plan], object],
         on_battery: Callable[[], bool] = lambda: False,
         busy: Callable[[], dict] = lambda: {},
+        watch: Callable[[Path, int], object] | None = None,
         runs_dir: Path | None = None,
         recordings_dir: Path | None = None,
         agents_dir: Path | None = None,
@@ -221,6 +223,8 @@ class TrainingTab:
         self.area = area
         self.picker: RoundsPicker | None = None
         self.facts = FactsCache()
+        self.paths = PathCache()  # re-played rounds, for the preview
+        self.watch = watch  # (recording, step): the replay window
         self.ticks: dict[tuple[str, str], tuple[set, set]] = {}
         self.message: tuple[str, tuple] | None = None
         self._refreshed = 0.0
@@ -448,6 +452,8 @@ class TrainingTab:
             ticked,
             line,
             self._others(dataset),
+            self.paths,
+            self.watch,
         )
 
     def _others(self, dataset: str) -> str:

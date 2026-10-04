@@ -1,6 +1,6 @@
 # 074: Choosing which rounds an imitation teaches
 
-**Date:** 2026-10-04. **Status:** Accepted. Part A built in roadmap 7g2 (`src/control/round_picks.py`, `rounds_picker.py`, `training_tab.py`, `form.py`, `src/experiments/datasets.py`, `--recordings`); part B (the preview) planned.
+**Date:** 2026-10-04. **Status:** Accepted. Part A built in roadmap 7g2 (`src/control/round_picks.py`, `rounds_picker.py`, `training_tab.py`, `form.py`, `src/experiments/datasets.py`, `--recordings`); part B in 7g3 (`round_path`, `PathCache`, the picker's details, `ReplayViewer.seek`, `--replay_step`).
 
 ## Context
 
@@ -18,4 +18,4 @@ A dataset read every round of its player. When you set agent_4 to learn your cor
 
 - Imitation from the Training tab no longer teaches rounds on test maps, or corrections of other agents, unless you tick them. That's also true for `mine` (your own driving): its test-map rounds start unticked.
 - `make imitate_corrections` and the Commands tab still teach every round unless given names.
-- Part B adds a preview: the round's path on a mini map with your stretches highlighted, a timeline of your takeovers, and watching from the first one.
+- **The preview (7g3):** the clicked round's path on a mini map (the stage drawn as in the Maps tab), the agent's driving thin and gray, your stretches thick and orange, with a timeline of them under it. The path comes from re-playing the round headless (about 1 s for a minute) in a background thread, kept while the window is open; a spinner shows meanwhile, and a round that can't be re-played says why. Watch opens the replay window 2 s before your first takeover (a round you drove: from the start): `-replay <file> --replay_step N` plays on unshown to there, keeping the trail; the Commands tab's "Watch a replay" has the same "From step".
