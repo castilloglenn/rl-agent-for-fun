@@ -59,7 +59,14 @@ OPTIONS = (
         "Big stages start in (F)",
         (("follow", "follow"), ("fit", "fit")),
     ),
-    Option("map_intro", "Camera", "Map intro", ON_OFF),
+    # How long a big stage's whole map shows before the zoom into the
+    # car (seconds): off is a glance, so you still see where you are.
+    Option(
+        "map_intro",
+        "Camera",
+        "Map overview",
+        ((3.0, "3 s"), (2.0, "2 s"), (1.0, "1 s"), (0.5, "off (a glance)")),
+    ),
     Option(
         "fps_cap",
         "Display",

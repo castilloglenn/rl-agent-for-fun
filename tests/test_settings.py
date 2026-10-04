@@ -158,11 +158,11 @@ def test_camera_trail_and_fps_settings(tmp_path):
         tmp_path,
         stage="arena",
         big_stage_camera="fit",
-        map_intro=False,
+        map_intro=1.0,
         trail=True,
         fps_cap=30,
     )
-    assert renderer.camera.mode == FIT and not renderer.map_intro
+    assert renderer.camera.mode == FIT and renderer.intro_hold == 1.0
     assert renderer.show_trail and renderer.frame_rate == 30
 
 

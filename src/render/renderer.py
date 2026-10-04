@@ -89,8 +89,10 @@ class Renderer:
         self.camera = camera.Camera.for_stage(
             field_rect.width, field_rect.height, self.layout.field_view
         )
-        # The map intro, at each round's start on a big stage (7b).
+        # The map intro, at each round's start on a big stage (7b); the
+        # config can turn it off (tests), your setting picks its hold.
         self.map_intro = config.window.get("map_intro", True)
+        self.intro_hold = camera.INTRO_HOLD
         self._intro_world = None  # the round whose intro has started
         self._frame_ticks: int | None = None
         # Debug lines (rays, hitbox, the checkpoint guide). H toggles them
@@ -156,8 +158,7 @@ class Renderer:
         elif key == "big_stage_camera" and self.camera.zoomable:
             self.camera.mode = FIT if value == "fit" else FOLLOW
         elif key == "map_intro":
-            wanted = self.config.window.get("map_intro", True)
-            self.map_intro = wanted and value
+            self.intro_hold = value  # seconds of the whole map
         elif key == "fps_cap":
             self.frame_rate = (
                 value
@@ -399,7 +400,7 @@ class Renderer:
         if world is not self._intro_world:
             self._intro_world = world
             if self.map_intro:
-                self.camera.start_intro()
+                self.camera.start_intro(self.intro_hold)
             return
         self.camera.update(seconds)
 

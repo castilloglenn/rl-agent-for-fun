@@ -165,6 +165,23 @@ def test_the_intro_holds_the_whole_map_then_zooms_in():
     assert cam.to_screen(600, 1100) == pytest.approx(target)
 
 
+def test_the_overview_holds_as_long_as_your_setting():
+    """The "Map overview" setting: 3, 2, 1 s, or off (a 0.5 s glance);
+    the zoom after it always takes INTRO_ZOOM.
+    """
+    from src.render.camera import INTRO_ZOOM
+
+    for hold in (0.5, 1.0, 2.0, 3.0):
+        cam = _arena()
+        cam.start_intro(hold)
+        cam.update(hold - 0.01)
+        assert cam.holding
+        cam.update(0.02)
+        assert cam.in_intro and not cam.holding  # zooming
+        cam.update(INTRO_ZOOM)
+        assert not cam.in_intro
+
+
 def test_no_intro_on_a_stage_that_fits():
     cam = Camera.for_stage(855, 480, pygame.Rect(0, 0, 855, 480))
     cam.start_intro()

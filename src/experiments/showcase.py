@@ -405,7 +405,9 @@ class Showcase:
             if self.card:
                 self.card = False  # start the round
                 if self.renderer.map_intro:  # it waited behind the card
-                    self.renderer.camera.start_intro()
+                    self.renderer.camera.start_intro(
+                        self.renderer.intro_hold
+                    )
             elif self.env.is_game_over and not self.finished:
                 self.next()  # after reading how the round ended
         elif key == pygame.K_RIGHT:

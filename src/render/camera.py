@@ -11,9 +11,9 @@ and it has two modes (F switches):
     fit     the whole stage, scaled down to the view: an overview
 
 At the start of each round on a big stage, a map intro shows the whole
-stage for 3 s, then zooms smoothly into follow mode. A key cuts the 3 s
-short, never the zoom; the game waits for the intro, and keys count
-again after it.
+stage for 3 s (your "Map overview" setting: 3, 2, 1, or 0.5 s), then
+zooms smoothly into follow mode. A key cuts the hold short, never the
+zoom; the game waits for the intro, and keys count again after it.
 """
 
 from dataclasses import dataclass
@@ -23,6 +23,7 @@ from pygame import Rect
 VIEW = (855, 480)  # px: the field view, the box's size
 FIT, FOLLOW = "fit", "follow"
 INTRO_HOLD = 3.0  # s: a big stage's whole map, at the start of a round
+# (the default; the "Map overview" setting picks another)
 INTRO_ZOOM = 1.0  # s: then the zoom into follow mode
 MAP_LONG_SIDE = 200  # px: the map card's drawing of a big stage
 MAP_TOP = 34  # px: from the card's top to the map (under its header)
@@ -61,6 +62,7 @@ class Camera:
     origin: tuple[float, float] = (0.0, 0.0)  # follow: the view's top left
     # The map intro: seconds since it began, or None when there's none.
     intro: float | None = None
+    hold: float = INTRO_HOLD  # s: this intro's still overview
 
     @staticmethod
     def for_stage(
@@ -97,18 +99,19 @@ class Camera:
         )
 
     # The map intro (a big stage, the start of a round): the whole stage
-    # for INTRO_HOLD seconds, then a smooth zoom into follow mode.
+    # for `hold` seconds, then a smooth zoom into follow mode.
 
-    def start_intro(self) -> None:
+    def start_intro(self, hold: float = INTRO_HOLD) -> None:
         if self.zoomable and self.mode == FOLLOW:
             self.intro = 0.0
+            self.hold = hold
 
     def update(self, seconds: float) -> None:
         """Advances the intro by real seconds (drawing time)."""
         if self.intro is None:
             return
         self.intro += seconds
-        if self.intro >= INTRO_HOLD + INTRO_ZOOM:
+        if self.intro >= self.hold + INTRO_ZOOM:
             self.intro = None
 
     def skip_intro(self) -> None:
@@ -119,7 +122,7 @@ class Camera:
         itself always plays out).
         """
         if self.holding:
-            self.intro = INTRO_HOLD
+            self.intro = self.hold
 
     @property
     def in_intro(self) -> bool:
@@ -128,13 +131,13 @@ class Camera:
     @property
     def holding(self) -> bool:
         """The intro's first part: the whole stage, still."""
-        return self.intro is not None and self.intro < INTRO_HOLD
+        return self.intro is not None and self.intro < self.hold
 
     def _zoom(self) -> float:
         """0 (the whole stage) to 1 (follow), eased at both ends."""
         if self.intro is None:
             return 1.0
-        t = min(max((self.intro - INTRO_HOLD) / INTRO_ZOOM, 0.0), 1.0)
+        t = min(max((self.intro - self.hold) / INTRO_ZOOM, 0.0), 1.0)
         return t * t * (3 - 2 * t)
 
     # Stage to screen: scale s and offset: screen = offset + point * s.
