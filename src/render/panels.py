@@ -143,6 +143,7 @@ class CarInfo:
     # heading (+ left), and its distance.
     waypoint: float | None = None
     route_distance: float | None = None
+    goal: tuple[float, float] | None = None  # its nearest fuel by route
 
 
 def _route(world: World, car: int, transform) -> dict:
@@ -155,6 +156,7 @@ def _route(world: World, car: int, transform) -> dict:
         "stuck": route.stuck_seconds(world, sense),
         "waypoint": (bearing - transform.angle + 180) % 360 - 180,
         "route_distance": sense.distance,
+        "goal": sense.goal,
     }
 
 
@@ -216,17 +218,21 @@ def nearest_fuel(
     world: World, car: CarInfo
 ) -> tuple[float, float] | None:
     """Distance (center to center) and angle, relative to the car's
-    heading (counterclockwise: + is to its left), of the nearest
-    fuel.
+    heading (counterclockwise: + is to its left), of its nearest fuel by
+    route (9b: the one its route sense leads to), else the nearest.
     """
-    spots = [spot for _, (spot, _) in world.query(Transform, Fuel)]
-    if not spots:
-        return None
     x, y = car.center
-    spot = min(spots, key=lambda s: math.dist((s.x, s.y), (x, y)))
-    bearing = math.degrees(math.atan2(-(spot.y - y), spot.x - x))
+    if car.goal is not None:
+        gx, gy = car.goal
+    else:
+        spots = [spot for _, (spot, _) in world.query(Transform, Fuel)]
+        if not spots:
+            return None
+        near = min(spots, key=lambda s: math.dist((s.x, s.y), (x, y)))
+        gx, gy = near.x, near.y
+    bearing = math.degrees(math.atan2(-(gy - y), gx - x))
     relative = (bearing - car.heading + 180) % 360 - 180
-    return math.dist((spot.x, spot.y), (x, y)), relative
+    return math.dist((gx, gy), (x, y)), relative
 
 
 def format_time(seconds: float) -> str:

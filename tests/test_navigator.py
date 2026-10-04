@@ -39,7 +39,8 @@ def test_it_backs_out_when_stuck():
     for name in ("ray_front", "ray_front_left_15", "ray_front_right_15"):
         observation[OBSERVATION_NAMES.index(name)] = 0.01  # a wall
     observation[OBSERVATION_NAMES.index("stuck")] = 0.5  # for 5 s
-    observation[OBSERVATION_NAMES.index("route_sin")] = 0.8  # to the left
+    observation[OBSERVATION_NAMES.index("fuel1_present")] = 1.0
+    observation[OBSERVATION_NAMES.index("fuel1_route_sin")] = 0.8  # left
     driver = Navigator()
     action = driver.act(observation)
     assert action[3] and action[1]  # reverse, wheel right: front swings left

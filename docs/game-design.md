@@ -100,26 +100,33 @@ Rays only detect things a car can hit (the border and walls now; later other car
 
 ### Observation (what the agent sees)
 
-**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4; 12 rays in 7f3; the route and stuck timer in 7f7). 23 float32 numbers:
+**Implemented in step 3h** (`src/sim/observation.py`, layout version 1; health added in 5a4; 12 rays in 7f3; the route and stuck timer in 7f7; the tank and 3 fuel slots in 9b, [decision 077](decisions/077-sensing-three-fuels.md)). 39 float32 numbers:
 
 | # | Input | Range and normalization |
 |---|---|---|
 | 0-11 | Ray distances, in the rays' order around the car (front, front-left 15°, 30°, 45°, left, back-left, back, back-right, right, front-right 45°, 30°, 15°) | 0 to 1, divided by 980.5 px (the box's diagonal) on every map (7d2) |
 | 12 | Speed | -⅓ (full reverse) to 1, divided by max speed |
 | 13 | Steering wheel position | -1 (full right) to 1 (full left) |
-| 14 | Fuel distance | 0 to 1, divided by 980.5 px on every map (7d2) |
-| 15 | Fuel sin (relative angle) | -1 to 1, positive = to the left |
-| 16 | Fuel cos (relative angle) | -1 to 1, positive = ahead |
-| 17 | Route distance (remembered, 7f7) | 0 to 1, divided by 980.5 px: the drivable route's length, refreshed with the waypoint |
-| 18 | Route sin (the waypoint's relative angle) | -1 to 1, positive = to the left: a remembered point about one corner ahead along the route (the fuel itself when in sight), refreshed when reached (45 px), passed, or every 2 s |
-| 19 | Route cos | -1 to 1, positive = ahead |
-| 20 | Stuck | 0 to 1: seconds since the car last got closer along the route, over 10 s |
-| 21 | Time left in the round | 1 at the start, down to 0 |
-| 22 | Health | 1 (full) down to 0 (wrecked) |
+| 14 | Tank | 1 (full) to 0 (empty); 1 when the rules have no tank |
+| 15-21 | Fuel 1, the nearest by route: present, distance, sin, cos, route distance, route sin, route cos | see below |
+| 22-28 | Fuel 2, the next by route | the same |
+| 29-35 | Fuel 3 | the same |
+| 36 | Stuck | 0 to 1: seconds since the car last got closer along the route to its nearest fuel, over 10 s; starts over when a fuel is taken |
+| 37 | Time left in the round | 1 at the start, down to 0 |
+| 38 | Health | 1 (full) down to 0 (wrecked) |
+
+Each fuel slot:
+
+| Input | Range and normalization |
+|---|---|
+| present | 1 if a fuel is in the slot; 0 if fewer are out (the rest of an empty slot reads far and no direction: 1, 0, 0, 1, 0, 0) |
+| distance | 0 to 1, the straight line, divided by 980.5 px on every map (7d2) |
+| sin, cos | its angle relative to the heading: sin positive = to the left, cos positive = ahead |
+| route distance | 0 to 1, divided by 980.5 px: the drivable route's length from here, now |
+| route sin, route cos | the remembered waypoint's angle (7f7): a point about one corner ahead along the route (the fuel itself when in sight), refreshed when reached (45 px, or half its distance when chosen), passed, or every 2 s |
 
 - **Direction is relative to the car**, like a compass ("ahead-left, fairly close"). Sin and cos avoid the jump from 359° to 0°.
-- **Fixed size:** a neural network needs a fixed number of inputs. Objects that vary in count use the **nearest K of each type**, with empty slots filled by zeros plus an "absent" flag. For now there's always exactly 1 fuel (up to 3 in step 9a2).
-- **Fuel phase (9b):** adds the fuel level, plus the 3 fuels nearest by route, each with the straight compass and the route sensor.
+- **Fixed size:** a neural network needs a fixed number of inputs, so up to 3 fuels fill 3 slots, the nearest by route first, with a "present" flag for empty ones. The first slot changes only when another fuel is more than 40 px nearer by route, so two about as far don't swap every step.
 
 All values above are starting points, kept in config so experiments can change them.
 

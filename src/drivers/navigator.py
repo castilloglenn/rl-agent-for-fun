@@ -14,7 +14,7 @@ import numpy as np
 
 from src.drivers.actions import Action
 from src.drivers.base import Driver
-from src.sim.observation import OBSERVATION_NAMES
+from src.sim.observation import NO_FUEL, OBSERVATION_NAMES, fuel_slots
 
 _INDEX = {name: i for i, name in enumerate(OBSERVATION_NAMES)}
 
@@ -49,6 +49,8 @@ class Navigator(Driver):
 
     def act(self, observation: np.ndarray) -> Action:
         o = {name: float(observation[i]) for name, i in _INDEX.items()}
+        # The fuel nearest by route (9b): the first slot.
+        fuel = next(iter(fuel_slots(o)), NO_FUEL)
         speed = o["speed"]
         front = min(o["ray_front"], o["ray_front_left_15"],
                     o["ray_front_right_15"])
@@ -64,7 +66,7 @@ class Navigator(Driver):
             # Reversing with the wheel turned swings the front the other
             # way: steer away from the waypoint's side, so it ends up
             # facing the waypoint.
-            self._back_steer = -1 if o["route_sin"] > 0 else 1
+            self._back_steer = -1 if fuel["route_sin"] > 0 else 1
         if self._backing:
             self._backing -= 1
             steer = self._back_steer
@@ -72,14 +74,14 @@ class Navigator(Driver):
 
         # Steer toward the waypoint (sin > 0: it's to the left).
         steer = 0
-        if o["route_cos"] < self.aim_cos:
-            steer = 1 if o["route_sin"] > 0 else -1
+        if fuel["route_cos"] < self.aim_cos:
+            steer = 1 if fuel["route_sin"] > 0 else -1
 
         # A wall close ahead wins: turn toward the waypoint's side if it
         # has some room, else toward the side with more.
         stopping = 0.16 * speed * speed + 0.08 * speed
         if front < self.wall_margin + stopping:
-            wanted = 1 if o["route_sin"] > 0 else -1
+            wanted = 1 if fuel["route_sin"] > 0 else -1
             room = left_room if wanted > 0 else right_room
             if room < 0.12:
                 wanted = 1 if left_room > right_room else -1
@@ -91,12 +93,12 @@ class Navigator(Driver):
             steer = 1
 
         speed_cap = 1.0
-        if o["route_cos"] < 0.5:
+        if fuel["route_cos"] < 0.5:
             speed_cap = self.corner_speed
-        if o["route_cos"] < 0:  # behind: a tight turn
+        if fuel["route_cos"] < 0:  # behind: a tight turn
             speed_cap = self.behind_speed
-        near = o["fuel_distance"] < 0.15
-        if near and o["fuel_cos"] < self.aim_cos:
+        near = fuel["distance"] < 0.15
+        if near and fuel["cos"] < self.aim_cos:
             speed_cap = min(speed_cap, self.approach_speed)
         if o["ray_front"] < 0.02 + stopping and speed > 0.05:
             pedal = "brake"

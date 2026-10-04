@@ -12,7 +12,11 @@ notices being stuck. So the agent gets:
   direction relative to its own heading, every step);
 - the **remembered route distance**, refreshed with the waypoint;
 - a **stuck timer**: seconds since the car last got closer along the
-  route than it had been to this fuel.
+  route than it had been to its nearest fuel.
+
+Since 9b (decision 077), a route for each fuel out (up to 3), the nearest
+by route first: the agent senses all of them, and the stuck timer counts
+toward the nearest, starting over when a fuel is taken.
 
 The route knows only the map's walls (they don't move), from the same
 route field as the progress reward (one per fuel, shared through
@@ -22,7 +26,7 @@ reads only the world, so replays rebuild it.
 
 import math
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.ecs import World
 from src.sim.components import Fuel, Transform
@@ -33,6 +37,9 @@ REFRESH_SECONDS = 2.0  # a held waypoint is refreshed at least this often
 REACH = 45.0  # px: this close, the waypoint is reached (refreshed), or
 # half as close as it was when chosen, if that's nearer (8a fix)
 PROGRESS = 10.0  # px closer along the route than before: progress
+# The nearest fuel by route stays first until another is this much nearer
+# (9b): two fuels about as far apart would swap every step.
+SWITCH = 40.0
 STUCK_CAP = 10.0  # seconds: the stuck input reads 1 from here on
 STEP = 12.0  # px: how far each step of the walk along the route goes
 SIGHT = 10.0  # px: a straight line this clear of walls is in sight
@@ -115,12 +122,14 @@ def route_fields(world: World) -> RouteFields:
 
 
 @dataclass
-class RouteSense:
-    """A car's remembered route to its fuel, and its stuck timer."""
+class FuelRoute:
+    """A remembered route to one fuel (7f7): held, and refreshed when its
+    waypoint is reached or passed, or every REFRESH_SECONDS.
+    """
 
-    goal: tuple[float, float] | None = None
+    goal: tuple[float, float]
     waypoint: tuple[float, float] | None = None
-    distance: float = math.inf  # px along the route, when refreshed
+    distance: float = math.inf  # px along the route from here, now (9b)
     # The waypoint's own distance along the route: once the car is closer
     # than that, it has passed the waypoint (an overshoot, 7f15).
     waypoint_distance: float = 0.0
@@ -128,12 +137,52 @@ class RouteSense:
     # one chosen inside REACH isn't reached until the car halves that.
     chosen: float = 0.0
     refreshed: int = 0  # the step of the last refresh
-    best: float = math.inf  # the closest it has been along the route
+
+
+@dataclass
+class RouteSense:
+    """A car's remembered routes to the fuels out, nearest by route
+    first (9b), and its stuck timer. `goal`, `waypoint`, and the rest
+    are the nearest's (None or the defaults with no fuel out).
+    """
+
+    routes: list[FuelRoute] = field(default_factory=list)
+    goals: tuple = ()  # the fuels out at the last update, sorted
+    best: float = math.inf  # the closest it has been to its nearest fuel
     progress: int = 0  # the step it last got closer
     updated: int | None = None  # the step it was last updated
 
+    @property
+    def nearest(self) -> FuelRoute | None:
+        return self.routes[0] if self.routes else None
+
+    @property
+    def goal(self):
+        return self.nearest.goal if self.routes else None
+
+    @property
+    def waypoint(self):
+        return self.nearest.waypoint if self.routes else None
+
+    @property
+    def distance(self) -> float:
+        return self.nearest.distance if self.routes else math.inf
+
+    @property
+    def waypoint_distance(self) -> float:
+        return self.nearest.waypoint_distance if self.routes else 0.0
+
+    @property
+    def chosen(self) -> float:
+        return self.nearest.chosen if self.routes else 0.0
+
+    @property
+    def refreshed(self) -> int:
+        return self.nearest.refreshed if self.routes else 0
+
 
 def nearest_fuel(world: World, x: float, y: float):
+    """The fuel nearest in a straight line (None with none out)."""
     spots = [(s.x, s.y) for _, (s, _) in world.query(Transform, Fuel)]
     if not spots:
         return None
@@ -152,42 +201,61 @@ def sense(world: World, car: int) -> RouteSense:
     route.updated = step
     transform = world.component(car, Transform)
     here = (transform.x, transform.y)
-    goal = nearest_fuel(world, *here)
-    if goal is None:
-        route.goal = route.waypoint = None
-        return route
-    path = route_fields(world).field(world, goal)
-    if goal != route.goal:  # a new fuel: start over
-        route.goal = goal
-        route.best = path.distance(*here)
-        route.progress = step
-        _refresh(world, route, path, here, step)
-        return route
-    live = path.distance(*here)
-    if live < route.best - PROGRESS:
-        route.best, route.progress = live, step
-    sps = world.resource(SimConfig).steps_per_second
-    # In a tight spot the waypoint can be chosen closer than REACH: it
-    # counted as reached at once, and was chosen again almost every step.
-    reached = route.waypoint and math.dist(here, route.waypoint) < min(
-        REACH, route.chosen / 2
+    goals = tuple(
+        sorted((s.x, s.y) for _, (s, _) in world.query(Transform, Fuel))
     )
-    # Swept past it wider than REACH: it's behind now. Don't turn back for
-    # it, take the next one (7f15).
-    passed = route.waypoint != route.goal and live < route.waypoint_distance
-    if reached or passed or step - route.refreshed >= REFRESH_SECONDS * sps:
-        _refresh(world, route, path, here, step)
+    if not goals:
+        route.routes, route.goals = [], ()
+        return route
+    fields = route_fields(world)
+    sps = world.resource(SimConfig).steps_per_second
+    known = {r.goal: r for r in route.routes}
+    routes, nearest = [], math.inf
+    for goal in goals:
+        path = fields.field(world, goal)
+        live = path.distance(*here)
+        nearest = min(nearest, live)
+        held = known.get(goal)
+        if held is None:  # a new fuel: its route at once
+            held = FuelRoute(goal)
+            _refresh(world, held, path, here, step)
+        else:
+            # In a tight spot the waypoint can be chosen closer than REACH:
+            # it counted as reached at once, and was chosen again almost
+            # every step (8a2).
+            reached = held.waypoint and math.dist(here, held.waypoint) < min(
+                REACH, held.chosen / 2
+            )
+            # Swept past it wider than REACH: it's behind now. Don't turn
+            # back for it, take the next one (7f15).
+            passed = held.waypoint != goal and live < held.waypoint_distance
+            due = step - held.refreshed >= REFRESH_SECONDS * sps
+            if reached or passed or due:
+                _refresh(world, held, path, here, step)
+        held.distance = live  # now, every step: the order follows it
+        routes.append(held)
+    ordered = sorted(routes, key=lambda r: (r.distance, r.goal))
+    first = route.goal  # the nearest before this step
+    keep = next((r for r in ordered if r.goal == first), None)
+    if keep is not None and keep.distance <= ordered[0].distance + SWITCH:
+        ordered.remove(keep)
+        ordered.insert(0, keep)  # still about as near: no switch
+    route.routes = ordered
+    if goals != route.goals:  # a fuel taken (or the first look): over
+        route.goals, route.best, route.progress = goals, nearest, step
+    elif nearest < route.best - PROGRESS:
+        route.best, route.progress = nearest, step
     return route
 
 
 def stuck_seconds(world: World, route: RouteSense) -> float:
-    if route.goal is None:
+    if not route.routes:
         return 0.0
     step = world.resource(SimClock).step
     return (step - route.progress) / world.resource(SimConfig).steps_per_second
 
 
-def _refresh(world, route: RouteSense, path: PathField, here, step) -> None:
+def _refresh(world, route: FuelRoute, path: PathField, here, step) -> None:
     driving = route_fields(world).driving(world, route.goal, here)
     route.waypoint = waypoint(driving, here, route.goal, world)
     route.distance = path.distance(*here)  # exact, like the reward

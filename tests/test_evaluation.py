@@ -193,7 +193,9 @@ def test_scoring_a_checkpoint_saves_a_row_and_the_best(tmp_path):
     label = suite.label
     with open(folder / "evaluations" / f"{label}.csv") as file:
         assert tuple(next(csv.reader(file))) == suite.columns
-    assert 0 < row["share"]  # of the heuristic's, cached in baselines/
+    # Of the heuristic's, cached in baselines/ (an untrained agent can
+    # score 0: fuel is the only score since 9a2).
+    assert 0 <= row["share"]
     assert (tmp_path / "agents" / "baselines" / f"{label}.json").exists()
 
 

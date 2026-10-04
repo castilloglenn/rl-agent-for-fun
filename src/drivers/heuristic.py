@@ -2,7 +2,7 @@ import numpy as np
 
 from src.drivers.actions import Action
 from src.drivers.base import Driver
-from src.sim.observation import OBSERVATION_NAMES
+from src.sim.observation import NO_FUEL, OBSERVATION_NAMES, fuel_slots
 
 _INDEX = {name: i for i, name in enumerate(OBSERVATION_NAMES)}
 
@@ -10,7 +10,8 @@ _INDEX = {name: i for i, name in enumerate(OBSERVATION_NAMES)}
 class CompassDriver(Driver):
     """Hand-written rules on the observation only, like an agent sees it:
     steer toward the fuel with the compass, turn away from close
-    walls, and brake when the wall ahead is within stopping range.
+    walls, and brake when the wall ahead is within stopping range. Of the
+    fuels out, it goes for the nearest in a straight line (9b).
 
     Distances are fractions of the observation's distance scale (the
     box's diagonal, about 980 px, on every map), speed a fraction of max
@@ -41,10 +42,13 @@ class CompassDriver(Driver):
         front = o["ray_front"]
         front_left, front_right = o["ray_front_left"], o["ray_front_right"]
 
+        fuel = min(
+            fuel_slots(o), key=lambda f: f["distance"], default=NO_FUEL
+        )
         # Steer toward the fuel (sin > 0: it's to the left).
         steer = 0
-        if o["fuel_cos"] < self.aim_cos:
-            steer = 1 if o["fuel_sin"] > 0 else -1
+        if fuel["cos"] < self.aim_cos:
+            steer = 1 if fuel["sin"] > 0 else -1
 
         # Walls close ahead win: turn toward the side with more room.
         stopping = 0.16 * speed * speed + 0.08 * speed  # about 150 px at max
@@ -56,10 +60,10 @@ class CompassDriver(Driver):
         # slow down for sharp turns and for a near fuel that isn't
         # dead ahead: a slower car turns tighter, instead of orbiting it.
         speed_cap = 1.0
-        if o["fuel_cos"] < 0.5:
+        if fuel["cos"] < 0.5:
             speed_cap = self.corner_speed
-        near = o["fuel_distance"] < self.approach_distance
-        if near and o["fuel_cos"] < self.aim_cos:
+        near = fuel["distance"] < self.approach_distance
+        if near and fuel["cos"] < self.aim_cos:
             speed_cap = min(speed_cap, self.approach_speed)
         if front < self.brake_margin + stopping and speed > 0.05:
             pedal = "brake"

@@ -37,8 +37,8 @@ def test_in_plain_sight_the_waypoint_is_the_fuel():
     env = _env("box")
     sense = route.sense(env.world, env.car)
     assert sense.waypoint == sense.goal
-    assert _value(env, "route_sin") == pytest.approx(
-        _value(env, "fuel_sin"), abs=1e-6
+    assert _value(env, "fuel1_route_sin") == pytest.approx(
+        _value(env, "fuel1_sin"), abs=1e-6
     )
 
 
@@ -57,8 +57,8 @@ def test_a_wall_in_between_points_the_way_around():
     assert sense.waypoint[1] < 120 or sense.waypoint[1] > 360
     straight = math.dist((car.x, car.y), sense.goal)
     assert sense.distance > straight + 100  # the route is longer
-    assert abs(_value(env, "route_sin")) > 0.3  # it points to a side
-    assert _value(env, "fuel_cos") > 0.99  # the compass: dead ahead
+    assert abs(_value(env, "fuel1_route_sin")) > 0.3  # it points to a side
+    assert _value(env, "fuel1_cos") > 0.99  # the compass: dead ahead
 
 
 def test_the_stuck_timer_counts_and_resets_with_progress():
@@ -264,3 +264,31 @@ def test_a_waypoint_chosen_close_is_held():
     for _ in range(10):
         env.step(NONE)  # sitting still: not reached, not passed
     assert route.sense(world, env.car).refreshed == first
+
+
+def test_the_nearest_fuel_by_route_stays_first_until_another_is_clearly_nearer():
+    """9b: a route per fuel, nearest by route first; the first one only
+    changes when another is more than SWITCH px nearer, so two about as
+    far don't swap every step.
+    """
+    from src.sim.components import Fuel
+
+    env = _env("box")
+    world, car = env.world, env.world.component(env.car, Transform)
+    spots = [s for _, (s, _) in world.query(Transform, Fuel)]
+    assert len(spots) == 3
+    car.x, car.y = 400.0, 240.0
+    spots[0].x, spots[0].y = 600.0, 240.0  # 200 ahead
+    spots[1].x, spots[1].y = 180.0, 240.0  # 220 behind
+    spots[2].x, spots[2].y = 820.0, 450.0  # far
+    world.component(env.car, route.RouteSense).updated = None  # look again
+    env.step(NONE)
+    first = (spots[0].x, spots[0].y)
+    assert route.sense(world, env.car).goal == first
+    car.x = 375.0  # behind is now 25 px nearer: not enough to switch
+    env.step(NONE)
+    assert route.sense(world, env.car).goal == first
+    car.x = 340.0  # now 100 px nearer: switch
+    env.step(NONE)
+    assert route.sense(world, env.car).goal == (spots[1].x, spots[1].y)
+    assert [r.goal for r in route.sense(world, env.car).routes][1] == first

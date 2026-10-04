@@ -10,7 +10,8 @@ from src.config import get_maze_car_config
 from src.envs.maze_car.env import MazeCarEnv
 from src.sim.components import Fuel, Transform
 from src.sim.factories import create_game
-from src.sim.observation import OBSERVATION_NAMES, observe
+from src.sim.observation import EMPTY_SLOT, OBSERVATION_NAMES, SLOT, observe
+from src.sim.stage import load_stage
 from src.sim.resources import Field
 from src.sim.rules import load_rules
 
@@ -36,10 +37,10 @@ def _place_fuel(world, car, dx, dy):
     spot.x, spot.y = transform.x + dx, transform.y + dy
 
 
-def test_layout_is_23_named_float32_values():
+def test_layout_is_39_named_float32_values():
     env = _env()
     observation, info = env.reset()
-    assert len(OBSERVATION_NAMES) == 23 == observation.shape[0]  # 7f7
+    assert len(OBSERVATION_NAMES) == 39 == observation.shape[0]  # 9b
     assert OBSERVATION_NAMES[-1] == "health" and observation[-1] == 1.0
     assert observation.dtype == np.float32
     assert env.observation_version == 1
@@ -77,24 +78,49 @@ def test_start_values():
     ],
 )
 def test_fuel_compass(dx, dy, sin, cos):
-    world, car = create_game(get_maze_car_config())
+    world, car = _one_fuel()
     _place_fuel(world, car, dx, dy)
     observation = observe(world, car)
-    assert _value(observation, "fuel_sin") == pytest.approx(sin, abs=1e-6)
-    assert _value(observation, "fuel_cos") == pytest.approx(cos, abs=1e-6)
+    assert _value(observation, "fuel1_sin") == pytest.approx(sin, abs=1e-6)
+    assert _value(observation, "fuel1_cos") == pytest.approx(cos, abs=1e-6)
     field = world.resource(Field).rect
     distance = 100 / math.hypot(field.width, field.height)
-    assert _value(observation, "fuel_distance") == pytest.approx(
+    assert _value(observation, "fuel1_distance") == pytest.approx(
         distance, rel=1e-6
     )
 
 
 def test_compass_is_relative_to_the_heading():
-    world, car = create_game(get_maze_car_config())
+    world, car = _one_fuel()
     world.component(car, Transform).angle = 90  # facing up
     _place_fuel(world, car, 0, -100)  # up = ahead now
     observation = observe(world, car)
-    assert _value(observation, "fuel_cos") == pytest.approx(1, abs=1e-6)
+    assert _value(observation, "fuel1_cos") == pytest.approx(1, abs=1e-6)
+
+
+def _one_fuel():
+    """The box with one fuel out, so the one moved is slot 1."""
+    config = get_maze_car_config()
+    stage = load_stage(config.stage).with_at_once(1)
+    return create_game(config, stage=stage)
+
+
+def test_three_fuel_slots_nearest_by_route_first():
+    """9b: the fuels out, each with the compass and the route sensor,
+    ordered by route; an empty slot reads present 0, far, no direction.
+    """
+    world, car = create_game(get_maze_car_config())  # the box: 3 out
+    observation = observe(world, car)
+    route = [_value(observation, f"fuel{k}_route_distance") for k in (1, 2, 3)]
+    assert route == sorted(route)
+    for k in (1, 2, 3):
+        assert _value(observation, f"fuel{k}_present") == 1
+    assert _value(observation, "tank") == 1  # full
+    world, car = _one_fuel()
+    observation = observe(world, car)
+    assert _value(observation, "fuel1_present") == 1
+    empty = [_value(observation, f"fuel3_{name}") for name in SLOT]
+    assert empty == list(EMPTY_SLOT)
 
 
 def test_values_stay_in_range_during_random_driving():

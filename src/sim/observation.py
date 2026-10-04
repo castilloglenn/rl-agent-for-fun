@@ -1,9 +1,9 @@
-"""What an agent sees: 14 normalized numbers.
+"""What an agent sees: 39 normalized numbers (9b, decision 077).
 
 The layout is versioned. A trained agent records the version it was
-trained on, so an incompatible agent is caught when loaded. Change the
-version whenever the layout or normalization changes. See
-docs/game-design.md (Observation).
+trained on, so an incompatible agent is caught when loaded. The project
+keeps version 1 and starts agents from scratch when the layout changes.
+See docs/game-design.md (Observation).
 """
 
 import math
@@ -11,13 +11,7 @@ import math
 import numpy as np
 
 from src.ecs import World
-from src.sim.components import (
-    Fuel,
-    Health,
-    Motion,
-    Sensors,
-    Transform,
-)
+from src.sim.components import Health, Motion, Sensors, Tank, Transform
 from src.sim import route
 from src.sim.resources import RoundState, SimConfig
 from src.sim.systems.sensors import RAY_LAYOUT
@@ -29,22 +23,47 @@ OBSERVATION_VERSION = 1
 # it's what the field's diagonal gave before, to the bit.
 DISTANCE_SCALE = math.hypot(855, 480)  # px, about 980.5
 
-OBSERVATION_NAMES = (
-    *(f"ray_{name}" for name, _ in RAY_LAYOUT),  # 0..1, of DISTANCE_SCALE
-    "speed",  # -1/3 (full reverse) .. 1 (max speed)
-    "steering",  # -1 (full right) .. 1 (full left)
-    "fuel_distance",  # 0..1, of DISTANCE_SCALE
-    "fuel_sin",  # relative angle: + is to the left
-    "fuel_cos",  # relative angle: + is ahead
+FUEL_SLOTS = 3  # the fuels sensed: up to 3 are out at once (9a2)
+# Each fuel slot, nearest by route first. An empty slot (fewer out) reads
+# present 0, far (1), and no direction (0, 0).
+SLOT = (
+    "present",  # 1: a fuel is in this slot, 0: none
+    "distance",  # straight, 0..1 of DISTANCE_SCALE
+    "sin",  # its relative angle: + is to the left
+    "cos",  # + is ahead
     # The remembered route (7f7): its distance, and the direction of a
     # waypoint about one corner ahead along it, relative to the heading.
     "route_distance",  # 0..1, of DISTANCE_SCALE
     "route_sin",  # + is to the left
     "route_cos",  # + is ahead
+)
+EMPTY_SLOT = (0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+OBSERVATION_NAMES = (
+    *(f"ray_{name}" for name, _ in RAY_LAYOUT),  # 0..1, of DISTANCE_SCALE
+    "speed",  # -1/3 (full reverse) .. 1 (max speed)
+    "steering",  # -1 (full right) .. 1 (full left)
+    "tank",  # 1 (full) .. 0 (empty); 1 with no tank in the rules
+    *(f"fuel{k}_{name}" for k in range(1, FUEL_SLOTS + 1) for name in SLOT),
     "stuck",  # 0..1: seconds since it last got closer, of STUCK_CAP
     "time_left",  # 1 at the start of the round .. 0
     "health",  # 1 (full) .. 0 (wrecked)
 )
+
+
+def fuel_slots(values: dict) -> list[dict]:
+    """The fuel slots that hold a fuel, nearest by route first, each as
+    {"distance", "sin", "cos", "route_distance", ...} from an observation
+    read as {name: value} (the hand-written drivers).
+    """
+    found = []
+    for k in range(1, FUEL_SLOTS + 1):
+        if values[f"fuel{k}_present"] > 0.5:
+            found.append({name: values[f"fuel{k}_{name}"] for name in SLOT})
+    return found
+
+
+NO_FUEL = dict(zip(SLOT, EMPTY_SLOT))  # what a driver aims at with none
 
 
 def observe(world: World, car: int) -> np.ndarray:
@@ -60,51 +79,45 @@ def observe(world: World, car: int) -> np.ndarray:
     values = [min(rays[name] / scale, 1.0) for name, _ in RAY_LAYOUT]
     values.append(motion.speed * sim.steps_per_second / sim.max_speed)
     values.append(motion.steering)
-    values.extend(_fuel_compass(world, transform, scale))
-    values.extend(_route(world, car, transform, scale))
+    tank = world.try_component(car, Tank)
+    values.append(tank.share if tank else 1.0)
+    sense = route.sense(world, car)
+    for k in range(FUEL_SLOTS):
+        held = sense.routes[k] if k < len(sense.routes) else None
+        values.extend(_slot(held, transform, scale))
+    stuck = route.stuck_seconds(world, sense) / route.STUCK_CAP
+    values.append(min(stuck, 1.0))
     values.append(state.steps_left / state.steps_total)
     values.append(world.component(car, Health).share)
     return np.array(values, dtype=np.float32)
 
 
-def _route(
-    world: World, car: int, transform: Transform, scale: float
-) -> tuple[float, float, float, float]:
-    """The remembered route's distance and waypoint direction, relative to
-    the heading, and the stuck timer. With no fuel: (1, 0, 0, 0).
+def _slot(held, transform: Transform, scale: float) -> tuple:
+    """A fuel slot: present, its straight compass, and its remembered
+    route (distance, and the waypoint's direction).
     """
-    sense = route.sense(world, car)
-    if sense.goal is None or sense.waypoint is None:
-        return 1.0, 0.0, 0.0, 0.0
-    x, y = sense.waypoint
+    if held is None or held.waypoint is None:
+        return EMPTY_SLOT
+    distance, sin, cos = _bearing(held.goal, transform)
+    _, route_sin, route_cos = _bearing(held.waypoint, transform)
+    return (
+        1.0,
+        min(distance / scale, 1.0),
+        sin,
+        cos,
+        min(held.distance / scale, 1.0),
+        route_sin,
+        route_cos,
+    )
+
+
+def _bearing(spot, transform: Transform) -> tuple[float, float, float]:
+    """Distance to `spot`, and the sin and cos of its angle relative to
+    the car's heading.
+    """
+    x, y = spot
+    distance = math.dist((x, y), (transform.x, transform.y))
+    # Screen y grows downward, so flip it for a counterclockwise angle.
     bearing = math.atan2(-(y - transform.y), x - transform.x)
     relative = bearing - math.radians(transform.angle)
-    stuck = route.stuck_seconds(world, sense) / route.STUCK_CAP
-    return (
-        min(sense.distance / scale, 1.0),
-        math.sin(relative),
-        math.cos(relative),
-        min(stuck, 1.0),
-    )
-
-
-def _fuel_compass(
-    world: World, transform: Transform, scale: float
-) -> tuple[float, float, float]:
-    """Distance, sin and cos of the nearest fuel, relative to the
-    car's heading. With no fuel: (1, 0, 0).
-    """
-    spots = [spot for _, (spot, _) in world.query(Transform, Fuel)]
-    if not spots:
-        return 1.0, 0.0, 0.0
-    here = (transform.x, transform.y)
-    spot = min(spots, key=lambda s: math.dist((s.x, s.y), here))
-    distance = math.dist((spot.x, spot.y), here)
-    # Screen y grows downward, so flip it for a counterclockwise angle.
-    bearing = math.atan2(-(spot.y - transform.y), spot.x - transform.x)
-    relative = bearing - math.radians(transform.angle)
-    return (
-        min(distance / scale, 1.0),
-        math.sin(relative),
-        math.cos(relative),
-    )
+    return distance, math.sin(relative), math.cos(relative)

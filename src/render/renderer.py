@@ -95,6 +95,7 @@ class Renderer:
         self.map_intro = config.window.get("map_intro", True)
         self.intro_hold = camera.INTRO_HOLD
         self._intro_world = None  # the round whose intro has started
+        self._guide = None  # the guide line's fuel (9b), set per car
         self._frame_ticks: int | None = None
         # Debug lines (rays, hitbox, the fuel guide). H toggles them
         # (your "lines" setting); the config flags pick which kinds exist.
@@ -521,6 +522,8 @@ class Renderer:
             )
             if self.show_lines:  # its sense of the route, under the car
                 self._draw_route(world, car, transform, previous, alpha)
+            sense = world.try_component(car, route.RouteSense)
+            self._guide = sense.goal if sense else None
             screen_center = self._draw_car(
                 transform,
                 hitbox,
@@ -1015,15 +1018,14 @@ class Renderer:
         else:  # rotated and scaled together, smoothly
             rotated = pygame.transform.rotozoom(surface, angle, scale)
         screen_center = cam.to_screen(center_x, center_y)
-        if self.show_lines:
-            # Guide to the fuel, under the car.
-            for _, (spot, _) in self._fuels:
-                pygame.draw.line(
-                    self.display,
-                    theme.GUIDE,
-                    screen_center,
-                    cam.to_screen(spot.x, spot.y),
-                )
+        if self.show_lines and self._guide is not None:
+            # Guide to its nearest fuel by route (9b), under the car.
+            pygame.draw.line(
+                self.display,
+                theme.GUIDE,
+                screen_center,
+                cam.to_screen(*self._guide),
+            )
         self.display.blit(rotated, rotated.get_rect(center=screen_center))
 
         if not self.show_lines:
