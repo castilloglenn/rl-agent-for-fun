@@ -18,6 +18,6 @@ Every new feature changes the observation, so every agent trains again, often mo
 
 ## Consequences
 
-- **Measured (8a, `skill_training`, `finetune`, the medium model, 30,720 decisions):** 1 game 821 decisions a second, 2 games 1,023, 4 games 984. The games alone scale (4 workers on the arena: 5,814 a second, 2.4 times one), but the games step together, so the slowest sets the pace: `course_small` takes 3.7 ms a decision, the others 0.15 to 1.0 ms. Its route sense recomputes the waypoint almost every decision there (a new waypoint inside the 45 px reach counts as reached at once). That's a separate fix: it changes what agents sense.
+- **Measured (`skill_training`, `finetune`, the medium model, 30,720 decisions):** at first (8a) 1 game 821 decisions a second, 2 games 1,023, 4 games 984. The games alone scale (4 workers on the arena: 5,814 a second, 2.4 times one), but the games step together, so the slowest sets the pace: `course_small`'s route sense recomputed the waypoint almost every decision (a new waypoint inside the 45 px reach counted as reached at once). After that fix (8a2, decision 061): 1 game 1,380, 2 games 1,807, 4 games 2,099, so 4 games train 2.6 times as fast as before step 8, and 1.5 times one game now.
 - This Mac has 4 performance and 6 efficiency cores, not 10 equal ones; low priority made no difference to the speed measured.
 - Decision 015's exact resume by re-simulating the current episode is replaced by fresh rounds.

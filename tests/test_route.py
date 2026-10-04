@@ -224,3 +224,36 @@ def test_a_passed_waypoint_is_dropped_at_once():
     sense = route.sense(env.world, env.car)
     assert sense.waypoint != first
     assert path.distance(*sense.waypoint) < path.distance(*ahead)
+
+
+def test_a_waypoint_chosen_close_is_held():
+    """8a fix: a waypoint chosen inside REACH counted as reached at once,
+    and was chosen again almost every step (course_small: 2,811 times in
+    one round). Now it's reached at half its distance when chosen.
+    """
+    env = _env("course_small")
+    world = env.world
+    boxes = world.resource(Walls).boxes
+    goal = route.sense(world, env.car).goal
+    fields = route.route_fields(world)
+    spot = next(  # a tight spot: its waypoint is chosen inside REACH
+        (x, y)
+        for x in range(20, 860, 10)
+        for y in range(20, 480, 10)
+        if min(b.distance(x, y) for b in boxes) > 15
+        and 5 < math.dist(
+            (x, y),
+            route.waypoint(fields.driving(world, goal, (x, y)), (x, y),
+                           goal, world),
+        ) < route.REACH / 2
+    )
+    car = world.component(env.car, Transform)
+    car.x, car.y = spot
+    world.remove_component(env.car, route.RouteSense)  # sensed afresh here
+    env.step(NONE)
+    sense = route.sense(world, env.car)
+    assert sense.chosen < route.REACH  # chosen close
+    first = sense.refreshed
+    for _ in range(10):
+        env.step(NONE)  # sitting still: not reached, not passed
+    assert route.sense(world, env.car).refreshed == first

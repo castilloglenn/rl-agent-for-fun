@@ -30,7 +30,8 @@ from src.sim.paths import PathField
 from src.sim.resources import Field, SimClock, SimConfig, Walls
 
 REFRESH_SECONDS = 2.0  # a held waypoint is refreshed at least this often
-REACH = 45.0  # px: this close, the waypoint is reached (refreshed)
+REACH = 45.0  # px: this close, the waypoint is reached (refreshed), or
+# half as close as it was when chosen, if that's nearer (8a fix)
 PROGRESS = 10.0  # px closer along the route than before: progress
 STUCK_CAP = 10.0  # seconds: the stuck input reads 1 from here on
 STEP = 12.0  # px: how far each step of the walk along the route goes
@@ -123,6 +124,9 @@ class RouteSense:
     # The waypoint's own distance along the route: once the car is closer
     # than that, it has passed the waypoint (an overshoot, 7f15).
     waypoint_distance: float = 0.0
+    # How far the waypoint was, in a straight line, when it was chosen:
+    # one chosen inside REACH isn't reached until the car halves that.
+    chosen: float = 0.0
     refreshed: int = 0  # the step of the last refresh
     best: float = math.inf  # the closest it has been along the route
     progress: int = 0  # the step it last got closer
@@ -163,7 +167,11 @@ def sense(world: World, car: int) -> RouteSense:
     if live < route.best - PROGRESS:
         route.best, route.progress = live, step
     sps = world.resource(SimConfig).steps_per_second
-    reached = route.waypoint and math.dist(here, route.waypoint) < REACH
+    # In a tight spot the waypoint can be chosen closer than REACH: it
+    # counted as reached at once, and was chosen again almost every step.
+    reached = route.waypoint and math.dist(here, route.waypoint) < min(
+        REACH, route.chosen / 2
+    )
     # Swept past it wider than REACH: it's behind now. Don't turn back for
     # it, take the next one (7f15).
     passed = route.waypoint != route.goal and live < route.waypoint_distance
@@ -184,6 +192,7 @@ def _refresh(world, route: RouteSense, path: PathField, here, step) -> None:
     route.waypoint = waypoint(driving, here, route.goal, world)
     route.distance = path.distance(*here)  # exact, like the reward
     route.waypoint_distance = path.distance(*route.waypoint)
+    route.chosen = math.dist(here, route.waypoint)
     route.refreshed = step
 
 

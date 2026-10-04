@@ -157,6 +157,9 @@ def window():
     from src.control.window import ControlCenter
 
     center = ControlCenter(limits=JobLimits(max_heavy=1, burst_starts=2))
+    # A steady machine, not this one: a training's estimate (with its
+    # games' workers) mustn't meet whatever else is open right now.
+    center.jobs.readings = lambda: _reading(50)
     yield center
     center.jobs.stop_all()
 
