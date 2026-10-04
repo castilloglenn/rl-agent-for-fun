@@ -111,7 +111,7 @@ Goal: train real RL agents in a 2D car game, watch how they learn, run experimen
 | 8a | Several games at once in training: workers without torch (about 0.05 GB each), the games stepping together with one network pass, the rollout of 2,048 split over them, rounds numbered by start with a `game` column, a mix's map furthest behind and the curriculum counting at the start, best replays saved by the workers, resume with fresh rounds, `--games` (default 4) as the most, the count following memory and CPU, and the guard counting the workers. Measured: 1 game 821 decisions a second, 2 games 1,023, 4 games 984: `course_small`'s route sense sets the pace ([decision 073](decisions/073-parallel-games.md)) | Done |
 | 8a2 | A waypoint chosen close is held: one chosen inside the 45 px reach counted as reached the next step and was chosen again, almost every decision on `course_small` (2,811 times a round), the game that set the pace for all; now it's reached within half its distance when chosen. Training: 1 game 1,380 decisions a second, 4 games 2,099 (before step 8: 821). The navigator drives the same ([decision 061](decisions/061-route-sense-and-stuck-timer.md)) | Done |
 | 8b | Picking the games in the window: "Games" (1 up to the cores minus 3, default 4) in the Training tab and the Commands tab's Train; the plan says "up to 4 games at once (fewer while the machine is busy)" and estimates from past runs with the same most (else any, said so); the Runs header shows "3 of up to 4 games" ([decision 073](decisions/073-parallel-games.md)) | Done |
-| 9 | Fuel system, from scratch (every agent deleted, as for every breaking feature): 9a fuel in the game (tank, burn with speed, pickups on their own random stream, out of fuel ends the run, a bar under health), 9b what the agent senses (fuel level, the nearest fuels with compass and route sensor), 9c reward and the navigator fetching fuel, 9d fuel maps and a fuel skill, 9e train from scratch | Next |
+| 9 | Fuel replaces checkpoints, from scratch: up to 3 fuels at once, a tank that every throttle and turn burns, out of fuel ends a car's round, the score per fuel, fair rules for multiplayer; 9a1 rename checkpoint to fuel, 9a2 the rules, 9a3 tuning, 9b senses, 9c reward and drivers, 9d the suite, 9e train | Next |
 | 10 | Multiple cars and local multiplayer: game setup lobby (stage, rounds, seed, agents, human players), keyboard and gamepad controllers, ghost mode first (no car-vs-car collision), then car-vs-car collision (SAT), then angled (line segment) walls, then competition. Game leaderboard fully used | Planned |
 | Later | Time-attack rules (the game score rewards fast checkpoints, for everyone: a rules file option), hazards ([game design](game-design.md#hazards-future)), multiple rounds per game (the rules file already has `rounds`; per-round state, see [decision 010](decisions/010-decouple-before-file-formats.md)), online multiplayer, weapons and skills, grip and drift physics (see [below](#later-grip-and-drift-physics)), a **colosseum mode**: car-vs-car battles (last car standing, health as hit points, damage from rams and weapons) instead of only collecting points, with the event log as its match feed, clicking the mini map to move the view (replays of big stages, [decision 034](decisions/034-camera.md)), a **race to the finish**: scripted checkpoints that end the round after the last one (or after a set number) instead of looping, scored by time, a rules or stage option | Idea |
 
@@ -498,21 +498,40 @@ One network (one set of weights) drives N copies of the game at once, one per pr
 - **The rollout stays 2,048 decisions in total,** split over the games (512 each with 4): updates come as often as with one game, so a run compares with a one-game run at the same decision count, and every update sees every game's map at once (today an update sees about one round on one map).
 - **Mixes and the curriculum:** each new round takes the map furthest behind its share (a mix's maps even; the curriculum's shares), counted when the round starts, so games starting together get different maps. With one game, a mix's maps go in turn as before. The curriculum's level applies to all games at once.
 
-### 9. Fuel system
+### 9. Fuel system: fuel replaces checkpoints
 
-**From scratch:** fuel changes what an agent senses, so every agent is deleted when it lands (done 2026-10-04: no agents, the trash emptied). The same goes for every breaking feature after it: no compatibility code, no observation version bump (decision on "the first version of everything"); the heuristic's cached scores in `agents/baselines/` refresh by themselves. Recordings stay: they hold actions, and a dataset re-simulates them with the current code.
+**From scratch:** this changes what an agent senses and what a game is, so every agent is deleted before it lands (done 2026-10-04: no agents, the trash emptied), as for every breaking feature after it: no compatibility code, no version bumps. Recordings and replays store their stage with its checkpoints, so after the rename they can't be read either: they're deleted too (they can't teach fuel anyway; the heuristic and the navigator are recorded again in 9c).
 
-In parts, each designed first and audited:
+**The idea:** the round keeps its time limit; the checkpoints become **fuel**, up to 3 on the map at once, and a tank makes every throttle and turn count. One kind of target (no "fuel or checkpoint first?"), a planning choice among three, and fair rules for multiplayer (step 10).
+
+**Rules, the same for every car** (starting values; 9a3 tunes them):
+
+| Rule | Value |
+|---|---|
+| Tank | 100, full at the start |
+| Burn | idle 1/s, throttle (forward or reverse) +4/s, steering +1/s, braking 0: a full tank lasts about 16 s at full throttle while turning, 20 s straight, 100 s idle |
+| A fuel | +40, up to the full tank (no hoarding) |
+| Fuels at once | up to 3 (a stage sets 1 to 3; the skill test maps keep 1, so their tests stay what they test). Scripted: a sliding window over the sequence (the next 3 not taken; taking any brings in the next). Random: 3 random ones |
+| Out of fuel | the car coasts to a stop and is out for the round, keeping its score |
+| Round | 60 s, as now; it ends at the limit or when every car is out |
+| Score | +100 per fuel, ties by fuel left. No distance points: they'd pay for driving around instead of racing for fuel |
+| Fairness | fuels are shared (the first car to touch one takes it), a new one never spawns near a car, the same seed gives everyone the same sequence, and fuel never changes the car's physics |
+
+**Tuning target (9a3):** the navigator lasts the full 60 s on every training map, the heuristic sometimes runs dry, a random driver runs dry in about 20 s.
+
+**The agent's reward** (the lesson, not the score): progress +1 per px closer to the nearest fuel by route (no jump when the nearest changes), +500 per fuel, −5 per unit of fuel burned (a full tank costs about one fuel: every turn and throttle counts), −3,000 for running dry (like a wreck), and contact, damage, wreck, stopped, and stuck as now (stuck toward the nearest fuel).
+
+**What the agent senses:** its fuel level, and the 3 fuels nearest by route, each with the straight compass and the route sensor: about 36 inputs.
 
 | Part | What |
 |---|---|
-| 9a | **Fuel in the game:** a tank per car (capacity and burn in the rules file; burn grows with speed), fuel pickups as triggers with their own spawn schedule and random stream (`fuel`), so existing seeds keep their checkpoints; scripted stages can place them ([decision 009](decisions/009-stage-format-and-spawn-schedules.md)). An empty tank ends the car's run ("out of fuel", through `eliminate`). A thin fuel bar under the health bar (7c4), and fuel in the side panel. Rules without fuel play as today, so the skills suite and its heuristic bar stay comparable |
-| 9b | **What the agent senses:** its fuel level, and the nearest K fuels, each with the straight compass and the route sensor (7f7); the game window shows them like the checkpoint's |
-| 9c | **Reward and drivers:** fuel terms in the reward (running dry costs; checkpoints still score), so the agent learns from the reward whether fuel or the checkpoint comes first. The navigator learns to fetch fuel when low, so it can be recorded and cloned again |
-| 9d | **Measuring it:** fuel maps for training and a fuel skill for the suite (a map only fuel runs make possible), so the Skills chart shows it |
-| 9e | **Train from scratch:** record the navigator, clone it, then `finetune` up the curriculum with 4 games; agent_4 (2.04 average share without fuel) is the bar on the old skills |
-
-To decide in 9a's design: the tank and burn numbers (how many checkpoints a full tank should last), how many fuels at once, and whether fuel is on in `standard` or a separate rules file.
+| 9a1 | **Rename checkpoint to fuel everywhere** the word means the game's target (code, stage files, the editor, the reward, the observation, help, docs): a refactor, behavior identical, checked by the behavior tests. An agent's saved weights stay "checkpoints" (d0100k). Old recordings and replays deleted |
+| 9a2 | **The fuel rules:** the tank, burn, refill, up to 3 at once with the sliding window, out of fuel, the score without distance points, no spawn near a car, a fuel bar under the health bar, and fuel in the side panel |
+| 9a3 | **Tuning:** measure the heuristic, the navigator, and a random driver on every training map, and set the numbers to the target |
+| 9b | **What the agent senses:** fuel, and the 3 fuels; the game window shows them |
+| 9c | **Reward and drivers:** the reward above; the heuristic (the 1.0 bar) goes for the nearest fuel in a straight line, the navigator for the nearest by route; both recorded again |
+| 9d | **Measuring it:** the skills suite on fuel (test maps keep 1 at once), and a new fuel skill |
+| 9e | **Train from scratch:** record the navigator, clone it, then `finetune` up the curriculum with 4 games |
 
 ### 10. Multiple cars and local multiplayer
 
