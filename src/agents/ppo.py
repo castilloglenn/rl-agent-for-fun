@@ -56,6 +56,7 @@ class UpdateStats:
     entropy: float
     approx_kl: float  # how far the policy moved (KL divergence estimate)
     clip_fraction: float  # share of decisions hitting the clip limit
+    anchor_kl: float  # KL from the anchor's choices to the policy's
 
 
 def update(
@@ -64,6 +65,7 @@ def update(
     rollouts: list[Rollout],
     trainer: TrainerSpec,
     generator: torch.Generator,
+    anchor: PolicyNetwork | None = None,
 ) -> UpdateStats:
     """Learns from one rollout per game (step 8: several games at once):
     each game's advantages from its own decisions in order, then
@@ -85,6 +87,14 @@ def update(
         last_value=0.0,  # each game's own was used above
     )
     count = len(rollout.rewards)
+    # The anchor's choices on these situations (`trainer.anchor` > 0): the
+    # policy pays for moving away from them, so it keeps a good start's
+    # habits and departs only where that clearly pays.
+    anchored = anchor is not None and trainer.anchor > 0
+    if anchored:
+        with torch.no_grad():
+            anchor_logits, _ = anchor(rollout.observations)
+            anchor_log_probs = torch.log_softmax(anchor_logits, dim=-1)
     totals = {name: 0.0 for name in UpdateStats.__dataclass_fields__}
     batches = 0
     network.train()
@@ -116,6 +126,11 @@ def update(
                 + trainer.value_coef * value_loss
                 - trainer.entropy * entropy
             )
+            anchor_kl = torch.zeros(())
+            if anchored:
+                kept = anchor_log_probs[index]
+                anchor_kl = (kept.exp() * (kept - log_probs)).sum(-1).mean()
+                loss = loss + trainer.anchor * anchor_kl
 
             optimizer.zero_grad()
             loss.backward()
@@ -132,6 +147,7 @@ def update(
                 totals["clip_fraction"] += float(
                     ((ratio - 1).abs() > trainer.clip).float().mean()
                 )
+                totals["anchor_kl"] += float(anchor_kl)
             batches += 1
     network.eval()
     return UpdateStats(

@@ -88,6 +88,7 @@ LEARNING_COLUMNS = (
     "entropy",
     "approx_kl",
     "clip_fraction",
+    "anchor_kl",  # how far from the anchor, with `trainer.anchor` (0: off)
     "level",  # the curriculum's level (7f5), 1 up; blank without one
     "games",  # games that played this rollout (step 8)
 )
@@ -474,6 +475,12 @@ class _Training:
         self.start_decisions = start_decisions  # the agent's, at the start
         self.branched_from = branched_from
         self.network = agent.network
+        # With `trainer.anchor`: the phase's starting weights, fixed, to
+        # stay close to (a branch's "initial" is its source checkpoint).
+        self.anchor = None
+        if trainer.anchor > 0:
+            self.anchor = load_agent(agent.folder, start_checkpoint).network
+            self.anchor.eval()
         self.generator = torch.Generator().manual_seed(trainer.seed)
         self.optimizer = torch.optim.Adam(
             self.network.parameters(), lr=trainer.learning_rate, eps=1e-5
@@ -562,6 +569,7 @@ class _Training:
                 rollouts,
                 self.trainer,
                 self.generator,
+                self.anchor,
             )
             self.updates += 1
             self.learned = self.decisions

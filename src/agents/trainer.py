@@ -41,6 +41,10 @@ class TrainerSpec:
     evaluate: bool  # score each checkpoint with the evaluation suite
     description: str = ""
     format: int = TRAINER_FORMAT
+    # Stay close to where the phase started (9 investigation): this times
+    # the KL divergence from the starting checkpoint's choices (a clone's,
+    # for a branch of it) to the policy's, on the same situations. 0: off.
+    anchor: float = 0.0
 
     @staticmethod
     def from_dict(data: dict) -> "TrainerSpec":
@@ -55,7 +59,10 @@ class TrainerSpec:
         return spec
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        data = asdict(self)
+        if not self.anchor:
+            del data["anchor"]  # off: files stay as they were
+        return data
 
     def validate(self) -> None:
         if self.algorithm not in ALGORITHMS:
@@ -70,7 +77,7 @@ class TrainerSpec:
         for name in ("learning_rate", "clip", "max_grad_norm", "reward_scale"):
             if getattr(self, name) <= 0:
                 raise TrainerError(f"{name} must be above 0")
-        for name in ("entropy", "value_coef"):
+        for name in ("entropy", "value_coef", "anchor"):
             if getattr(self, name) < 0:
                 raise TrainerError(f"{name} can't be negative")
         for name in (

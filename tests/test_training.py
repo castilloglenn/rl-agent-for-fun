@@ -339,3 +339,41 @@ def test_a_single_stage_has_no_mix(tmp_path):
     assert run["mix"] is None
     rows = _rows(summary.folder / "metrics.csv")
     assert {r["stage"] for r in rows} == {"box"}
+
+
+# Staying close to the start (anchor)
+
+
+def test_an_anchor_keeps_the_policy_near_its_start(tmp_path):
+    """With `anchor`, a phase pays for moving away from its starting
+    checkpoint's choices: the KL from them stays smaller than without.
+    """
+    free = _train(tmp_path / "free")
+    held = _train(
+        tmp_path / "held",
+        trainer=TrainerSpec.from_dict({**TINY.to_dict(), "anchor": 5.0}),
+    )
+    rows = {
+        name: _rows(s.folder / "learning.csv")
+        for name, s in (("free", free), ("held", held))
+    }
+    assert all(float(r["anchor_kl"]) == 0 for r in rows["free"])  # off
+    assert float(rows["held"][0]["anchor_kl"]) < 1e-3  # starts on it
+
+    def distance(root):
+        start = load_agent("pupil", "initial", root=root / "agents").network
+        end = load_agent("pupil", root=root / "agents").network
+        return sum(
+            float((a - b).abs().sum())
+            for a, b in zip(start.parameters(), end.parameters())
+        )
+
+    assert distance(tmp_path / "held") < distance(tmp_path / "free")
+
+
+def test_an_anchor_is_kept_out_of_files_when_off():
+    assert "anchor" not in DEFAULT.to_dict()
+    held = TrainerSpec.from_dict({**DEFAULT.to_dict(), "anchor": 0.5})
+    assert held.to_dict()["anchor"] == 0.5
+    with pytest.raises(TrainerError, match="anchor"):
+        TrainerSpec.from_dict({**DEFAULT.to_dict(), "anchor": -1})
